@@ -35,7 +35,7 @@ export default function OpenGraphImage() {
               height: 52,
               borderRadius: 999,
               background:
-                "linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)",
+                "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)",
               boxShadow: "0 0 24px rgba(124,58,237,0.55)",
               display: "flex",
               alignItems: "center",

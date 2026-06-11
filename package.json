@@ -4,7 +4,7 @@
   "private": true,
   "description": "The wallet that remembers — a capture-first ticket & travel wallet that builds a private life map automatically.",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

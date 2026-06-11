@@ -72,7 +72,7 @@ export async function GET(
               height: 36,
               borderRadius: 999,
               background:
-                "linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)",
+                "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)",
             }}
           />
           <div style={{ fontSize: 24, fontWeight: 600 }}>GigTrotter</div>

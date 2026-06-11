@@ -4,7 +4,6 @@ import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
   Calendar,
-  Clock,
   MapPin,
   MessageSquare,
   Music,

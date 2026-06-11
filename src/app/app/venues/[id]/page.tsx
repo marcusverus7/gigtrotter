@@ -73,10 +73,6 @@ export default async function VenueDetailPage({
     .eq("published", true)
     .limit(6);
 
-  const location = [venue.name, venue.city, venue.country]
-    .filter(Boolean)
-    .join(" · ");
-
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Button asChild variant="ghost" size="sm">

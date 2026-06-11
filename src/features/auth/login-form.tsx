@@ -21,11 +21,8 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Surface OAuth callback errors.
-  searchParams.then((p: { error?: string; detail?: string }) => {
-    if (p.error && !error) {
-      setError(p.detail ? `Sign-in failed: ${p.detail}` : "Sign-in failed. Try again.");
-    }
+  searchParams.then((p) => {
+    if (p.error && !error) setError("Sign-in failed. Try again.");
   });
 
   async function signInWithEmail(e: React.FormEvent) {

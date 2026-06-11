@@ -21,7 +21,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 
 const KIND_ICON: Record<string, LucideIcon> = {
@@ -102,9 +101,6 @@ export default async function TripDetailPage({
 
   const cities = Array.from(
     new Set(items.map((i) => i.venues?.city).filter(Boolean) as string[]),
-  );
-  const countries = Array.from(
-    new Set(items.map((i) => i.venues?.country).filter(Boolean) as string[]),
   );
   const dayCount = Math.max(
     1,

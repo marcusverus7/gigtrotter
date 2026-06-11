@@ -2,14 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 
-/**
- * OAuth callback. Supabase sends back ?code=... — we exchange it for a session,
- * then redirect to the post-auth `next` URL (defaults to /app).
- */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/app";
+  const raw = searchParams.get("next") ?? "/app";
+  const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/app";
 
   if (code) {
     const supabase = await createClient();
@@ -17,11 +14,8 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
-    const detail = encodeURIComponent(error.message);
-    return NextResponse.redirect(
-      `${origin}/login?error=oauth_failed&detail=${detail}`,
-    );
+    console.error("[auth/callback] code exchange failed:", error.message);
   }
 
-  return NextResponse.redirect(`${origin}/login?error=oauth_failed&detail=no_code`);
+  return NextResponse.redirect(`${origin}/login?error=oauth_failed`);
 }

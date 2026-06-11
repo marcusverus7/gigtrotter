@@ -24,7 +24,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Admin — Click Metrics" };
 
-function money(cents: number, currency: string) {
+function _money(cents: number, currency: string) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency,

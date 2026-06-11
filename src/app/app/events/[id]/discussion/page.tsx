@@ -6,7 +6,6 @@ import {
   Calendar,
   Lock,
   MapPin,
-  MessageSquare,
   Shield,
   Users,
 } from "lucide-react";

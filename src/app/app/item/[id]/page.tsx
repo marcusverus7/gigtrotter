@@ -3,7 +3,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Bed,
-  Globe2,
   Plane,
   ShieldCheck,
   Ticket as TicketIcon,

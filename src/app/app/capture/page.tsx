@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Forward, Mail, ScanLine } from "lucide-react";
+import { Forward, ScanLine } from "lucide-react";
 
 export const metadata: Metadata = { title: "Capture" };
 
@@ -11,12 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CaptureDropzone } from "@/features/capture/dropzone";
 import { PendingCaptures } from "@/features/capture/pending-captures";
 import { createClient } from "@/lib/supabase/server";
-import { publicEnv, serverEnv } from "@/lib/env";
 
 export default async function CapturePage() {
   const supabase = await createClient();

@@ -43,3 +43,8 @@ pnpm-debug.log*
 
 # OS
 Thumbs.db
+
+# Eval corpus contains PII (real tickets)
+/eval/captures/*
+!/eval/captures/.gitkeep
+/eval/reports/

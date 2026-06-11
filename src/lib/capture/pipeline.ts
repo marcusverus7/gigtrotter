@@ -1,0 +1,156 @@
+import "server-only";
+
+import {
+  createClient,
+  createServiceClient,
+} from "@/lib/supabase/server";
+import {
+  encryptBytes,
+  templateHash,
+} from "@/lib/capture/encryption";
+import { ParseError, parseCaptureBytes } from "@/lib/capture/parser";
+import {
+  KNOWN_VENDORS,
+  type ParsedCapture,
+} from "@/lib/capture/schema";
+
+const STORAGE_BUCKET = "captures";
+
+/**
+ * Inserts a capture row, stores the encrypted source, parses it (Claude
+ * vision or fingerprint cache), and returns the capture id. Status flips
+ * to 'confirmed' only after the user accepts the confirm card in the UI.
+ *
+ * Used by:
+ *   - POST /api/captures   (user-initiated upload from the share sheet / picker)
+ *   - POST /api/inbound    (forwarded email; runs via service-role client)
+ *
+ * The `client` arg lets callers pass a service-role client when running
+ * outside an authenticated request (the inbound webhook).
+ */
+export async function ingestCapture(opts: {
+  userId: string;
+  source: "screenshot" | "email" | "extension" | "manual";
+  bytes: Uint8Array;
+  filename?: string;
+  serviceRole?: boolean;
+}): Promise<{ captureId: string; parsed: ParsedCapture }> {
+  const supabase = opts.serviceRole
+    ? createServiceClient()
+    : await createClient();
+
+  // 1) Encrypt + upload the source artefact.
+  const encrypted = await encryptBytes(opts.userId, opts.bytes);
+  const key = `${opts.userId}/${crypto.randomUUID()}.enc`;
+  const { error: upErr } = await supabase.storage
+    .from(STORAGE_BUCKET)
+    .upload(key, encrypted, {
+      contentType: "application/octet-stream",
+      upsert: false,
+    });
+  if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+  // 2) Fingerprint cache lookup (skip the LLM if a known template matches).
+  const hash = await templateHash(opts.bytes);
+  const { data: cached } = await supabase
+    .from("vendor_fingerprints")
+    .select("vendor, field_map")
+    .eq("template_hash", hash)
+    .maybeSingle();
+
+  let parsed: ParsedCapture;
+  let cacheHit = false;
+  let parseError: string | null = null;
+  let confidence = 0;
+
+  if (cached) {
+    // Replay the cached field map — confidence is high because we've seen this exact template before.
+    parsed = cached.field_map as unknown as ParsedCapture;
+    cacheHit = true;
+    confidence = parsed.confidence ?? 0.95;
+  } else {
+    try {
+      parsed = await parseCaptureBytes(opts.bytes);
+      confidence = parsed.confidence;
+
+      // Cache the template for next time. Use the vendor the parser claimed,
+      // falling back to "unknown" so we still benefit from exact-image hits.
+      const vendor = (parsed.vendor ?? "unknown").toLowerCase();
+      await supabase.from("vendor_fingerprints").insert({
+        vendor,
+        template_hash: hash,
+        field_map: parsed as never,
+      });
+    } catch (err) {
+      const reason = err instanceof ParseError ? err.reason : "model_error";
+      parseError = `${reason}: ${err instanceof Error ? err.message : "unknown"}`;
+      // Surface a placeholder parse so the row still lands — the UI shows a
+      // manual-review state instead of swallowing the capture silently.
+      parsed = {
+        kind: "other",
+        title: "Couldn't read this one",
+        starts_at: null,
+        ends_at: null,
+        vendor: null,
+        barcode_present: false,
+        confidence: 0,
+        details: [],
+        pii_detected: false,
+      };
+    }
+  }
+
+  // 3) PII scrub. If the parser detected an identity doc, drop the parse and
+  //    reject the capture per §11.4 (the honeypot problem).
+  if (parsed.pii_detected) {
+    await supabase
+      .from("captures")
+      .insert({
+        user_id: opts.userId,
+        source: opts.source,
+        storage_ref: null, // delete the encrypted blob too
+        status: "rejected",
+        error: "PII detected — capture rejected. GigTrotter is not a document vault.",
+      });
+    await supabase.storage.from(STORAGE_BUCKET).remove([key]);
+    throw new Error(
+      "This looks like an identity document. GigTrotter doesn't store those.",
+    );
+  }
+
+  // 4) Persist the capture row.
+  const inferredVendor =
+    parsed.vendor ??
+    Object.keys(KNOWN_VENDORS).find((v) =>
+      parsed.title.toLowerCase().includes(v),
+    ) ??
+    null;
+
+  const { data: row, error: insErr } = await supabase
+    .from("captures")
+    .insert({
+      user_id: opts.userId,
+      source: opts.source,
+      storage_ref: key,
+      parse_json: parsed as never,
+      confidence,
+      vendor: inferredVendor,
+      status: parseError ? "rejected" : "pending",
+      error: parseError,
+    })
+    .select("id")
+    .single();
+
+  if (insErr || !row) {
+    throw new Error(`Insert failed: ${insErr?.message ?? "no row"}`);
+  }
+
+  if (cacheHit) {
+    await supabase
+      .from("vendor_fingerprints")
+      .update({ hit_count: (cached ? 1 : 0) + 1, last_seen_at: new Date().toISOString() })
+      .eq("template_hash", hash);
+  }
+
+  return { captureId: row.id, parsed };
+}

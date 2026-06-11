@@ -1,0 +1,133 @@
+"use client";
+
+import { useRef, useState, useTransition } from "react";
+import { UploadCloud, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+import { ConfirmCard } from "@/features/capture/confirm-card";
+import type { ParsedCapture } from "@/lib/capture/schema";
+
+/**
+ * The headline MVP surface (§8.1 "Smart screenshot import"). Drag-drop, click,
+ * or paste — all three are first-class. We surface the confirm card inline
+ * after parse so the user sees the trust signal: every capture is editable.
+ */
+export function CaptureDropzone() {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const [draft, setDraft] = useState<
+    { captureId: string; parsed: ParsedCapture } | null
+  >(null);
+
+  function handleFiles(files: FileList | File[] | null) {
+    if (!files || files.length === 0) return;
+    const file = Array.from(files).find((f) => f.type.startsWith("image/"));
+    if (!file) {
+      setError("Please drop an image (PNG, JPG, or WebP).");
+      return;
+    }
+    setError(null);
+    const form = new FormData();
+    form.append("file", file);
+    form.append("source", "screenshot");
+    startTransition(async () => {
+      const res = await fetch("/api/captures", { method: "POST", body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Couldn't read this one.");
+        return;
+      }
+      const data = (await res.json()) as {
+        captureId: string;
+        parsed: ParsedCapture;
+      };
+      setDraft(data);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <label
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          handleFiles(e.dataTransfer.files);
+        }}
+        onPaste={(e) => {
+          const items = e.clipboardData?.items;
+          if (!items) return;
+          for (let i = 0; i < items.length; i++) {
+            const f = items[i].getAsFile();
+            if (f) {
+              handleFiles([f]);
+              break;
+            }
+          }
+        }}
+        className={cn(
+          "block cursor-pointer rounded-xl border-2 border-dashed border-border bg-card/40 p-10 text-center transition-colors hover:border-primary/60 hover:bg-card/70",
+          dragging && "border-primary bg-card",
+        )}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          multiple={false}
+          className="sr-only"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+        <div className="flex flex-col items-center gap-3">
+          {pending ? (
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          ) : (
+            <UploadCloud className="h-8 w-8 text-muted-foreground" />
+          )}
+          <div>
+            <p className="text-sm font-medium">
+              {pending ? "Reading it…" : "Drop a ticket, boarding pass, or booking"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Or click to pick, or paste from the clipboard.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => inputRef.current?.click()}
+            disabled={pending}
+          >
+            Choose file
+          </Button>
+        </div>
+      </label>
+
+      {error ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+
+      {draft ? (
+        <ConfirmCard
+          captureId={draft.captureId}
+          parsed={draft.parsed}
+          onDone={() => setDraft(null)}
+        />
+      ) : null}
+    </div>
+  );
+}

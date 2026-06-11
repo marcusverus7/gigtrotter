@@ -1,21 +1,23 @@
 import Link from "next/link";
+import { Globe2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { GigTrotterMark } from "@/components/brand";
 
-export default function NotFound() {
+export default function RootNotFound() {
   return (
-    <main className="bg-aurora flex min-h-screen flex-col items-center justify-center px-6 text-center">
-      <GigTrotterMark className="mb-8" />
-      <h1 className="font-mono text-7xl tnum text-primary">404</h1>
-      <h2 className="mt-2 text-2xl font-semibold">Lost the pin.</h2>
-      <p className="mt-2 max-w-sm text-muted-foreground">
-        That page isn&apos;t in the wallet. Maybe the anon board was revoked, or
-        the link drifted.
-      </p>
-      <Button asChild className="mt-6">
-        <Link href="/">Back to the map</Link>
-      </Button>
-    </main>
+    <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
+      <div className="mx-auto max-w-md space-y-4 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+          <Globe2 className="h-7 w-7 text-primary" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">404</h1>
+        <p className="text-sm text-muted-foreground">
+          This page doesn&apos;t exist. Maybe the journey starts elsewhere.
+        </p>
+        <Button asChild>
+          <Link href="/">Back to GigTrotter</Link>
+        </Button>
+      </div>
+    </div>
   );
 }

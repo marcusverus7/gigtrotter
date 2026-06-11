@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
 import { CommandPalette } from "@/features/search/command-palette";
+import { PageTransition } from "@/components/page-transition";
 import { SidebarSearchTrigger } from "@/features/search/sidebar-search-trigger";
 
 const nav = [
@@ -147,7 +148,9 @@ export default async function AppLayout({
           </Avatar>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 md:py-12">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 md:py-12">
+          <PageTransition>{children}</PageTransition>
+        </main>
 
         {/* Bottom tab bar — mobile only */}
         <nav className="sticky bottom-0 z-40 flex justify-around border-t border-border/40 bg-card/80 p-2 backdrop-blur-xl md:hidden">

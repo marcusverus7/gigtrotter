@@ -22,6 +22,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 import { AudienceSelector } from "@/features/wallet/audience-selector";
+import { CountdownShare } from "@/features/wallet/countdown-share";
 import { WhoElseGoing } from "@/features/wallet/who-else-going";
 import { ExperienceEditor } from "@/features/wallet/experience-editor";
 
@@ -161,6 +162,16 @@ export default async function WalletItemDetail({
             <BarcodePanel
               hasBarcode={!!item.barcode_ref}
               eventOver={!!endsAt && endsAt.getTime() < Date.now()}
+            />
+          ) : null}
+
+          {isFuture && startsAt ? (
+            <CountdownShare
+              walletItemId={id}
+              title={item.title}
+              daysUntil={Math.ceil(
+                (startsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+              )}
             />
           ) : null}
 

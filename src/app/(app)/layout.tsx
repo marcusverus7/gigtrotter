@@ -4,6 +4,8 @@ import {
   Compass,
   Eye,
   Globe2,
+  Moon,
+  Plane,
   Settings,
   Ticket,
   Upload,
@@ -19,10 +21,12 @@ import { signOut } from "@/features/auth/actions";
 
 const nav = [
   { href: "/app", label: "Wallet", icon: Ticket },
+  { href: "/app/night", label: "Tonight", icon: Moon },
   { href: "/app/map", label: "Map", icon: Globe2 },
+  { href: "/app/trips", label: "Trips", icon: Plane },
   { href: "/app/capture", label: "Capture", icon: Upload },
   { href: "/app/anon", label: "Anon board", icon: Eye },
-  { href: "/app/discover", label: "Discover", icon: Compass },
+  { href: "/app/discover", label: "People", icon: Compass },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 

@@ -3,6 +3,8 @@ import { Plus, Ticket } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Wallet } from "@/features/wallet/wallet";
+import { MorningAfterQueue } from "@/features/wallet/morning-after-queue";
+import { ThrowbacksStrip } from "@/features/wallet/throwbacks";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -37,6 +39,9 @@ export default async function WalletPage() {
           </Link>
         </Button>
       </header>
+
+      <MorningAfterQueue />
+      <ThrowbacksStrip />
 
       <Wallet items={items ?? []} />
 

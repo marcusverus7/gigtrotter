@@ -1,5 +1,4 @@
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import {
   ArrowRight,
   Camera,
@@ -15,13 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GigTrotterMark } from "@/components/brand";
-
-// The globe lives behind a client boundary — Three.js can't render in RSC.
-// Ship it dynamically so the rest of the page streams immediately.
-const Globe = dynamic(
-  () => import("@/features/landing/globe").then((m) => m.Globe),
-  { ssr: false, loading: () => <GlobePlaceholder /> },
-);
+import { GlobeLoader } from "@/features/landing/globe-loader";
 
 const lifecycle = [
   { stage: "Wishlist", blurb: "Saved with one tap from anywhere." },
@@ -151,7 +144,7 @@ export default function LandingPage() {
 
         <div className="relative">
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 blur-3xl" />
-          <Globe className="aspect-square w-full max-w-[640px] mx-auto cursor-grab active:cursor-grabbing" />
+          <GlobeLoader className="aspect-square w-full max-w-[640px] mx-auto cursor-grab active:cursor-grabbing" />
           <p className="mt-3 text-center font-mono text-xs text-muted-foreground/60">
             drag to spin · scroll to zoom
           </p>
@@ -321,13 +314,3 @@ function CircleRow({
   );
 }
 
-function GlobePlaceholder() {
-  return (
-    <div className="aspect-square w-full max-w-[640px] mx-auto">
-      <div className="relative h-full w-full">
-        <div className="absolute inset-[8%] animate-pulse rounded-full bg-gradient-to-br from-primary/20 to-secondary/10" />
-        <div className="absolute inset-[12%] rounded-full border border-primary/20" />
-      </div>
-    </div>
-  );
-}

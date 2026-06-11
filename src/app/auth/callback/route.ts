@@ -17,7 +17,11 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    const detail = encodeURIComponent(error.message);
+    return NextResponse.redirect(
+      `${origin}/login?error=oauth_failed&detail=${detail}`,
+    );
   }
 
-  return NextResponse.redirect(`${origin}/login?error=oauth_failed`);
+  return NextResponse.redirect(`${origin}/login?error=oauth_failed&detail=no_code`);
 }

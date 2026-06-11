@@ -18,6 +18,8 @@ import {
   CardContent,
 } from "@/components/ui/card";
 
+import { GeofenceCheckInButton } from "./geofence-button";
+
 type NightItem = {
   id: string;
   kind: string;
@@ -183,6 +185,13 @@ export function NightCard({ item }: { item: NightItem }) {
             <p className="mt-3 text-xs text-muted-foreground">
               Encrypted ticket — open in the native app to scan.
             </p>
+          </div>
+        ) : null}
+
+        {/* Geofence check-in — only meaningful when the event is imminent or live */}
+        {(isLive || (remaining != null && remaining < 6 * 3600_000)) ? (
+          <div className="border-t border-border/60 pt-5">
+            <GeofenceCheckInButton />
           </div>
         ) : null}
       </CardContent>

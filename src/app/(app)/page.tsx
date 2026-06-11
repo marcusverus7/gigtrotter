@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Wallet } from "@/features/wallet/wallet";
 import { MorningAfterQueue } from "@/features/wallet/morning-after-queue";
 import { ThrowbacksStrip } from "@/features/wallet/throwbacks";
+import { YearReviewTeaser } from "@/features/review/review-teaser";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -41,6 +42,7 @@ export default async function WalletPage() {
       </header>
 
       <MorningAfterQueue />
+      <YearReviewTeaser />
       <ThrowbacksStrip />
 
       <Wallet items={items ?? []} />

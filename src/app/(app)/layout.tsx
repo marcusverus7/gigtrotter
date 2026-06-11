@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
+  Bell,
+  Bookmark,
   Compass,
   Eye,
   Globe2,
@@ -25,6 +27,8 @@ const nav = [
   { href: "/app/map", label: "Map", icon: Globe2 },
   { href: "/app/trips", label: "Trips", icon: Plane },
   { href: "/app/capture", label: "Capture", icon: Upload },
+  { href: "/app/wishlist", label: "Wishlist", icon: Bookmark },
+  { href: "/app/alerts", label: "Alerts", icon: Bell },
   { href: "/app/anon", label: "Anon board", icon: Eye },
   { href: "/app/discover", label: "People", icon: Compass },
   { href: "/app/settings", label: "Settings", icon: Settings },

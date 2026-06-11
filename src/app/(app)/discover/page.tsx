@@ -2,6 +2,15 @@ import { redirect } from "next/navigation";
 
 import { FriendsList } from "@/features/friends/friends-list";
 import { AddFriendForm } from "@/features/friends/add-friend-form";
+import { FollowAdder } from "@/features/follows/follow-adder";
+import { FollowList } from "@/features/follows/follow-list";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -16,10 +25,17 @@ export default async function DiscoverPage() {
   if (!user) redirect("/login");
 
   // Pull all friendships the user is in.
-  const { data: friendships } = await supabase
-    .from("friendships")
-    .select("*")
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+  const [{ data: friendships }, { data: follows }] = await Promise.all([
+    supabase
+      .from("friendships")
+      .select("*")
+      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
+    supabase
+      .from("follows")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }),
+  ]);
 
   // For accepted friendships, fetch the counterparty profiles.
   const accepted = friendships?.filter((f) => f.state === "accepted") ?? [];
@@ -55,6 +71,28 @@ export default async function DiscoverPage() {
         pendingOutgoing={pending.filter((f) => f.requested_by === user.id)}
         profileById={Object.fromEntries(profileById)}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Following</CardTitle>
+          <CardDescription>
+            Artists, promoters, venues. We watch on-sale dates and tour
+            announcements for everything in here.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <FollowAdder />
+          <FollowList
+            follows={
+              (follows ?? []) as Array<{
+                id: string;
+                kind: "artist" | "promoter" | "venue";
+                name: string;
+              }>
+            }
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -2,28 +2,64 @@
 
 Things I can't decide or do without you. Ranked by what blocks the most downstream work.
 
-> **Repo is live:** https://github.com/marcusverus7/gigtrotter (private). Nine commits — phases 0–7 + the interactive-globe polish. CI runs on push.
+> **Repo:** https://github.com/marcusverus7/gigtrotter (private). CI green on `main`.
 
-## Now (blocks deploy)
+## Brand decisions locked in (no action needed)
 
-1. **Supabase project.** I can write migrations but can't provision a project for you. Create at https://supabase.com/dashboard → drop the URL + anon + service-role keys into `.env.local`. Then `supabase link --project-ref <ref>` and `supabase db push`.
-3. **Anthropic API key.** Drop into `ANTHROPIC_API_KEY`. Phase 2 capture parsing is dead without it. Pricing: ~£0.01 per parse with Sonnet 4.6.
-4. **Mapbox token.** Free tier is fine. Drop into `NEXT_PUBLIC_MAPBOX_TOKEN`. The Travel Board renders a static placeholder without it.
-5. **Vercel project.** `vercel link` from the repo root, then `vercel env pull` to sync. Or use the dashboard import-from-GitHub flow.
+- **Brand mark:** original violet→cyan map-pin glyph
+- **Tone of voice:** H1 "Where your journey lives." / strapline "The wallet that remembers."
+- **Hero direction:** the interactive Three.js globe (option A)
+- **Pricing model:** GigTrotter+ is a **perks club** (promoter discounts, VIP, prize draws, marketplace fee waiver). Free tier loses nothing. Revenue: subscriptions + face-value resale marketplace booking fees + affiliate commissions
 
-## Pre-launch (per the plan §14 checklist)
+## Blocks deploy
 
-6. **The parse corpus.** Collect 50+ real screenshots from your own phone/inbox — Ticketmaster, Ryanair, EasyJet, Booking, Airbnb, DICE, Eventbrite. Drop into `eval/captures/` (I created the folder + README). This is the highest-leverage prep task in v3.
-7. **Trademark clearance** on GigTrotter (UK/EU/US, ~£300–800). Before any domain purchase.
-8. **Google CASA paperwork** — start reading now even though inbox sync is V1. Lead time is the constraint.
-9. **Forwarding-domain DNS.** When ready, point an MX for `capture.gigtrotter.com` (or whatever subdomain you pick) at Resend or Postmark and stash the inbound webhook URL in `INBOUND_WEBHOOK_SECRET`.
-10. **Apple/Google sign-in.** Configure providers in Supabase Auth. Avoid the word "Wallet" in the App Store product name (it's an in-app surface, not the brand).
-11. **Launch event.** Pick the summer 2026 event your twenty users will attend — it seeds day-one density.
+1. **Supabase project keys** — drop URL + anon + service-role into `.env.local`
+2. **Anthropic API key** — capture parsing
+3. **Mapbox token** — Travel Board globe + venue autocomplete
+4. **Vercel project** — link and pull env
+
+## Marketplace (Phase 9)
+
+5. **Stripe Connect setup** — for the face-value resale marketplace.
+   - Stripe Connect platform account (one-time)
+   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_ACCOUNT` in `.env.local`
+   - Settle booking-fee % with finance before launch — currently 7.00% (`fee_bps = 700`)
+   - Identity-verification flow for sellers (Stripe handles via Connect)
+
+## Import + integrations (V1)
+
+Each unlocks one source card on `/app/import`. All envs documented in `.env.example`.
+
+6. **Spotify OAuth** — `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET`. Register at developer.spotify.com.
+7. **Setlist.fm API key** — `SETLISTFM_API_KEY`. Free tier fine.
+8. **Songkick API key** — `SONGKICK_API_KEY`. Apply at developers.songkick.com.
+9. **Bandsintown app id** — `BANDSINTOWN_APP_ID`. Free tier.
+10. **Last.fm API key** — `LASTFM_API_KEY`. Free.
+11. **Eventbrite OAuth** — `EVENTBRITE_CLIENT_ID` + `EVENTBRITE_CLIENT_SECRET`. Register at eventbrite.com/platform.
+
+## Pre-launch (per the §14 plan checklist)
+
+12. **The parse corpus** — 50+ real screenshots into `eval/captures/`. The single highest-leverage prep task in v3.
+13. **Trademark clearance** on GigTrotter (UK/EU/US, ~£300–800).
+14. **Google CASA paperwork** — for Gmail restricted scopes (live inbox sync, V1+).
+15. **Forwarding-domain DNS** — point an MX at Resend/Postmark. Domain not picked yet (see decisions below).
+16. **Apple/Google OAuth providers** — configure in Supabase Auth.
+17. **Launch event pick** — the summer 2026 gig/festival that seeds your twenty users.
+
+## Pricing UI defaults (override anytime)
+
+- "Join the waitlist" CTA + "Coming with V1" labels on every Pro touchpoint. No price displayed yet — we hold pricing until we've signed partner perks worth the number.
 
 ## Decisions I defaulted on (override any time)
 
-- **Inbound provider:** assumed Resend (cleaner DX than Postmark) but coded the webhook to accept the common shape both use. Easy to swap.
-- **Capture encryption:** envelope encryption — per-user key wrapped by `CAPTURE_MASTER_KEY`. Master key rotation is documented in `docs/SECURITY.md`.
-- **Anon handle format:** adjective-noun-NNN (e.g. `midnight-fox-204`). 13M combinations. Regenerable per the plan.
-- **Default circle:** `Inner Circle` for every new pin. The plan calls this out explicitly.
-- **Pricing:** Free tier stays genuinely good. Premium (£4.99/mo) is wired in the schema but not paywalled — the network phase must not be paywalled.
+- **Inbound provider:** Resend (cleaner DX than Postmark) — webhook accepts both shapes
+- **Capture encryption:** envelope encryption — per-user HKDF key + master in `CAPTURE_MASTER_KEY`. Rotation noted in `docs/SECURITY.md`
+- **Anon handle format:** adjective-noun-NNN (13M combinations)
+- **Default circle:** Inner Circle for every new pin
+- **Marketplace booking fee:** 7.00% buyer-side (`fee_bps=700` per listing — overridable per listing)
+
+## Still open (lower priority)
+
+- **Forwarding-address domain** — pick one: `capture.gigtrotter.com` / `tickets.gigtrotter.com` / `gt.email` / `wallet.gt`
+- **Scope timing** for Group trips / Festival mode / Browser extension — start, defer or drop each
+- **Mobile native (Expo) path** — start now / after 20 web users / after cost ceiling kicks in

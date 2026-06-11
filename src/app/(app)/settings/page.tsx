@@ -21,6 +21,8 @@ import {
 } from "@/features/profile/actions";
 import { ProfileEditor } from "@/features/profile/profile-editor";
 import { InboxSyncPanel } from "@/features/settings/inbox-sync";
+import { ProPerksPanel } from "@/features/settings/pro-perks-panel";
+import { SpotifyPanel } from "@/features/settings/spotify-panel";
 import { publicEnv } from "@/lib/env";
 
 export default async function SettingsPage() {
@@ -141,7 +143,11 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
+      <ProPerksPanel isPlus={profile.plan === "plus"} />
+
       <InboxSyncPanel forwardingAddress={forwardingAddress} />
+
+      <SpotifyPanel />
 
       <Card>
         <CardHeader>

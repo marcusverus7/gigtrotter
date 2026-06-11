@@ -65,27 +65,39 @@ export default function OpenGraphImage() {
         >
           <div
             style={{
-              fontSize: 88,
+              fontSize: 92,
               fontWeight: 700,
               lineHeight: 1.02,
               letterSpacing: -1.5,
+              display: "flex",
+              gap: 22,
+              flexWrap: "wrap",
             }}
           >
-            The wallet that
+            <span>Where your</span>
+            <span
+              style={{
+                backgroundImage:
+                  "linear-gradient(120deg, #a78bfa 0%, #f0abfc 40%, #67e8f9 100%)",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              journey
+            </span>
+            <span>lives.</span>
           </div>
           <div
             style={{
-              fontSize: 88,
-              fontWeight: 700,
-              lineHeight: 1.02,
-              letterSpacing: -1.5,
-              backgroundImage:
-                "linear-gradient(120deg, #a78bfa 0%, #f0abfc 40%, #67e8f9 100%)",
-              backgroundClip: "text",
-              color: "transparent",
+              marginTop: 18,
+              fontSize: 22,
+              fontFamily: "monospace",
+              letterSpacing: 4,
+              textTransform: "uppercase",
+              color: "#a78bfa",
             }}
           >
-            remembers.
+            The wallet that remembers
           </div>
           <div
             style={{

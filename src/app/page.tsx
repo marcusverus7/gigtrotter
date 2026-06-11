@@ -104,11 +104,15 @@ export default function LandingPage() {
             Capture-first · v3
           </div>
           <h1 className="text-5xl font-bold tracking-tight md:text-6xl lg:text-7xl">
-            The wallet that{" "}
+            Where your{" "}
             <span className="bg-gradient-to-br from-violet-400 via-fuchsia-400 to-cyan-300 bg-clip-text text-transparent">
-              remembers
-            </span>
+              journey
+            </span>{" "}
+            lives.
           </h1>
+          <p className="mt-3 max-w-lg font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground/80">
+            The wallet that remembers.
+          </p>
           <p className="mt-6 max-w-lg text-pretty text-lg text-muted-foreground">
             Your tickets, flights and bookings live here — and every one
             quietly becomes a pin on a private map of your life. Share it on

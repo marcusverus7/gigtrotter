@@ -13,11 +13,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "GigTrotter — the wallet that remembers",
+    default: "GigTrotter — where your journey lives",
     template: "%s · GigTrotter",
   },
   description:
-    "A capture-first ticket & travel wallet that builds a private life map automatically. Your tickets, flights and bookings live here — and quietly become a beautiful, private map of your life.",
+    "Where your journey lives. The wallet that remembers — your tickets, flights and bookings quietly become a private map of your life.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   ),
@@ -28,15 +28,15 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   openGraph: {
-    title: "GigTrotter — the wallet that remembers",
-    description: "Your life, your map, your terms.",
+    title: "GigTrotter — where your journey lives",
+    description: "The wallet that remembers. Your life, your map, your terms.",
     type: "website",
     siteName: "GigTrotter",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GigTrotter — the wallet that remembers",
-    description: "Your life, your map, your terms.",
+    title: "GigTrotter — where your journey lives",
+    description: "The wallet that remembers.",
   },
 };
 

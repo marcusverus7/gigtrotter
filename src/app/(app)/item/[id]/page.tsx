@@ -141,6 +141,12 @@ export default async function WalletItemDetail({
                 <Badge variant={isLive ? "inner" : isFuture ? "friends" : "verified"}>
                   {isLive ? "Live now" : isFuture ? "Upcoming" : "Attended"}
                 </Badge>
+                {item.purchased_via_platform ? (
+                  <Badge variant="verified" className="bg-primary text-primary-foreground">
+                    <ShieldCheck className="mr-1 h-3 w-3 fill-current" />
+                    Purchased on GigTrotter
+                  </Badge>
+                ) : null}
                 {experience?.verified_by && experience.verified_by !== "none" ? (
                   <Badge variant="verified">
                     <ShieldCheck className="mr-1 h-3 w-3" />

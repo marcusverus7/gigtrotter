@@ -6,7 +6,9 @@ import {
   Calendar,
   Clock,
   MapPin,
+  MessageSquare,
   Music,
+  Shield,
   Tag,
   Users,
 } from "lucide-react";
@@ -26,6 +28,36 @@ import { TicketLinks } from "@/features/events/ticket-links";
 import { AddToWalletButton } from "@/features/events/add-to-wallet-button";
 
 export const metadata: Metadata = { title: "Event" };
+
+function DiscussionCTA({ eventId, hasWalletItem, isPurchased }: { eventId: string; hasWalletItem: boolean; isPurchased: boolean }) {
+  if (!hasWalletItem) return null;
+  return (
+    <Link
+      href={`/app/events/${eventId}/discussion`}
+      className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
+    >
+      <div className="flex items-center gap-3">
+        <MessageSquare className="h-5 w-5 text-primary" />
+        <div>
+          <p className="text-sm font-medium">Join the discussion</p>
+          <p className="text-xs text-muted-foreground">
+            {isPurchased
+              ? "Share photos, react, and chat with other attendees."
+              : "View posts from verified attendees. Purchase through GigTrotter to unlock full access."}
+          </p>
+        </div>
+      </div>
+      {isPurchased ? (
+        <Badge variant="verified" className="gap-0.5 text-[9px]">
+          <Shield className="h-2.5 w-2.5 fill-current" />
+          Full access
+        </Badge>
+      ) : (
+        <Badge variant="outline" className="text-[9px]">View only</Badge>
+      )}
+    </Link>
+  );
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   concert: "Concert",
@@ -115,6 +147,15 @@ export default async function EventDetailPage({
 
   const startsAt = event.starts_at ? new Date(event.starts_at) : null;
   const isFuture = startsAt ? startsAt.getTime() > Date.now() : false;
+
+  // Check if user has this event in wallet (for discussion access)
+  const { data: userWalletItem } = await supabase
+    .from("wallet_items")
+    .select("id, purchased_via_platform")
+    .eq("user_id", user.id)
+    .eq("title", event.title)
+    .eq("starts_at", event.starts_at)
+    .maybeSingle();
 
   // Linked merch
   const { data: merchLinks } = await supabase
@@ -316,6 +357,14 @@ export default async function EventDetailPage({
             eventTitle={event.title}
             eventCity={event.venue_city}
             eventCategory={event.category}
+          />
+
+          {/* Discussion CTA */}
+          <Separator />
+          <DiscussionCTA
+            eventId={id}
+            hasWalletItem={!!userWalletItem}
+            isPurchased={userWalletItem?.purchased_via_platform === true}
           />
 
           {/* Tags */}

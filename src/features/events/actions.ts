@@ -144,7 +144,10 @@ export async function submitEvent(input: {
   return { eventId: event.id };
 }
 
-export async function addToWalletFromEvent(eventId: string) {
+export async function addToWalletFromEvent(
+  eventId: string,
+  purchasedViaPlatform = false,
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -178,6 +181,7 @@ export async function addToWalletFromEvent(eventId: string) {
       starts_at: event.starts_at,
       ends_at: event.ends_at,
       status: "going",
+      purchased_via_platform: purchasedViaPlatform,
     })
     .select("id")
     .single();
@@ -189,8 +193,30 @@ export async function addToWalletFromEvent(eventId: string) {
     audience: "inner",
   });
 
+  // Auto-enroll as "going" in event interests
+  const { data: existingInterest } = await supabase
+    .from("event_interests")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!existingInterest) {
+    await supabase.from("event_interests").insert({
+      event_id: eventId,
+      user_id: user.id,
+      interest_type: "going",
+    });
+  } else {
+    await supabase
+      .from("event_interests")
+      .update({ interest_type: "going" })
+      .eq("id", existingInterest.id);
+  }
+
   revalidatePath("/app");
   revalidatePath(`/app/events/${eventId}`);
+  revalidatePath(`/app/events/${eventId}/discussion`);
   return { walletItemId: item.id };
 }
 

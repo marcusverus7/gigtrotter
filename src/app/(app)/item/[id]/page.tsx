@@ -22,6 +22,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 import { AudienceSelector } from "@/features/wallet/audience-selector";
+import { WhoElseGoing } from "@/features/wallet/who-else-going";
 
 const ICONS = {
   ticket: TicketIcon,
@@ -148,6 +149,8 @@ export default async function WalletItemDetail({
           ) : null}
 
           <Separator />
+
+          <WhoElseGoing walletItemId={id} />
 
           {experience ? (
             <AudienceSelector

@@ -10,6 +10,7 @@ import {
   Plane,
   Settings,
   Ticket,
+  Trophy,
   Upload,
 } from "lucide-react";
 
@@ -20,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
+import { CommandPalette } from "@/features/search/command-palette";
+import { SidebarSearchTrigger } from "@/features/search/sidebar-search-trigger";
 
 const nav = [
   { href: "/app", label: "Wallet", icon: Ticket },
@@ -29,6 +32,7 @@ const nav = [
   { href: "/app/capture", label: "Capture", icon: Upload },
   { href: "/app/wishlist", label: "Wishlist", icon: Bookmark },
   { href: "/app/alerts", label: "Alerts", icon: Bell },
+  { href: "/app/achievements", label: "Achievements", icon: Trophy },
   { href: "/app/anon", label: "Anon board", icon: Eye },
   { href: "/app/discover", label: "People", icon: Compass },
   { href: "/app/settings", label: "Settings", icon: Settings },
@@ -86,7 +90,8 @@ export default async function AppLayout({
         <Link href="/app" className="px-2">
           <GigTrotterMark />
         </Link>
-        <nav className="mt-8 flex flex-col gap-0.5">
+        <SidebarSearchTrigger />
+        <nav className="mt-2 flex flex-col gap-0.5">
           {nav.map((n) => (
             <Link
               key={n.href}
@@ -150,6 +155,9 @@ export default async function AppLayout({
           ))}
         </nav>
       </div>
+
+      {/* Cmd+K palette */}
+      <CommandPalette />
     </div>
   );
 }

@@ -21,10 +21,22 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   ),
+  applicationName: "GigTrotter",
+  appleWebApp: {
+    capable: true,
+    title: "GigTrotter",
+    statusBarStyle: "black-translucent",
+  },
   openGraph: {
     title: "GigTrotter — the wallet that remembers",
     description: "Your life, your map, your terms.",
     type: "website",
+    siteName: "GigTrotter",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GigTrotter — the wallet that remembers",
+    description: "Your life, your map, your terms.",
   },
 };
 

@@ -19,6 +19,8 @@ import {
   regenerateAnonHandle,
   toggleAnonRevoked,
 } from "@/features/profile/actions";
+import { ProfileEditor } from "@/features/profile/profile-editor";
+import { InboxSyncPanel } from "@/features/settings/inbox-sync";
 import { publicEnv } from "@/lib/env";
 
 export default async function SettingsPage() {
@@ -37,6 +39,9 @@ export default async function SettingsPage() {
   if (!profile) redirect("/login");
 
   const anonUrl = `${publicEnv.siteUrl}/b/${profile.anon_handle}`;
+  const forwardingDomain =
+    process.env.FORWARDING_DOMAIN ?? "capture.gigtrotter.example";
+  const forwardingAddress = `${profile.anon_handle}@${forwardingDomain}`;
 
   async function downloadExport() {
     "use server";
@@ -58,11 +63,22 @@ export default async function SettingsPage() {
           <CardTitle>Profile</CardTitle>
           <CardDescription>How friends find you.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <Row label="Username" value={`@${profile.username}`} />
-          <Row label="Display name" value={profile.display_name ?? "—"} />
-          <Row label="Email" value={user.email ?? "—"} />
-          <Row label="Plan" value={profile.plan === "plus" ? "GigTrotter+" : "Free"} />
+        <CardContent className="space-y-5">
+          <ProfileEditor
+            profile={{
+              username: profile.username,
+              display_name: profile.display_name,
+              avatar_url: profile.avatar_url,
+            }}
+          />
+          <Separator />
+          <div className="grid gap-2">
+            <Row label="Email" value={user.email ?? "—"} />
+            <Row
+              label="Plan"
+              value={profile.plan === "plus" ? "GigTrotter+" : "Free"}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -124,6 +140,8 @@ export default async function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      <InboxSyncPanel forwardingAddress={forwardingAddress} />
 
       <Card>
         <CardHeader>

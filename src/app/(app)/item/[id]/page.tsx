@@ -25,6 +25,7 @@ import { AudienceSelector } from "@/features/wallet/audience-selector";
 import { CountdownShare } from "@/features/wallet/countdown-share";
 import { WhoElseGoing } from "@/features/wallet/who-else-going";
 import { ExperienceEditor } from "@/features/wallet/experience-editor";
+import { GigMerchSection } from "@/features/merch/gig-merch-section";
 
 const ICONS = {
   ticket: TicketIcon,
@@ -61,6 +62,32 @@ export default async function WalletItemDetail({
     .eq("wallet_item_id", id)
     .eq("user_id", user.id)
     .maybeSingle();
+
+  const { data: merchLinks } = await supabase
+    .from("merch_gig_links")
+    .select("merch_item_id, merch_items(id, title, images, artist_name, price_cents, currency, fulfilment, merch_drops(title, status, total_stock, total_sold))")
+    .eq("wallet_item_id", id);
+
+  const gigMerch = (merchLinks ?? [])
+    .filter((l: any) => l.merch_items)
+    .map((l: any) => {
+      const m = l.merch_items;
+      const liveDrop = m.merch_drops?.find((d: any) => d.status === "live");
+      return {
+        id: m.id,
+        title: m.title,
+        images: m.images ?? [],
+        artist_name: m.artist_name,
+        price_cents: m.price_cents,
+        currency: m.currency,
+        fulfilment: m.fulfilment ?? [],
+        drop_title: liveDrop?.title ?? null,
+        drop_status: liveDrop?.status ?? null,
+        drop_remaining: liveDrop?.total_stock
+          ? liveDrop.total_stock - liveDrop.total_sold
+          : null,
+      };
+    });
 
   // Sign URLs for any attached photos (private bucket).
   const photoKeys = Array.isArray(experience?.photos)
@@ -199,6 +226,13 @@ export default async function WalletItemDetail({
               This becomes a pin on your map once the event has ended.
             </p>
           )}
+
+          {gigMerch.length > 0 ? (
+            <>
+              <Separator />
+              <GigMerchSection items={gigMerch} />
+            </>
+          ) : null}
         </CardContent>
       </Card>
     </div>

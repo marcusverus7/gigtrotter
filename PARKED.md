@@ -26,6 +26,17 @@ Things I can't decide or do without you. Ranked by what blocks the most downstre
    - Settle booking-fee % with finance before launch — currently 7.00% (`fee_bps = 700`)
    - Identity-verification flow for sellers (Stripe handles via Connect)
 
+## Merch Store
+
+The merch store schema, UI, order flow, and gig-linked promotion are all built. To go live:
+
+- **Same Stripe Connect account** as the marketplace — merch payments use the same platform account.
+- Artist/promoter onboarding: sellers need Stripe Connect onboarding (same as marketplace sellers).
+- **Merch image uploads** — currently `images text[]` stores URLs. Wire to Supabase Storage `captures` bucket under `merch/` prefix when ready.
+- **QR code rendering** — the `collection_code` is generated and shown as text. Swap to a proper QR code library (e.g. `qrcode.react`) for scannable venue pickup.
+- **Shipping rates** — `shipping_cents` defaults to 0. Integrate a shipping rate API or set flat rates per seller.
+- **Drop automation** — `merch_drop_status` is manual. Add a cron/edge function to flip `upcoming→live→ended` based on `opens_at`/`closes_at`.
+
 ## Import + integrations (V1)
 
 Each unlocks one source card on `/app/import`. All envs documented in `.env.example`.
@@ -57,6 +68,18 @@ Each unlocks one source card on `/app/import`. All envs documented in `.env.exam
 - **Anon handle format:** adjective-noun-NNN (13M combinations)
 - **Default circle:** Inner Circle for every new pin
 - **Marketplace booking fee:** 7.00% buyer-side (`fee_bps=700` per listing — overridable per listing)
+
+## Social Hub / Events Discovery
+
+The events schema, browse/search UI, detail page, social features (interested/going, friend overlap), ticket provider links with click tracking, and internal admin metrics dashboard are all built. To go live:
+
+- **Event data pipeline** — events are currently an empty table waiting for data. Wire up external API syncs:
+  - Songkick, Bandsintown, Eventbrite, RA APIs (keys listed in Import section above)
+  - Cron job or edge function to sync events periodically
+  - Manual promoter submission form (promoter_id on events table supports this)
+- **Geo search** — PostGIS `ST_DWithin` queries need the PostGIS extension enabled in Supabase (`create extension postgis`)
+- **Ticket affiliate links** — currently `is_affiliate` is a flag on `event_ticket_links`. Sign affiliate agreements with providers, then set the flag and swap URLs to tracked affiliate links.
+- **Admin dashboard** — at `/app/admin/metrics`, gated to markloughran7@gmail.com. Shows clicks by provider (total, 7d, 30d), top events, daily trend. Use this data to pitch partnerships: "We sent X clicks to Ticketmaster last month."
 
 ## Still open (lower priority)
 

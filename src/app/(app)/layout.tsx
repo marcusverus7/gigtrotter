@@ -68,20 +68,24 @@ export default async function AppLayout({
       .toUpperCase();
 
   return (
-    <div className="bg-aurora flex min-h-screen flex-col md:flex-row">
+    <div className="relative flex min-h-screen flex-col bg-background md:flex-row">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute left-[-10%] top-[-10%] h-[60vh] w-[60vh] rounded-full bg-primary/10 blur-[120px]" />
+        <div className="absolute right-[-10%] bottom-[20%] h-[50vh] w-[50vh] rounded-full bg-secondary/8 blur-[120px]" />
+      </div>
       {/* Sidebar — md+ */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-card/40 p-4 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border/40 bg-card/30 p-4 backdrop-blur-xl md:flex">
         <Link href="/app" className="px-2">
           <GigTrotterMark />
         </Link>
-        <nav className="mt-8 flex flex-col gap-1">
+        <nav className="mt-8 flex flex-col gap-0.5">
           {nav.map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-primary/10 hover:text-foreground"
             >
-              <n.icon className="h-4 w-4" />
+              <n.icon className="h-4 w-4 transition-colors group-hover:text-primary" />
               {n.label}
             </Link>
           ))}
@@ -110,9 +114,9 @@ export default async function AppLayout({
         </div>
       </aside>
 
-      <div className="flex-1 overflow-x-hidden">
+      <div className="flex flex-1 flex-col overflow-x-hidden">
         {/* Top bar — mobile only */}
-        <header className="flex items-center justify-between border-b border-border bg-card/40 p-4 md:hidden">
+        <header className="flex items-center justify-between border-b border-border/40 bg-card/30 p-4 backdrop-blur-xl md:hidden">
           <Link href="/app">
             <GigTrotterMark />
           </Link>
@@ -122,15 +126,15 @@ export default async function AppLayout({
           </Avatar>
         </header>
 
-        <main className="container py-6 md:py-10">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 md:py-12">{children}</main>
 
         {/* Bottom tab bar — mobile only */}
-        <nav className="sticky bottom-0 z-40 flex justify-around border-t border-border bg-card/90 p-2 backdrop-blur md:hidden">
+        <nav className="sticky bottom-0 z-40 flex justify-around border-t border-border/40 bg-card/80 p-2 backdrop-blur-xl md:hidden">
           {nav.slice(0, 5).map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className="flex flex-1 flex-col items-center gap-0.5 rounded-md p-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="flex flex-1 flex-col items-center gap-0.5 rounded-md p-2 text-xs text-muted-foreground transition-colors hover:text-primary"
             >
               <n.icon className="h-5 w-5" />
               {n.label}

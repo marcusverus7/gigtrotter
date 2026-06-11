@@ -8,7 +8,7 @@
  */
 
 function clean(v: string): string {
-  return v.replace(/[﻿​‌‍ ]/g, "").trim();
+  return v.replace(/[^\x20-\x7E]/g, "");
 }
 
 function required(name: string, value: string | undefined): string {

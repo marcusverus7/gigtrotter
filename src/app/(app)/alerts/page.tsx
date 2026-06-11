@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bell, ExternalLink } from "lucide-react";
+
+export const metadata: Metadata = { title: "Alerts" };
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

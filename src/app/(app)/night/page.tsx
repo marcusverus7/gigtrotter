@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Moon } from "lucide-react";
+
+export const metadata: Metadata = { title: "Tonight" };
 
 import { Button } from "@/components/ui/button";
 import {

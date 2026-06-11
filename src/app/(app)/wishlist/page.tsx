@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Bookmark, MapPin, Music, Hotel, Building2 } from "lucide-react";
+
+export const metadata: Metadata = { title: "Wishlist" };
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

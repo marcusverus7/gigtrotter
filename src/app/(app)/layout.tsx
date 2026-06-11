@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
+import { SidebarNav, BottomNav } from "@/components/app-nav";
 import { CommandPalette } from "@/features/search/command-palette";
 import { PageTransition } from "@/components/page-transition";
 import { SidebarSearchTrigger } from "@/features/search/sidebar-search-trigger";
@@ -88,6 +89,12 @@ export default async function AppLayout({
       .slice(0, 2)
       .toUpperCase();
 
+  const { data: unreadCount } = await supabase.rpc("unread_alert_count");
+  const alertBadge = typeof unreadCount === "number" && unreadCount > 0 ? unreadCount : undefined;
+  const navWithBadges = nav.map((n) =>
+    n.href === "/app/alerts" && alertBadge ? { ...n, badge: alertBadge } : n,
+  );
+
   return (
     <div className="relative flex min-h-screen flex-col bg-background md:flex-row">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -100,18 +107,7 @@ export default async function AppLayout({
           <GigTrotterMark />
         </Link>
         <SidebarSearchTrigger />
-        <nav className="mt-2 flex flex-col gap-0.5">
-          {nav.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-primary/10 hover:text-foreground"
-            >
-              <n.icon className="h-4 w-4 transition-colors group-hover:text-primary" />
-              {n.label}
-            </Link>
-          ))}
-        </nav>
+        <SidebarNav items={navWithBadges} />
         <div className="mt-auto space-y-3">
           <Separator />
           <div className="flex items-center gap-3 px-2">
@@ -153,18 +149,7 @@ export default async function AppLayout({
         </main>
 
         {/* Bottom tab bar — mobile only */}
-        <nav className="sticky bottom-0 z-40 flex justify-around border-t border-border/40 bg-card/80 p-2 backdrop-blur-xl md:hidden">
-          {nav.slice(0, 5).map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className="flex flex-1 flex-col items-center gap-0.5 rounded-md p-2 text-xs text-muted-foreground transition-colors hover:text-primary"
-            >
-              <n.icon className="h-5 w-5" />
-              {n.label}
-            </Link>
-          ))}
-        </nav>
+        <BottomNav items={navWithBadges.slice(0, 5)} />
       </div>
 
       {/* Cmd+K palette */}

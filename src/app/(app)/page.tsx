@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Ticket } from "lucide-react";
+
+export const metadata: Metadata = { title: "Wallet" };
 
 import { Button } from "@/components/ui/button";
 import { Wallet } from "@/features/wallet/wallet";

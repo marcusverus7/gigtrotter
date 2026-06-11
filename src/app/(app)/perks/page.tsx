@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Calendar, Crown, ExternalLink } from "lucide-react";
+
+export const metadata: Metadata = { title: "GigTrotter+ Perks" };
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

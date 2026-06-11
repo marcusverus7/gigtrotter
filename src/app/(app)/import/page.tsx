@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Download } from "lucide-react";
+
+export const metadata: Metadata = { title: "Import" };
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

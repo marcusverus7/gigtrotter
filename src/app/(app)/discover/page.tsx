@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = { title: "People" };
 
 import { FriendsList } from "@/features/friends/friends-list";
 import { AddFriendForm } from "@/features/friends/add-friend-form";

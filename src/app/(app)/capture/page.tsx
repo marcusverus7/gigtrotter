@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Forward, Mail, ScanLine } from "lucide-react";
+
+export const metadata: Metadata = { title: "Capture" };
 
 import {
   Card,

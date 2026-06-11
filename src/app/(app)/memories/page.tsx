@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
+
+export const metadata: Metadata = { title: "Memories" };
 
 import {
   Card,

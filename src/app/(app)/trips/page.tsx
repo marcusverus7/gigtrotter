@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Bed, Plane, Ticket as TicketIcon } from "lucide-react";
+
+export const metadata: Metadata = { title: "Trips" };
 
 import {
   Card,

@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink, Eye, RefreshCw, ShieldOff } from "lucide-react";
+
+export const metadata: Metadata = { title: "Anon board" };
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

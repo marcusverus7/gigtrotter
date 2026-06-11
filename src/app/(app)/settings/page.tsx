@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = { title: "Settings" };
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

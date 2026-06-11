@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Plus, Ticket } from "lucide-react";
 
 export const metadata: Metadata = { title: "Wallet" };
@@ -27,6 +28,15 @@ export default async function WalletPage() {
     .select("*, venues(name, city, country)")
     .eq("user_id", user.id)
     .order("starts_at", { ascending: true, nullsFirst: false });
+
+  if (!items || items.length === 0) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .single();
+    if (!profile?.display_name) redirect("/app/onboarding");
+  }
 
   return (
     <div className="space-y-8">

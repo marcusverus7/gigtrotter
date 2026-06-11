@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ export function ListMyTicketsForm({ items }: { items: Item[] }) {
         setFace("");
         setAsk("");
         setNotes("");
+        toast.success("Ticket listed on the marketplace.");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't list.");
       }

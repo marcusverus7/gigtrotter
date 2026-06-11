@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 
+import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 /**
@@ -29,7 +30,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <PostHogProvider client={posthog}>
-      <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+      <TooltipProvider delayDuration={150}>
+        {children}
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "hsl(222 47% 8%)",
+              border: "1px solid hsl(217 19% 20%)",
+              color: "hsl(210 40% 98%)",
+            },
+          }}
+        />
+      </TooltipProvider>
     </PostHogProvider>
   );
 }

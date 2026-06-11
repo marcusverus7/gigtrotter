@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { toast } from "sonner";
 import { Calendar, MapPin, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -132,7 +133,12 @@ export function ListingCard({
             variant="outline"
             size="sm"
             className="w-full"
-            onClick={() => startTransition(() => cancelListing(listing.id))}
+            onClick={() =>
+              startTransition(async () => {
+                await cancelListing(listing.id);
+                toast.success("Listing cancelled.");
+              })
+            }
             disabled={pending}
           >
             {pending ? "Cancelling…" : "Cancel listing"}
@@ -141,7 +147,12 @@ export function ListingCard({
           <Button
             size="sm"
             className="w-full"
-            onClick={() => startTransition(() => placeOffer(listing.id))}
+            onClick={() =>
+              startTransition(async () => {
+                await placeOffer(listing.id);
+                toast.success("Offer placed — seller will be notified.");
+              })
+            }
             disabled={pending}
           >
             {pending ? "Reserving…" : "Reserve"}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import { toast } from "sonner";
 import { Camera, Save } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -35,6 +36,7 @@ export function ProfileEditor({
       try {
         await updateProfile({ display_name: displayName, username });
         setMessage("Saved.");
+        toast.success("Profile updated.");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not save.");
       }
@@ -56,6 +58,7 @@ export function ProfileEditor({
       try {
         await uploadAvatar(fd);
         setMessage("Avatar updated.");
+        toast.success("Avatar updated.");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't upload.");
       }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export function AddFriendForm() {
     startTransition(async () => {
       try {
         await sendFriendRequest(username);
+        toast.success(`Request sent to @${username.replace(/^@/, "")}`);
         setSuccess(`Request sent to @${username.replace(/^@/, "")}`);
         setUsername("");
       } catch (e) {

@@ -70,7 +70,7 @@ create table public.pro_perks (
   created_at   timestamptz not null default now()
 );
 
-create index pro_perks_active_idx on public.pro_perks (ends_at desc) where ends_at >= now();
+create index pro_perks_active_idx on public.pro_perks (ends_at desc);
 
 alter table public.pro_perks enable row level security;
 create policy "pro_perks: read all" on public.pro_perks

@@ -18,8 +18,12 @@ const MAX_PER_KIND = 6;
  * Plain ILIKE for now — pg_trgm is available on Supabase and we can lift this
  * to similarity ranking later without changing the call site.
  */
+function sanitize(value: string): string {
+  return value.replace(/[,()\\"{}]/g, "");
+}
+
 export async function search(query: string): Promise<SearchHit[]> {
-  const q = query.trim();
+  const q = sanitize(query.trim());
   if (q.length < 2) return [];
   const like = `%${q}%`;
 

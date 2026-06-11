@@ -25,5 +25,9 @@ const Globe = dynamic(
 );
 
 export function GlobeLoader({ className }: { className?: string }) {
-  return <Globe className={className} />;
+  return (
+    <div data-testid="globe-container">
+      <Globe className={className} />
+    </div>
+  );
 }

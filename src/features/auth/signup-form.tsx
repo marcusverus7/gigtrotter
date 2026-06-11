@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ export function SignupForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [emailSent, setEmailSent] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,7 +29,7 @@ export function SignupForm() {
       return;
     }
     startTransition(async () => {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -37,6 +39,10 @@ export function SignupForm() {
       });
       if (error) {
         setError(error.message);
+        return;
+      }
+      if (data.user && !data.session) {
+        setEmailSent(true);
         return;
       }
       router.push("/app/onboarding");
@@ -55,12 +61,39 @@ export function SignupForm() {
     if (error) setError(error.message);
   }
 
+  if (emailSent) {
+    return (
+      <div className="space-y-4 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+          <Mail className="h-7 w-7 text-primary" />
+        </div>
+        <h2 className="text-lg font-semibold">Check your inbox</h2>
+        <p className="text-sm text-muted-foreground">
+          We sent a confirmation link to <strong>{email}</strong>. Click it to
+          activate your account, then you&apos;ll land straight in onboarding.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Didn&apos;t get it? Check spam, or{" "}
+          <button
+            type="button"
+            onClick={() => setEmailSent(false)}
+            className="underline hover:text-foreground"
+          >
+            try again
+          </button>
+          .
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
           variant="outline"
+          aria-label="Sign up with Google"
           onClick={() => signUpWithProvider("google")}
         >
           Google
@@ -68,6 +101,7 @@ export function SignupForm() {
         <Button
           type="button"
           variant="outline"
+          aria-label="Sign up with Apple"
           onClick={() => signUpWithProvider("apple")}
         >
           Apple
@@ -85,6 +119,7 @@ export function SignupForm() {
             id="username"
             placeholder="markl"
             required
+            autoFocus
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />

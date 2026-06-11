@@ -46,6 +46,11 @@ export async function sendFriendRequest(username: string) {
 
 export async function acceptFriendRequest(friendshipId: string) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
   const { data, error } = await supabase
     .from("friendships")
     .update({
@@ -53,6 +58,8 @@ export async function acceptFriendRequest(friendshipId: string) {
       accepted_at: new Date().toISOString(),
     })
     .eq("id", friendshipId)
+    .eq("state", "pending")
+    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
     .select("id");
   if (error) throw error;
   if (!data || data.length === 0)
@@ -62,10 +69,16 @@ export async function acceptFriendRequest(friendshipId: string) {
 
 export async function removeFriend(friendshipId: string) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
   const { error } = await supabase
     .from("friendships")
     .delete()
-    .eq("id", friendshipId);
+    .eq("id", friendshipId)
+    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
   if (error) throw error;
   revalidatePath("/app/discover");
 }

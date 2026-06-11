@@ -1,11 +1,1 @@
-{
-  "version": "0.0.1",
-  "configurations": [
-    {
-      "name": "gigtrotter",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
-      "port": 3001
-    }
-  ]
-}
+﻿{"version":"0.0.1","configurations":[{"name":"gigtrotter-dev","runtimeExecutable":"npx","runtimeArgs":["next","dev","--port","3002"],"port":3002}]}

@@ -81,6 +81,10 @@ The events schema, browse/search UI, detail page, social features (interested/go
 - **Ticket affiliate links** — currently `is_affiliate` is a flag on `event_ticket_links`. Sign affiliate agreements with providers, then set the flag and swap URLs to tracked affiliate links.
 - **Admin dashboard** — at `/app/admin/metrics`, gated to markloughran7@gmail.com. Shows clicks by provider (total, 7d, 30d), top events, daily trend. Use this data to pitch partnerships: "We sent X clicks to Ticketmaster last month."
 
+## Down the line
+
+- **Capture pipeline refinement with Fable 5** — the parser prompt (`src/lib/capture/prompt.ts`), pipeline architecture (`src/lib/capture/pipeline.ts`), and complex RLS policies were built with Sonnet. A targeted rewrite of just these files with Fable 5 could improve edge-case handling in vision parsing, PII detection robustness, and encryption flow. Not a full rebuild — only the hard, multi-file capture pipeline work where the premium model adds real value. Do this after testing with real screenshots to learn what actually fails first.
+
 ## Still open (lower priority)
 
 - **Forwarding-address domain** — pick one: `capture.gigtrotter.com` / `tickets.gigtrotter.com` / `gt.email` / `wallet.gt`

@@ -222,6 +222,12 @@ export async function addToWalletFromEvent(
 
 export async function searchEvents(query: string, city?: string) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const sanitize = (v: string) => v.replace(/[,()\\"{}]/g, "");
 
   let q = supabase
     .from("events")
@@ -233,12 +239,13 @@ export async function searchEvents(query: string, city?: string) {
     .limit(30);
 
   if (query) {
+    const safe = sanitize(query);
     q = q.or(
-      `title.ilike.%${query}%,headliner.ilike.%${query}%,venue_name.ilike.%${query}%,artist_names.cs.{${query}}`,
+      `title.ilike.%${safe}%,headliner.ilike.%${safe}%,venue_name.ilike.%${safe}%,artist_names.cs.{${safe}}`,
     );
   }
   if (city) {
-    q = q.ilike("venue_city", `%${city}%`);
+    q = q.ilike("venue_city", `%${sanitize(city)}%`);
   }
 
   const { data } = await q;

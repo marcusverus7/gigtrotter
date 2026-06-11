@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { FeedbackButton } from "@/features/feedback/feedback-button";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -13,13 +14,15 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "GigTrotter — where your journey lives",
+    default: "GigTrotter — the gig never ends",
     template: "%s · GigTrotter",
   },
   description:
-    "Where your journey lives. The wallet that remembers — your tickets, flights and bookings quietly become a private map of your life.",
+    "Discover gigs, grab tickets, join the discussion, and build a map of every live experience you've ever had. Your music life, all in one place.",
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+    process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002",
   ),
   applicationName: "GigTrotter",
   appleWebApp: {
@@ -28,15 +31,15 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   openGraph: {
-    title: "GigTrotter — where your journey lives",
-    description: "The wallet that remembers. Your life, your map, your terms.",
+    title: "GigTrotter — the gig never ends",
+    description: "Discover, attend, share, remember. Your music life, all in one place.",
     type: "website",
     siteName: "GigTrotter",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GigTrotter — where your journey lives",
-    description: "The wallet that remembers.",
+    title: "GigTrotter — the gig never ends",
+    description: "Discover, attend, share, remember. Your music life, all in one place.",
   },
 };
 
@@ -52,7 +55,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${inter.variable} ${GeistMono.variable} font-sans`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <FeedbackButton />
+        </Providers>
       </body>
     </html>
   );

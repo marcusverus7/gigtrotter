@@ -45,7 +45,7 @@ export const serverEnv = {
     return required("ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY);
   },
   get anthropicParseModel() {
-    return process.env.ANTHROPIC_PARSE_MODEL ?? "claude-sonnet-4-6";
+    return process.env.ANTHROPIC_PARSE_MODEL ?? "claude-fable-5";
   },
   get inboundWebhookSecret() {
     return required("INBOUND_WEBHOOK_SECRET", process.env.INBOUND_WEBHOOK_SECRET);

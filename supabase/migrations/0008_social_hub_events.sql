@@ -7,6 +7,9 @@
 -- providers. Every outbound click is tracked for partnership metrics.
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- ── extensions ─────────────────────────────────────────────────────────────
+create extension if not exists postgis;
+
 -- ── enums ──────────────────────────────────────────────────────────────────
 create type event_category as enum (
   'concert', 'festival', 'club_night', 'theatre', 'comedy', 'sport', 'other'

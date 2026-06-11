@@ -66,10 +66,17 @@ export async function createDiscussionReply(input: {
     throw error;
   }
 
-  await supabase
+  const { data: post } = await supabase
     .from("discussion_posts")
-    .update({ reply_count: undefined })
-    .eq("id", input.postId);
+    .select("reply_count")
+    .eq("id", input.postId)
+    .single();
+  if (post) {
+    await supabase
+      .from("discussion_posts")
+      .update({ reply_count: (post.reply_count ?? 0) + 1 })
+      .eq("id", input.postId);
+  }
 
   revalidatePath(`/app/events/${input.eventId}/discussion`);
 }
@@ -174,7 +181,10 @@ export async function uploadDiscussionPhoto(formData: FormData) {
   if (!file) throw new Error("No file provided.");
   if (file.size > 5 * 1024 * 1024) throw new Error("Max 5MB per photo.");
 
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+  const rawExt = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED_EXT.has(rawExt)) throw new Error("Only jpg, png, webp, and gif images are allowed.");
+  const ext = rawExt;
   const path = `discussions/${user.id}/${Date.now()}.${ext}`;
 
   const { error } = await supabase.storage

@@ -6,9 +6,10 @@ import {
   ArrowRight,
   Camera,
   Check,
-  Forward,
+  MapPin,
+  MessageSquare,
+  Music,
   ScanLine,
-  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
@@ -78,28 +79,28 @@ export function OnboardingWizard({
           </div>
           <div className="space-y-3">
             <h1 className="text-3xl font-bold tracking-tight">
-              Where your journey lives.
+              The gig never ends.
             </h1>
             <p className="mx-auto max-w-md text-muted-foreground">
-              Your tickets, flights and bookings live here — and every one
-              quietly becomes a pin on a private map of your life.
+              Discover gigs, grab tickets, join the discussion, and build
+              a map of every live experience you&apos;ve ever had.
             </p>
           </div>
           <div className="mx-auto grid max-w-sm gap-3 text-left">
             <Feature
-              icon={ScanLine}
-              title="Screenshot capture"
-              desc="Share any ticket — AI extracts the details."
+              icon={Music}
+              title="Find your next gig"
+              desc="Discover events, see who's going, get hyped."
             />
             <Feature
-              icon={Forward}
-              title="Email forwarding"
-              desc="Forward confirmations to your personal address."
+              icon={MessageSquare}
+              title="Join the conversation"
+              desc="Got your ticket? You're in the chat."
             />
             <Feature
-              icon={ShieldCheck}
-              title="Privacy-first"
-              desc="Per-pin audiences. Future events hidden by default."
+              icon={MapPin}
+              title="Build your map"
+              desc="Every gig becomes a pin. Watch your collection grow."
             />
           </div>
           <Button size="lg" className="group" onClick={() => setStep(1)}>

@@ -60,6 +60,7 @@ export function LoginForm({
         <Button
           type="button"
           variant="outline"
+          aria-label="Sign in with Google"
           onClick={() => signInWithProvider("google")}
         >
           Google
@@ -67,6 +68,7 @@ export function LoginForm({
         <Button
           type="button"
           variant="outline"
+          aria-label="Sign in with Apple"
           onClick={() => signInWithProvider("apple")}
         >
           Apple
@@ -85,6 +87,7 @@ export function LoginForm({
             type="email"
             autoComplete="email"
             required
+            autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -109,6 +112,26 @@ export function LoginForm({
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Signing in…" : "Sign in"}
         </Button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!email.trim()) {
+              setError("Enter your email first.");
+              return;
+            }
+            setError(null);
+            startTransition(async () => {
+              const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/auth/callback?next=/app/settings`,
+              });
+              if (error) setError(error.message);
+              else setError("Check your inbox for a password reset link.");
+            });
+          }}
+          className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+        >
+          Forgot password?
+        </button>
       </form>
     </div>
   );

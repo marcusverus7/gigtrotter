@@ -61,10 +61,6 @@
   },
   "packageManager": "pnpm@11.0.9",
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "sharp",
-      "core-js",
-      "unrs-resolver"
-    ]
+    "onlyBuiltDependencies": ["*"]
   }
 }

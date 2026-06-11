@@ -48,3 +48,5 @@ Thumbs.db
 /eval/captures/*
 !/eval/captures/.gitkeep
 /eval/reports/
+
+.vercel

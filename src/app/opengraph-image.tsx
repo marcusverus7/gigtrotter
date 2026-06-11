@@ -2,15 +2,10 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
 export const alt =
-  "GigTrotter — the wallet that remembers. A capture-first ticket & travel wallet.";
+  "GigTrotter — discover gigs, build your map. The gig never ends.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-/**
- * Sitewide Open Graph image. Used when the landing page is linked anywhere
- * (iMessage, Slack, Twitter, etc.). Same look as /share/[id]/route.tsx but
- * with marketing copy in place of a specific pin.
- */
 export default function OpenGraphImage() {
   return new ImageResponse(
     (
@@ -27,7 +22,6 @@ export default function OpenGraphImage() {
           fontFamily: "Inter, system-ui",
         }}
       >
-        {/* Brand */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div
             style={{
@@ -54,7 +48,6 @@ export default function OpenGraphImage() {
           <div style={{ fontSize: 28, fontWeight: 600 }}>GigTrotter</div>
         </div>
 
-        {/* Headline */}
         <div
           style={{
             flex: 1,
@@ -74,7 +67,7 @@ export default function OpenGraphImage() {
               flexWrap: "wrap",
             }}
           >
-            <span>Where your</span>
+            <span>The gig</span>
             <span
               style={{
                 backgroundImage:
@@ -83,9 +76,9 @@ export default function OpenGraphImage() {
                 color: "transparent",
               }}
             >
-              journey
+              never
             </span>
-            <span>lives.</span>
+            <span>ends.</span>
           </div>
           <div
             style={{
@@ -97,7 +90,7 @@ export default function OpenGraphImage() {
               color: "#a78bfa",
             }}
           >
-            The wallet that remembers
+            Discover · Attend · Share · Remember
           </div>
           <div
             style={{
@@ -107,12 +100,11 @@ export default function OpenGraphImage() {
               maxWidth: 800,
             }}
           >
-            Your tickets, flights and bookings — and the private map of your
-            life that fills itself.
+            Find gigs, grab tickets, join the discussion, and build a map of
+            every live experience you&apos;ve ever had.
           </div>
         </div>
 
-        {/* Footer chips */}
         <div
           style={{
             display: "flex",
@@ -122,9 +114,9 @@ export default function OpenGraphImage() {
             fontFamily: "monospace",
           }}
         >
-          <span>· capture-first</span>
-          <span>· privacy-native</span>
-          <span>· map-as-identity</span>
+          <span>· gig discovery</span>
+          <span>· ticket wallet</span>
+          <span>· your life map</span>
         </div>
       </div>
     ),

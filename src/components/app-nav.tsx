@@ -13,42 +13,56 @@ export type NavItem = {
   badge?: number;
 };
 
-export function SidebarNav({ items }: { items: NavItem[] }) {
+export type NavGroup = {
+  label?: string;
+  items: NavItem[];
+};
+
+export function SidebarNav({ groups }: { groups: NavGroup[] }) {
   const pathname = usePathname();
 
   return (
-    <nav className="mt-2 flex flex-col gap-0.5">
-      {items.map((n) => {
-        const active =
-          n.href === "/app"
-            ? pathname === "/app"
-            : pathname.startsWith(n.href);
-        return (
-          <Link
-            key={n.href}
-            href={n.href}
-            className={cn(
-              "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-              active
-                ? "bg-primary/10 text-foreground font-medium"
-                : "text-muted-foreground hover:bg-primary/10 hover:text-foreground",
-            )}
-          >
-            <n.icon
-              className={cn(
-                "h-4 w-4 transition-colors",
-                active ? "text-primary" : "group-hover:text-primary",
-              )}
-            />
-            {n.label}
-            {n.badge ? (
-              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
-                {n.badge > 99 ? "99+" : n.badge}
-              </span>
-            ) : null}
-          </Link>
-        );
-      })}
+    <nav className="mt-2 flex flex-col gap-3 overflow-y-auto">
+      {groups.map((g, gi) => (
+        <div key={gi} className="flex flex-col gap-0.5">
+          {g.label && (
+            <span className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              {g.label}
+            </span>
+          )}
+          {g.items.map((n) => {
+            const active =
+              n.href === "/app"
+                ? pathname === "/app"
+                : pathname.startsWith(n.href);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                className={cn(
+                  "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                  active
+                    ? "bg-primary/10 text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-primary/10 hover:text-foreground",
+                )}
+              >
+                <n.icon
+                  className={cn(
+                    "h-4 w-4 transition-colors",
+                    active ? "text-primary" : "group-hover:text-primary",
+                  )}
+                />
+                {n.label}
+                {n.badge ? (
+                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                    {n.badge > 99 ? "99+" : n.badge}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }

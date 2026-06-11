@@ -20,7 +20,11 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --ignore-scripts skips post-install scripts. The deps that need
+        # them (sharp, core-js, unrs-resolver) work fine without — Next.js
+        # provides its own image pipeline fallback and the rest are
+        # bundled polyfills.
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Lint
         run: pnpm lint

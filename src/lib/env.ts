@@ -7,18 +7,22 @@
  * phase 0/1 when not every integration is wired yet.
  */
 
+function clean(v: string): string {
+  return v.replace(/[﻿​‌‍ ]/g, "").trim();
+}
+
 function required(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(
       `Missing required environment variable: ${name}. See .env.example.`,
     );
   }
-  return value;
+  return clean(value);
 }
 
 export const publicEnv = {
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  supabaseUrl: clean(process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""),
+  supabaseAnonKey: clean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""),
   mapboxToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "",
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   posthogKey: process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "",

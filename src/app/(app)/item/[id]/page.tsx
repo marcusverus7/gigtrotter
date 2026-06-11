@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 import { AudienceSelector } from "@/features/wallet/audience-selector";
 import { WhoElseGoing } from "@/features/wallet/who-else-going";
+import { ExperienceEditor } from "@/features/wallet/experience-editor";
 
 const ICONS = {
   ticket: TicketIcon,
@@ -55,10 +56,25 @@ export default async function WalletItemDetail({
 
   const { data: experience } = await supabase
     .from("experiences")
-    .select("id, audience, verified_by, rating, review")
+    .select("id, audience, verified_by, rating, review, photos")
     .eq("wallet_item_id", id)
     .eq("user_id", user.id)
     .maybeSingle();
+
+  // Sign URLs for any attached photos (private bucket).
+  const photoKeys = Array.isArray(experience?.photos)
+    ? (experience.photos as string[])
+    : [];
+  const photoUrls: { key: string; url: string }[] = [];
+  if (photoKeys.length > 0) {
+    const { data: signed } = await supabase.storage
+      .from("captures")
+      .createSignedUrls(photoKeys, 60 * 60);
+    for (let i = 0; i < photoKeys.length; i++) {
+      const url = signed?.[i]?.signedUrl;
+      if (url) photoUrls.push({ key: photoKeys[i], url });
+    }
+  }
 
   const Icon = ICONS[item.kind as keyof typeof ICONS] ?? TicketIcon;
   const venue = item.venues?.name
@@ -153,10 +169,20 @@ export default async function WalletItemDetail({
           <WhoElseGoing walletItemId={id} />
 
           {experience ? (
-            <AudienceSelector
-              experienceId={experience.id}
-              audience={experience.audience}
-            />
+            <>
+              <AudienceSelector
+                experienceId={experience.id}
+                audience={experience.audience}
+              />
+              {(endsAt && endsAt.getTime() < Date.now()) || experience.rating ? (
+                <ExperienceEditor
+                  experienceId={experience.id}
+                  initialRating={experience.rating ?? null}
+                  initialReview={experience.review ?? null}
+                  photoUrls={photoUrls}
+                />
+              ) : null}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">
               This becomes a pin on your map once the event has ended.

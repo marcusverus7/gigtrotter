@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
+  Activity,
   Bell,
   Bookmark,
   Compass,
   Eye,
   Globe2,
+  History,
   Moon,
   Plane,
   Settings,
@@ -32,6 +34,8 @@ const nav = [
   { href: "/app/capture", label: "Capture", icon: Upload },
   { href: "/app/wishlist", label: "Wishlist", icon: Bookmark },
   { href: "/app/alerts", label: "Alerts", icon: Bell },
+  { href: "/app/activity", label: "Activity", icon: Activity },
+  { href: "/app/memories", label: "Memories", icon: History },
   { href: "/app/achievements", label: "Achievements", icon: Trophy },
   { href: "/app/anon", label: "Anon board", icon: Eye },
   { href: "/app/discover", label: "People", icon: Compass },

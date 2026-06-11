@@ -61,10 +61,11 @@ export default async function AnonBoardPage({
   // Bump view count — only on initial page load.
   await supabase.rpc("bump_anon_view", { handle });
 
-  const kindCounts = (pins ?? []).reduce<Record<string, number>>((acc, p) => {
-    acc[p.kind] = (acc[p.kind] ?? 0) + 1;
-    return acc;
-  }, {});
+  const kindCounts: Record<string, number> = {};
+  for (const p of pins ?? []) {
+    const k = (p as { kind: string }).kind;
+    kindCounts[k] = (kindCounts[k] ?? 0) + 1;
+  }
 
   return (
     <main className="bg-aurora min-h-screen">

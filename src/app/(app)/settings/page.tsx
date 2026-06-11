@@ -40,9 +40,8 @@ export default async function SettingsPage() {
 
   async function downloadExport() {
     "use server";
-    const data = await exportMyData();
-    // For now we just touch the DB; phase 8 emails an archive.
-    return data;
+    // Phase 8 will email the archive; for now we just touch the DB.
+    await exportMyData();
   }
 
   return (

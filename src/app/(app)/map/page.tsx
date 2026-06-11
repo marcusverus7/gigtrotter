@@ -35,7 +35,16 @@ export default async function MapPage() {
 
   const pins = (experiences ?? [])
     .map((e) => {
-      const v = (e as { venues: { lat: number | null; lng: number | null; city_lat: number | null; city_lng: number | null; name: string | null; city: string | null; country: string | null } | null }).venues;
+      const venuesRaw = (e as { venues: unknown }).venues;
+      const v = (Array.isArray(venuesRaw) ? venuesRaw[0] : venuesRaw) as {
+        lat: number | null;
+        lng: number | null;
+        city_lat: number | null;
+        city_lng: number | null;
+        name: string | null;
+        city: string | null;
+        country: string | null;
+      } | null;
       const lng = v?.lng ?? v?.city_lng;
       const lat = v?.lat ?? v?.city_lat;
       if (lat == null || lng == null) return null;

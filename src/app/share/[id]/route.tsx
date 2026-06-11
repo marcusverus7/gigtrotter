@@ -37,7 +37,12 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  const venue = (exp as { venues: { city: string | null; country: string | null; name: string | null } | null }).venues;
+  const venuesRaw = (exp as { venues: unknown }).venues;
+  const venue = (Array.isArray(venuesRaw) ? venuesRaw[0] : venuesRaw) as {
+    city: string | null;
+    country: string | null;
+    name: string | null;
+  } | null;
   const place = [venue?.name, venue?.city, venue?.country].filter(Boolean).join(" · ");
   const dateLabel = new Intl.DateTimeFormat("en-GB", {
     day: "numeric",

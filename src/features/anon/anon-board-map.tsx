@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import mapboxgl, { type Map, type Marker } from "mapbox-gl";
+import mapboxgl from "mapbox-gl";
+import type { Map as MapboxMap, Marker } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import { publicEnv } from "@/lib/env";
@@ -26,7 +27,7 @@ type AnonPin = {
  */
 export function AnonBoardMap({ pins }: { pins: AnonPin[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<Map | null>(null);
+  const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
 
   useEffect(() => {

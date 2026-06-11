@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import mapboxgl, { type Map, type Marker, type Popup } from "mapbox-gl";
+import mapboxgl from "mapbox-gl";
+import type { Map as MapboxMap, Marker, Popup } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,7 @@ export type Pin = {
  */
 export function TravelBoard({ pins }: { pins: Pin[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<Map | null>(null);
+  const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const popupRef = useRef<Popup | null>(null);
   const [filter, setFilter] = useState<WalletKind | "all">("all");

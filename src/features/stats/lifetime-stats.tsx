@@ -44,7 +44,13 @@ export async function LifetimeStats({ userId }: { userId: string }) {
   const venues = new Set(venuesRows?.map((r) => r.venue_id)).size;
   const countries = new Set(
     (countryRows ?? [])
-      .map((r) => (r as { venues: { country: string | null } | null }).venues?.country)
+      .map((r) => {
+        const v = (r as { venues: unknown }).venues;
+        const item = (Array.isArray(v) ? v[0] : v) as
+          | { country: string | null }
+          | null;
+        return item?.country;
+      })
       .filter(Boolean),
   ).size;
 

@@ -1,13 +1,12 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { publicEnv, serverEnv } from "@/lib/env";
-import type { Database } from "@/lib/supabase/types";
 
 /** Server-side Supabase client (RSC + route handlers). Honours user session. */
 export async function createClient() {
   const cookieStore = await cookies();
-  return createServerClient<Database>(
+  return createServerClient(
     publicEnv.supabaseUrl,
     publicEnv.supabaseAnonKey,
     {
@@ -15,7 +14,9 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(
+          cookiesToSet: { name: string; value: string; options: CookieOptions }[],
+        ) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
@@ -34,7 +35,7 @@ export async function createClient() {
  * (inbound webhook, scheduled jobs). Never expose to client code paths.
  */
 export function createServiceClient() {
-  return createServerClient<Database>(
+  return createServerClient(
     publicEnv.supabaseUrl,
     serverEnv.supabaseServiceRoleKey,
     {

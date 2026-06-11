@@ -59,7 +59,7 @@ export default async function WalletItemDetail({
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const Icon = ICONS[item.kind] ?? TicketIcon;
+  const Icon = ICONS[item.kind as keyof typeof ICONS] ?? TicketIcon;
   const venue = item.venues?.name
     ? [item.venues.name, item.venues.city, item.venues.country]
         .filter(Boolean)

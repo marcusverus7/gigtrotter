@@ -2,10 +2,11 @@
 
 Things I can't decide or do without you. Ranked by what blocks the most downstream work.
 
+> **Repo is live:** https://github.com/marcusverus7/gigtrotter (private). Nine commits — phases 0–7 + the interactive-globe polish. CI runs on push.
+
 ## Now (blocks deploy)
 
-1. **GitHub repo name.** Default I'm going with: `gigtrotter`. Says it's fine or rename before I push. Visibility: I'll create **private** by default — flip with `gh repo edit --visibility public` later.
-2. **Supabase project.** I can write migrations but can't provision a project for you. Create at https://supabase.com/dashboard → drop the URL + anon + service-role keys into `.env.local`. Then `supabase link --project-ref <ref>` and `supabase db push`.
+1. **Supabase project.** I can write migrations but can't provision a project for you. Create at https://supabase.com/dashboard → drop the URL + anon + service-role keys into `.env.local`. Then `supabase link --project-ref <ref>` and `supabase db push`.
 3. **Anthropic API key.** Drop into `ANTHROPIC_API_KEY`. Phase 2 capture parsing is dead without it. Pricing: ~£0.01 per parse with Sonnet 4.6.
 4. **Mapbox token.** Free tier is fine. Drop into `NEXT_PUBLIC_MAPBOX_TOKEN`. The Travel Board renders a static placeholder without it.
 5. **Vercel project.** `vercel link` from the repo root, then `vercel env pull` to sync. Or use the dashboard import-from-GitHub flow.

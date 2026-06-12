@@ -1,24 +1,5 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import {
-  Activity,
-  Bell,
-  Bookmark,
-  CalendarSearch,
-  Compass,
-  Download,
-  Eye,
-  Globe2,
-  History,
-  Moon,
-  Plane,
-  Settings,
-  ShoppingBag,
-  Shirt,
-  Ticket,
-  Trophy,
-  Upload,
-} from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GigTrotterMark } from "@/components/brand";
@@ -27,53 +8,10 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
-import { SidebarNav, BottomNav, type NavGroup } from "@/components/app-nav";
+import { SidebarNav, BottomNav } from "@/components/app-nav";
 import { CommandPalette } from "@/features/search/command-palette";
 import { PageTransition } from "@/components/page-transition";
 import { SidebarSearchTrigger } from "@/features/search/sidebar-search-trigger";
-
-const navGroups: NavGroup[] = [
-  {
-    items: [
-      { href: "/app", label: "Wallet", icon: Ticket },
-      { href: "/app/night", label: "Tonight", icon: Moon },
-      { href: "/app/capture", label: "Capture", icon: Upload },
-    ],
-  },
-  {
-    label: "Discover",
-    items: [
-      { href: "/app/events", label: "Events", icon: CalendarSearch },
-      { href: "/app/marketplace", label: "Marketplace", icon: ShoppingBag },
-      { href: "/app/merch", label: "Merch Store", icon: Shirt },
-      { href: "/app/discover", label: "People", icon: Compass },
-    ],
-  },
-  {
-    label: "Your collection",
-    items: [
-      { href: "/app/map", label: "Map", icon: Globe2 },
-      { href: "/app/trips", label: "Trips", icon: Plane },
-      { href: "/app/memories", label: "Memories", icon: History },
-      { href: "/app/achievements", label: "Achievements", icon: Trophy },
-      { href: "/app/anon", label: "Public Board", icon: Eye },
-    ],
-  },
-  {
-    label: "Activity",
-    items: [
-      { href: "/app/alerts", label: "Alerts", icon: Bell },
-      { href: "/app/activity", label: "Activity", icon: Activity },
-      { href: "/app/wishlist", label: "Wishlist", icon: Bookmark },
-    ],
-  },
-  {
-    items: [
-      { href: "/app/import", label: "Import", icon: Download },
-      { href: "/app/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
 
 export default async function AppLayout({
   children,
@@ -118,13 +56,6 @@ export default async function AppLayout({
 
   const { data: unreadCount } = await supabase.rpc("unread_alert_count", { target_user: user.id });
   const alertBadge = typeof unreadCount === "number" && unreadCount > 0 ? unreadCount : undefined;
-  const navGroupsWithBadges = navGroups.map((g) => ({
-    ...g,
-    items: g.items.map((n) =>
-      n.href === "/app/alerts" && alertBadge ? { ...n, badge: alertBadge } : n,
-    ),
-  }));
-  const flatNavWithBadges = navGroupsWithBadges.flatMap((g) => g.items);
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background md:flex-row">
@@ -138,7 +69,7 @@ export default async function AppLayout({
           <GigTrotterMark />
         </Link>
         <SidebarSearchTrigger />
-        <SidebarNav groups={navGroupsWithBadges} />
+        <SidebarNav alertBadge={alertBadge} />
         <div className="mt-auto space-y-3">
           <Separator />
           <div className="flex items-center gap-3 px-2">
@@ -180,7 +111,7 @@ export default async function AppLayout({
         </main>
 
         {/* Bottom tab bar — mobile only */}
-        <BottomNav items={flatNavWithBadges.slice(0, 5)} />
+        <BottomNav alertBadge={alertBadge} />
       </div>
 
       {/* Cmd+K palette */}

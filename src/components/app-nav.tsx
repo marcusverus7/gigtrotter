@@ -2,7 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  Bookmark,
+  CalendarSearch,
+  Compass,
+  Download,
+  Eye,
+  Globe2,
+  History,
+  Moon,
+  Plane,
+  Settings,
+  ShoppingBag,
+  Shirt,
+  Ticket,
+  Trophy,
+  Upload,
+  type LucideIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -18,8 +37,62 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-export function SidebarNav({ groups }: { groups: NavGroup[] }) {
+const navGroups: NavGroup[] = [
+  {
+    items: [
+      { href: "/app", label: "Wallet", icon: Ticket },
+      { href: "/app/night", label: "Tonight", icon: Moon },
+      { href: "/app/capture", label: "Capture", icon: Upload },
+    ],
+  },
+  {
+    label: "Discover",
+    items: [
+      { href: "/app/events", label: "Events", icon: CalendarSearch },
+      { href: "/app/marketplace", label: "Marketplace", icon: ShoppingBag },
+      { href: "/app/merch", label: "Merch Store", icon: Shirt },
+      { href: "/app/discover", label: "People", icon: Compass },
+    ],
+  },
+  {
+    label: "Your collection",
+    items: [
+      { href: "/app/map", label: "Map", icon: Globe2 },
+      { href: "/app/trips", label: "Trips", icon: Plane },
+      { href: "/app/memories", label: "Memories", icon: History },
+      { href: "/app/achievements", label: "Achievements", icon: Trophy },
+      { href: "/app/anon", label: "Public Board", icon: Eye },
+    ],
+  },
+  {
+    label: "Activity",
+    items: [
+      { href: "/app/alerts", label: "Alerts", icon: Bell },
+      { href: "/app/activity", label: "Activity", icon: Activity },
+      { href: "/app/wishlist", label: "Wishlist", icon: Bookmark },
+    ],
+  },
+  {
+    items: [
+      { href: "/app/import", label: "Import", icon: Download },
+      { href: "/app/settings", label: "Settings", icon: Settings },
+    ],
+  },
+];
+
+function applyBadges(groups: NavGroup[], alertBadge?: number): NavGroup[] {
+  if (!alertBadge) return groups;
+  return groups.map((g) => ({
+    ...g,
+    items: g.items.map((n) =>
+      n.href === "/app/alerts" ? { ...n, badge: alertBadge } : n,
+    ),
+  }));
+}
+
+export function SidebarNav({ alertBadge }: { alertBadge?: number }) {
   const pathname = usePathname();
+  const groups = applyBadges(navGroups, alertBadge);
 
   return (
     <nav className="mt-2 flex flex-col gap-3 overflow-y-auto">
@@ -67,8 +140,11 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
   );
 }
 
-export function BottomNav({ items }: { items: NavItem[] }) {
+export function BottomNav({ alertBadge }: { alertBadge?: number }) {
   const pathname = usePathname();
+  const items = applyBadges(navGroups, alertBadge)
+    .flatMap((g) => g.items)
+    .slice(0, 5);
 
   return (
     <nav className="sticky bottom-0 z-40 flex justify-around border-t border-border/40 bg-card/80 p-2 backdrop-blur-xl md:hidden">

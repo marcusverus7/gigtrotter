@@ -182,8 +182,10 @@ export async function uploadDiscussionPhoto(formData: FormData) {
   if (file.size > 5 * 1024 * 1024) throw new Error("Max 5MB per photo.");
 
   const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+  const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
   const rawExt = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (!ALLOWED_EXT.has(rawExt)) throw new Error("Only jpg, png, webp, and gif images are allowed.");
+  if (!ALLOWED_EXT.has(rawExt) || !ALLOWED_MIME.has(file.type))
+    throw new Error("Only jpg, png, webp, and gif images are allowed.");
   const ext = rawExt;
   const path = `discussions/${user.id}/${Date.now()}.${ext}`;
 

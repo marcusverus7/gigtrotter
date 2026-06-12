@@ -227,7 +227,7 @@ export async function searchEvents(query: string, city?: string) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const sanitize = (v: string) => v.replace(/[,()\\"{}]/g, "");
+  const sanitize = (v: string) => v.replace(/[^a-zA-Z0-9 '\-]/g, "").slice(0, 200);
 
   let q = supabase
     .from("events")
@@ -240,9 +240,12 @@ export async function searchEvents(query: string, city?: string) {
 
   if (query) {
     const safe = sanitize(query);
-    q = q.or(
-      `title.ilike.%${safe}%,headliner.ilike.%${safe}%,venue_name.ilike.%${safe}%,artist_names.cs.{${safe}}`,
-    );
+    if (safe) {
+      const pattern = `%${safe}%`;
+      q = q.or(
+        `title.ilike.${pattern},headliner.ilike.${pattern},venue_name.ilike.${pattern}`,
+      );
+    }
   }
   if (city) {
     q = q.ilike("venue_city", `%${sanitize(city)}%`);

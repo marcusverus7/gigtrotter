@@ -44,8 +44,10 @@ export function SubmitEventForm({
   const [venueName, setVenueName] = useState("");
   const [venueCity, setVenueCity] = useState("");
   const [venueCountry, setVenueCountry] = useState("UK");
-  const [startsAt, setStartsAt] = useState("");
-  const [doorsAt, setDoorsAt] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("19:00");
+  const [doorsDate, setDoorsDate] = useState("");
+  const [doorsTime, setDoorsTime] = useState("18:00");
   const [imageUrl, setImageUrl] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
@@ -70,8 +72,12 @@ export function SubmitEventForm({
           venueName: venueName || null,
           venueCity: venueCity || null,
           venueCountry: venueCountry || null,
-          startsAt: startsAt ? new Date(startsAt).toISOString() : null,
-          doorsAt: doorsAt ? new Date(doorsAt).toISOString() : null,
+          startsAt: startDate
+            ? new Date(`${startDate}T${startTime || "19:00"}`).toISOString()
+            : null,
+          doorsAt: doorsDate
+            ? new Date(`${doorsDate}T${doorsTime || "18:00"}`).toISOString()
+            : null,
           imageUrl: imageUrl || null,
           minPriceCents: minPrice ? Math.round(parseFloat(minPrice) * 100) : null,
           maxPriceCents: maxPrice ? Math.round(parseFloat(maxPrice) * 100) : null,
@@ -108,8 +114,10 @@ export function SubmitEventForm({
             setHeadliner("");
             setArtists("");
             setVenueName("");
-            setStartsAt("");
-            setDoorsAt("");
+            setStartDate("");
+            setStartTime("19:00");
+            setDoorsDate("");
+            setDoorsTime("18:00");
             setImageUrl("");
             setMinPrice("");
             setMaxPrice("");
@@ -217,22 +225,40 @@ export function SubmitEventForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="ev-starts">Event starts *</Label>
+          <Label htmlFor="ev-start-date">Event date *</Label>
           <Input
-            id="ev-starts"
-            type="datetime-local"
-            value={startsAt}
-            onChange={(e) => setStartsAt(e.target.value)}
+            id="ev-start-date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
             required
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ev-doors">Doors open</Label>
+          <Label htmlFor="ev-start-time">Start time</Label>
           <Input
-            id="ev-doors"
-            type="datetime-local"
-            value={doorsAt}
-            onChange={(e) => setDoorsAt(e.target.value)}
+            id="ev-start-time"
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ev-doors-date">Doors date</Label>
+          <Input
+            id="ev-doors-date"
+            type="date"
+            value={doorsDate}
+            onChange={(e) => setDoorsDate(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ev-doors-time">Doors time</Label>
+          <Input
+            id="ev-doors-time"
+            type="time"
+            value={doorsTime}
+            onChange={(e) => setDoorsTime(e.target.value)}
           />
         </div>
       </div>

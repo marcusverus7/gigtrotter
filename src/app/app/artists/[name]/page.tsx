@@ -31,12 +31,14 @@ export default async function ArtistPage({
   params: Promise<{ name: string }>;
 }) {
   const { name } = await params;
-  const artistName = decodeURIComponent(name);
+  const artistName = decodeURIComponent(name).replace(/[^a-zA-Z0-9 '\-]/g, "").slice(0, 200);
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const pattern = `%${artistName}%`;
 
   // Upcoming events featuring this artist
   const { data: events } = await supabase
@@ -44,7 +46,7 @@ export default async function ArtistPage({
     .select(
       "id, title, headliner, artist_names, category, venue_name, venue_city, venue_country, starts_at, image_url, min_price_cents, currency, is_sold_out, tags",
     )
-    .or(`headliner.ilike.%${artistName}%,artist_names.cs.{${artistName}}`)
+    .or(`headliner.ilike.${pattern},venue_name.ilike.${pattern}`)
     .gte("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: true })
     .limit(20);
@@ -54,7 +56,7 @@ export default async function ArtistPage({
     .from("wallet_items")
     .select("id, title, starts_at, subtitle")
     .eq("user_id", user.id)
-    .or(`title.ilike.%${artistName}%,subtitle.ilike.%${artistName}%`)
+    .or(`title.ilike.${pattern},subtitle.ilike.${pattern}`)
     .order("starts_at", { ascending: false })
     .limit(10);
 

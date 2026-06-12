@@ -19,7 +19,7 @@ const MAX_PER_KIND = 6;
  * to similarity ranking later without changing the call site.
  */
 function sanitize(value: string): string {
-  return value.replace(/[,()\\"{}]/g, "");
+  return value.replace(/[^a-zA-Z0-9 '\-]/g, "").slice(0, 200);
 }
 
 export async function search(query: string): Promise<SearchHit[]> {

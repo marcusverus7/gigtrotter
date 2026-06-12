@@ -116,7 +116,7 @@ export default async function AppLayout({
       .slice(0, 2)
       .toUpperCase();
 
-  const { data: unreadCount } = await supabase.rpc("unread_alert_count");
+  const { data: unreadCount } = await supabase.rpc("unread_alert_count", { target_user: user.id });
   const alertBadge = typeof unreadCount === "number" && unreadCount > 0 ? unreadCount : undefined;
   const navGroupsWithBadges = navGroups.map((g) => ({
     ...g,

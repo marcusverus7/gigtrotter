@@ -118,7 +118,7 @@ function PostItem({
                 Verified
               </Badge>
             ) : null}
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground" suppressHydrationWarning>
               {timeAgo(post.created_at)}
             </span>
             {isOwn ? (
@@ -217,7 +217,7 @@ function PostItem({
                     {reply.author.purchased_via_platform ? (
                       <Shield className="h-2.5 w-2.5 fill-primary text-primary" />
                     ) : null}
-                    <span className="text-[9px] text-muted-foreground">
+                    <span className="text-[9px] text-muted-foreground" suppressHydrationWarning>
                       {timeAgo(reply.created_at)}
                     </span>
                   </div>

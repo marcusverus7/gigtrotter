@@ -188,6 +188,7 @@ function DateLine({
         "text-sm",
         hero ? "font-medium" : "text-muted-foreground",
       )}
+      suppressHydrationWarning
     >
       {fmt.format(start)}
     </span>

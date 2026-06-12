@@ -245,7 +245,7 @@ function ScheduleRow({
         <Icon className="h-3 w-3" />
         {label}
       </div>
-      <div className="mt-0.5 text-base font-medium">{value}</div>
+      <div className="mt-0.5 text-base font-medium" suppressHydrationWarning>{value}</div>
     </div>
   );
 }

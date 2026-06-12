@@ -122,7 +122,7 @@ export function EventCard({ event }: { event: EventSummary }) {
             </p>
           ) : null}
           {event.starts_at ? (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <p className="flex items-center gap-1 text-xs text-muted-foreground" suppressHydrationWarning>
               <Calendar className="h-3 w-3" />
               {new Intl.DateTimeFormat(undefined, {
                 weekday: "short",

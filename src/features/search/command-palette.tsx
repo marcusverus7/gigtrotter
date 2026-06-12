@@ -166,7 +166,7 @@ export function CommandPalette() {
                         {KIND_LABEL[hit.kind]}
                       </span>
                       {date ? (
-                        <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
+                        <span className="hidden font-mono text-xs text-muted-foreground sm:inline" suppressHydrationWarning>
                           {date}
                         </span>
                       ) : null}

@@ -93,7 +93,7 @@ export function ListingCard({
       </CardHeader>
       <CardContent className="space-y-3 pt-4">
         {w.starts_at ? (
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1 text-xs text-muted-foreground" suppressHydrationWarning>
             <Calendar className="h-3 w-3" />
             {new Intl.DateTimeFormat(undefined, {
               weekday: "short",

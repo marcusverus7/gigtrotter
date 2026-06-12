@@ -330,7 +330,7 @@ function Tile({ row, index }: { row: Row; index: number }) {
             </p>
           ) : null}
         </div>
-        <span className="font-mono text-xs tnum text-muted-foreground shrink-0">
+        <span className="font-mono text-xs tnum text-muted-foreground shrink-0" suppressHydrationWarning>
           {monthLabel}
         </span>
       </a>

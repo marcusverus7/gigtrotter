@@ -73,7 +73,7 @@ export function ListMyTicketsForm({ items }: { items: Item[] }) {
             </SelectTrigger>
             <SelectContent>
               {items.map((i) => (
-                <SelectItem key={i.id} value={i.id}>
+                <SelectItem key={i.id} value={i.id} suppressHydrationWarning>
                   {i.title}
                   {i.starts_at
                     ? ` · ${new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(new Date(i.starts_at))}`

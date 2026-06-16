@@ -202,6 +202,99 @@ export default function PrivacyPage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-4xl px-6 py-12">
+        <h2 className="mb-6 text-2xl font-semibold">Privacy Policy</h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Effective date: 16 June 2026 &middot; Last updated: 16 June 2026
+        </p>
+        <div className="space-y-4">
+          <DetailSection title="1. Who we are">
+            <p className="text-sm">
+              GigTrotter (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a live-music and event tracking
+              service operated by GigTrotter Ltd. Questions about this policy can
+              be sent to{" "}
+              <a href="mailto:privacy@gigtrotter.app" className="text-secondary hover:underline">
+                privacy@gigtrotter.app
+              </a>
+              .
+            </p>
+          </DetailSection>
+          <DetailSection title="2. Data we collect">
+            <ul className="list-disc space-y-1 pl-6 text-sm">
+              <li>Account information: email, display name, avatar.</li>
+              <li>Event data: captures you share with us (ticket screenshots, booking confirmations) and the structured metadata we parse from them (event name, date, venue).</li>
+              <li>Usage data: pages viewed, features used, device type, and IP address (anonymised after 30 days).</li>
+              <li>Optional data: profile bio, friend connections, venue reviews, discussion posts.</li>
+            </ul>
+          </DetailSection>
+          <DetailSection title="3. How we use your data">
+            <ul className="list-disc space-y-1 pl-6 text-sm">
+              <li>To provide and improve the GigTrotter service.</li>
+              <li>To populate your wallet, map, and stats pages.</li>
+              <li>To send service-critical notifications (e.g. event reminders you opted into).</li>
+              <li>We do not sell your data. We do not serve behavioural advertising.</li>
+            </ul>
+          </DetailSection>
+          <DetailSection title="4. Data sharing">
+            <ul className="list-disc space-y-1 pl-6 text-sm">
+              <li>With other users: only the data you explicitly share via your chosen audience circle (Vault, Inner Circle, Friends, or Open).</li>
+              <li>With service providers: hosting (Vercel), database (Supabase), authentication (Supabase Auth), file storage (Supabase Storage). All EU/UK GDPR-compliant.</li>
+              <li>With law enforcement: only when required by law.</li>
+            </ul>
+          </DetailSection>
+          <DetailSection title="5. Data retention &amp; deletion">
+            <p className="text-sm">
+              We retain your data for as long as your account is active. You can
+              export all your data as JSON at any time from Settings. You can
+              delete your account at any time, which permanently removes all
+              associated data within 30 days.
+            </p>
+          </DetailSection>
+          <DetailSection title="6. Security">
+            <p className="text-sm">
+              All data is encrypted in transit (TLS 1.3) and at rest. Booking
+              references, barcodes, and personal details in captures are
+              additionally encrypted with per-user keys. We follow OWASP best
+              practices and enforce row-level security at the database layer.
+            </p>
+          </DetailSection>
+          <DetailSection title="7. Your rights">
+            <ul className="list-disc space-y-1 pl-6 text-sm">
+              <li>Access: view all your data within the app or export as JSON.</li>
+              <li>Rectification: edit your profile and event data at any time.</li>
+              <li>Erasure: delete your account and all associated data.</li>
+              <li>Portability: export your data in a machine-readable format.</li>
+              <li>Objection: contact us to opt out of any processing.</li>
+            </ul>
+          </DetailSection>
+          <DetailSection title="8. Children">
+            <p className="text-sm">
+              GigTrotter is not directed at children under 13. We do not
+              knowingly collect personal information from children under 13. If
+              you believe a child has provided us with personal data, contact us
+              and we will delete it.
+            </p>
+          </DetailSection>
+          <DetailSection title="9. Changes to this policy">
+            <p className="text-sm">
+              We may update this policy from time to time. Material changes will
+              be communicated via in-app notification or email. Continued use of
+              GigTrotter after changes constitutes acceptance of the updated
+              policy.
+            </p>
+          </DetailSection>
+          <DetailSection title="10. Contact">
+            <p className="text-sm">
+              For privacy-related questions, email{" "}
+              <a href="mailto:privacy@gigtrotter.app" className="text-secondary hover:underline">
+                privacy@gigtrotter.app
+              </a>
+              .
+            </p>
+          </DetailSection>
+        </div>
+      </section>
+
       <section className="mx-auto max-w-3xl px-6 py-20 text-center">
         <h2 className="text-3xl font-semibold tracking-tight">
           Privacy-first, gig-obsessed.

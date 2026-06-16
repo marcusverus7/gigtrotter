@@ -48,10 +48,15 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: true
 
-      - name: Install CocoaPods dependencies
+      # Capacitor 8 defaults to Swift Package Manager, so a Podfile usually
+      # won't exist. Only run pod install when the project actually uses pods.
+      - name: Install CocoaPods dependencies (if needed)
         run: |
-          cd ios/App
-          pod install
+          if [ -f ios/App/Podfile ]; then
+            cd ios/App && pod install
+          else
+            echo "No Podfile found — project uses Swift Package Manager, skipping pod install."
+          fi
 
       - name: Build and upload to App Store Connect
         env:

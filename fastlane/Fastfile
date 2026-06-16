@@ -3,7 +3,10 @@ default_platform(:ios)
 APP_IDENTIFIER = "com.gigtrotter.app"
 # Team ID for the GigTrotter Apple Developer account.
 DEVELOPMENT_TEAM = ENV["DEVELOPMENT_TEAM"] || "JQS67937W6"
+# CocoaPods produces an .xcworkspace; a Swift Package Manager project only has
+# the .xcodeproj. Use whichever exists.
 WORKSPACE = "ios/App/App.xcworkspace"
+PROJECT = "ios/App/App.xcodeproj"
 SCHEME = "App"
 PROFILE = "match AppStore #{APP_IDENTIFIER}"
 
@@ -43,8 +46,9 @@ platform :ios do
       readonly: true
     )
 
+    build_args = File.exist?(WORKSPACE) ? { workspace: WORKSPACE } : { project: PROJECT }
     build_app(
-      workspace: WORKSPACE,
+      **build_args,
       scheme: SCHEME,
       export_method: "app-store",
       export_options: {

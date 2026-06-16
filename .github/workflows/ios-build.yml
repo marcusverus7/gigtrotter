@@ -1,0 +1,72 @@
+name: iOS Build & Upload
+
+# Builds the Capacitor iOS shell on a cloud macOS runner and uploads it to
+# App Store Connect / TestFlight. Trigger manually from the Actions tab, or it
+# runs automatically when the mobile shell or this workflow changes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "capacitor.config.ts"
+      - "ios-shell/**"
+      - "fastlane/**"
+      - "Gemfile"
+      - ".github/workflows/ios-build.yml"
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate native iOS project
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Set version and build number
+        run: |
+          cd ios/App
+          agvtool new-marketing-version 1.0
+          agvtool new-version -all ${{ github.run_number }}
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios/App
+          pod install
+
+      - name: Build and upload to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+        run: bundle exec fastlane release
+
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gigtrotter-ipa
+          path: "**/*.ipa"
+          if-no-files-found: ignore

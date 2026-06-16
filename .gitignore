@@ -44,6 +44,16 @@ pnpm-debug.log*
 # OS
 Thumbs.db
 
+# Capacitor / iOS — the native project is generated fresh in CI by `cap add ios`
+/ios
+/android
+.env.fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output
+*.ipa
+*.dSYM.zip
+
 # Eval corpus contains PII (real tickets)
 /eval/captures/*
 !/eval/captures/.gitkeep

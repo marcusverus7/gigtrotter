@@ -1,0 +1,67 @@
+default_platform(:ios)
+
+APP_IDENTIFIER = "com.gigtrotter.app"
+# Team ID for the GigTrotter Apple Developer account.
+DEVELOPMENT_TEAM = ENV["DEVELOPMENT_TEAM"] || "JQS67937W6"
+WORKSPACE = "ios/App/App.xcworkspace"
+SCHEME = "App"
+PROFILE = "match AppStore #{APP_IDENTIFIER}"
+
+platform :ios do
+  # Loads the App Store Connect API key from CI environment variables.
+  # ASC_KEY_P8 is the base64-encoded contents of the AuthKey_XXXX.p8 file.
+  def asc_api_key
+    app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_KEY_P8"],
+      is_key_content_base64: true,
+      in_house: false
+    )
+  end
+
+  desc "Create/refresh the distribution certificate and provisioning profile"
+  lane :certificates do
+    match(
+      type: "appstore",
+      app_identifier: APP_IDENTIFIER,
+      api_key: asc_api_key,
+      readonly: false
+    )
+  end
+
+  desc "Build the iOS app and upload it to App Store Connect (TestFlight)"
+  lane :release do
+    api_key = asc_api_key
+
+    # Fetch signing assets stored by match (read-only on CI so runs can't
+    # clobber the shared certificate repo).
+    match(
+      type: "appstore",
+      app_identifier: APP_IDENTIFIER,
+      api_key: api_key,
+      readonly: true
+    )
+
+    build_app(
+      workspace: WORKSPACE,
+      scheme: SCHEME,
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          APP_IDENTIFIER => PROFILE
+        }
+      },
+      xcargs: [
+        "CODE_SIGN_STYLE=Manual",
+        "DEVELOPMENT_TEAM=#{DEVELOPMENT_TEAM}",
+        "PROVISIONING_PROFILE_SPECIFIER='#{PROFILE}'"
+      ].join(" ")
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end

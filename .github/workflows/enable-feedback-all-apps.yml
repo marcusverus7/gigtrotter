@@ -59,7 +59,8 @@ jobs:
             GROUPS=$(curl -sg -H "Authorization: Bearer ${JWT}" \
               "${BASE}/apps/${APP_ID}/betaGroups?limit=50")
 
-            echo "  Raw groups response: $(echo "$GROUPS" | jq '{count:(.data|length), keys:(.data[0].attributes|keys)}' 2>/dev/null || echo "$GROUPS" | head -c 200)"
+            echo "  Raw groups response (first 500 chars):"
+            echo "$GROUPS" | cut -c1-500
 
             GROUP_COUNT=$(echo "$GROUPS" | jq '.data | length' 2>/dev/null || echo 0)
             if [ "$GROUP_COUNT" = "0" ]; then

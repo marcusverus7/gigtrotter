@@ -30,74 +30,115 @@ jobs:
           echo "JWT ready"
 
       - name: Enable feedbackEnabled on all beta groups for all apps
-        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
-          set +e   # don't abort on non-zero; we handle errors explicitly
-          JWT=$(cat /tmp/jwt.txt)
-          BASE="https://api.appstoreconnect.apple.com/v1"
+          cat > /tmp/enable_feedback.js << 'JSEOF'
+          const https = require('node:https');
+          const crypto = require('node:crypto');
 
-          # Get all apps
-          APPS=$(curl -sg -H "Authorization: Bearer ${JWT}" \
-            "${BASE}/apps?limit=50&fields%5Bapps%5D=name,bundleId")
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
 
-          echo "=== Apps found ==="
-          echo "$APPS" | jq -r '.data[] | "  \(.attributes.name) (\(.id)) — \(.attributes.bundleId)"' 2>/dev/null || echo "$APPS"
-          echo ""
+          function makeJwt() {
+            const now = Math.floor(Date.now() / 1000);
+            const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+            const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+            const input = `${hdr}.${pay}`;
+            const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+            return `${input}.${sig.toString('base64url')}`;
+          }
 
-          APP_IDS=$(echo "$APPS" | jq -r '.data[].id // empty' 2>/dev/null)
-          if [ -z "$APP_IDS" ]; then
-            echo "ERROR: could not parse app list"
-            exit 1
-          fi
+          function apiCall(method, path, body) {
+            return new Promise((resolve, reject) => {
+              const jwt = makeJwt();
+              const opts = {
+                hostname: 'api.appstoreconnect.apple.com',
+                path: '/v1' + path,
+                method,
+                headers: {
+                  'Authorization': `Bearer ${jwt}`,
+                  'Content-Type': 'application/json',
+                }
+              };
+              const req = https.request(opts, res => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+                  catch(e) { resolve({ status: res.statusCode, body: data }); }
+                });
+              });
+              req.on('error', reject);
+              if (body) req.write(JSON.stringify(body));
+              req.end();
+            });
+          }
 
-          while IFS= read -r APP_ID; do
-            [ -z "$APP_ID" ] && continue
-            APP_NAME=$(echo "$APPS" | jq -r --arg id "$APP_ID" '.data[] | select(.id==$id) | .attributes.name' 2>/dev/null)
-            echo "--- Processing: ${APP_NAME} (${APP_ID}) ---"
+          async function main() {
+            // Get all apps
+            const appsResp = await apiCall('GET', '/apps?limit=50&fields[apps]=name,bundleId');
+            if (!appsResp.body.data) {
+              console.log('ERROR: Could not fetch apps:', JSON.stringify(appsResp.body));
+              process.exit(1);
+            }
+            const apps = appsResp.body.data;
+            console.log(`=== Found ${apps.length} apps ===`);
+            apps.forEach(a => console.log(`  ${a.attributes.name} (${a.id}) — ${a.attributes.bundleId}`));
+            console.log('');
 
-            # Get all beta groups for this app (no fields filter — get everything)
-            GROUPS=$(curl -sg -H "Authorization: Bearer ${JWT}" \
-              "${BASE}/apps/${APP_ID}/betaGroups?limit=50")
+            for (const app of apps) {
+              const appName = app.attributes.name;
+              const appId = app.id;
+              console.log(`--- Processing: ${appName} (${appId}) ---`);
 
-            echo "  Raw groups response (first 500 chars):"
-            echo "$GROUPS" | cut -c1-500
+              // Get all beta groups for this app
+              const groupsResp = await apiCall('GET', `/apps/${appId}/betaGroups?limit=50`);
+              if (!groupsResp.body.data) {
+                console.log('  No beta groups (or error):', JSON.stringify(groupsResp.body).slice(0, 200));
+                console.log('');
+                continue;
+              }
+              const groups = groupsResp.body.data;
+              if (groups.length === 0) {
+                console.log('  No beta groups — skipping');
+                console.log('');
+                continue;
+              }
 
-            GROUP_COUNT=$(echo "$GROUPS" | jq '.data | length' 2>/dev/null || echo 0)
-            if [ "$GROUP_COUNT" = "0" ]; then
-              echo "  No beta groups — skipping"
-              echo ""
-              continue
-            fi
+              for (const group of groups) {
+                const groupName = group.attributes.name;
+                const groupId = group.id;
+                const alreadyEnabled = group.attributes.feedbackEnabled;
 
-            GROUP_IDS=$(echo "$GROUPS" | jq -r '.data[].id // empty' 2>/dev/null)
+                if (alreadyEnabled === true) {
+                  console.log(`  [SKIP] ${groupName} — already enabled`);
+                  continue;
+                }
 
-            while IFS= read -r GROUP_ID; do
-              [ -z "$GROUP_ID" ] && continue
-              GROUP_NAME=$(echo "$GROUPS" | jq -r --arg id "$GROUP_ID" '.data[] | select(.id==$id) | .attributes.name' 2>/dev/null)
-              ALREADY=$(echo "$GROUPS" | jq -r --arg id "$GROUP_ID" '.data[] | select(.id==$id) | .attributes.feedbackEnabled' 2>/dev/null)
+                const patchResp = await apiCall('PATCH', `/betaGroups/${groupId}`, {
+                  data: { type: 'betaGroups', id: groupId, attributes: { feedbackEnabled: true } }
+                });
 
-              if [ "$ALREADY" = "true" ]; then
-                echo "  [SKIP] ${GROUP_NAME} — already enabled"
-                continue
-              fi
+                if (patchResp.status === 200 && patchResp.body.data?.attributes?.feedbackEnabled === true) {
+                  console.log(`  [OK]   ${groupName} — feedback enabled`);
+                } else {
+                  console.log(`  [ERR]  ${groupName} — HTTP ${patchResp.status}`);
+                  console.log('         ', JSON.stringify(patchResp.body).slice(0, 300));
+                }
+              }
+              console.log('');
+            }
 
-              HTTP=$(curl -s -o /tmp/patch_resp.json -w "%{http_code}" -X PATCH \
-                -H "Authorization: Bearer ${JWT}" \
-                -H "Content-Type: application/json" \
-                "${BASE}/betaGroups/${GROUP_ID}" \
-                -d "{\"data\":{\"type\":\"betaGroups\",\"id\":\"${GROUP_ID}\",\"attributes\":{\"feedbackEnabled\":true}}}")
+            console.log('==========================================');
+            console.log('Done — feedback enabled on all eligible beta groups');
+            console.log('==========================================');
+          }
 
-              RESULT=$(jq -r '.data.attributes.feedbackEnabled // "error"' /tmp/patch_resp.json 2>/dev/null)
-              if [ "$HTTP" = "200" ] && [ "$RESULT" = "true" ]; then
-                echo "  [OK]   ${GROUP_NAME} — feedback enabled"
-              else
-                echo "  [ERR]  ${GROUP_NAME} — HTTP ${HTTP}"
-                jq '.errors[0] | {code:.code, detail:.detail}' /tmp/patch_resp.json 2>/dev/null || cat /tmp/patch_resp.json
-              fi
-            done <<< "$GROUP_IDS"
-            echo ""
-          done <<< "$APP_IDS"
-
-          echo "=========================================="
-          echo "Done — feedback enabled on all eligible beta groups"
-          echo "=========================================="
+          main().catch(e => { console.error('Fatal:', e); process.exit(1); });
+          JSEOF
+          node /tmp/enable_feedback.js

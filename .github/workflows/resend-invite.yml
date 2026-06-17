@@ -1,0 +1,91 @@
+name: Resend TestFlight Invite
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Tester email"
+        required: true
+
+jobs:
+  resend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate JWT
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cat > /tmp/gen_jwt.js << 'JSEOF'
+          const crypto = require('node:crypto');
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+          const now = Math.floor(Date.now() / 1000);
+          const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+          const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+          const input = `${hdr}.${pay}`;
+          const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+          process.stdout.write(`${input}.${sig.toString('base64url')}`);
+          JSEOF
+          node /tmp/gen_jwt.js > /tmp/jwt.txt
+          echo "JWT ready"
+
+      - name: Remove and re-add tester to force fresh invite
+        env:
+          EMAIL: ${{ inputs.email }}
+        run: |
+          JWT=$(cat /tmp/jwt.txt)
+          BASE="https://api.appstoreconnect.apple.com/v1"
+          GROUP_ID="374b7066-0612-44ff-aaf3-52d644bd988b"
+
+          # Find tester by email
+          echo "Looking up tester: ${EMAIL}"
+          SEARCH=$(curl -sg -H "Authorization: Bearer ${JWT}" \
+            "${BASE}/betaTesters?filter%5Bemail%5D=${EMAIL}&fields%5BbetaTesters%5D=email,firstName,lastName,inviteType,betaGroups")
+          echo "$SEARCH" | jq '.data[] | {id:.id, email:.attributes.email, inviteType:.attributes.inviteType}'
+
+          TESTER_ID=$(echo "$SEARCH" | jq -r '.data[0].id // empty')
+
+          if [ -z "$TESTER_ID" ]; then
+            echo "Tester not found — creating fresh invite..."
+          else
+            echo "Found tester ID: ${TESTER_ID}"
+            echo "Removing from group to reset invite..."
+            RM=$(curl -s -o /tmp/rm_resp.json -w "%{http_code}" -X DELETE \
+              -H "Authorization: Bearer ${JWT}" \
+              -H "Content-Type: application/json" \
+              "${BASE}/betaGroups/${GROUP_ID}/relationships/betaTesters" \
+              -d "{\"data\":[{\"type\":\"betaTesters\",\"id\":\"${TESTER_ID}\"}]}")
+            echo "Remove HTTP: ${RM}"
+            sleep 2
+          fi
+
+          # Re-add (or add fresh)
+          echo "Adding ${EMAIL} to Public Beta group..."
+          PAYLOAD=$(node -e "process.stdout.write(JSON.stringify({
+            data: {
+              type: 'betaTesters',
+              attributes: { email: process.env.EMAIL, firstName: 'Kieran', lastName: 'McParland' },
+              relationships: { betaGroups: { data: [{ type: 'betaGroups', id: '$GROUP_ID' }] } }
+            }
+          }))")
+
+          HTTP=$(curl -s -o /tmp/add_resp.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${JWT}" \
+            -H "Content-Type: application/json" \
+            "${BASE}/betaTesters" \
+            -d "${PAYLOAD}")
+          echo "Add HTTP: ${HTTP}"
+          cat /tmp/add_resp.json | jq '{id:.data.id, email:.data.attributes.email, inviteType:.data.attributes.inviteType}' 2>/dev/null || cat /tmp/add_resp.json
+
+          echo ""
+          if [ "$HTTP" = "201" ]; then
+            echo "SUCCESS — fresh invite sent to ${EMAIL}"
+            echo "Ask them to check their inbox AND spam/junk folder."
+            echo "Note: email arrives immediately but install requires Beta App Review (pending)."
+          else
+            echo "Unexpected HTTP ${HTTP} — see response above."
+          fi

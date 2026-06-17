@@ -1,0 +1,224 @@
+name: Add Admin and Add to All TestFlight Groups
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Email address to invite"
+        required: true
+      first_name:
+        required: false
+        default: "Fe"
+      last_name:
+        required: false
+        default: "Loughran"
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate JWT
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cat > /tmp/gen_jwt.js << 'JSEOF'
+          const crypto = require('node:crypto');
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+          const now = Math.floor(Date.now() / 1000);
+          const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+          const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+          const input = `${hdr}.${pay}`;
+          const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+          process.stdout.write(`${input}.${sig.toString('base64url')}`);
+          JSEOF
+          node /tmp/gen_jwt.js > /tmp/jwt.txt
+          echo "JWT ready"
+
+      - name: Invite as Admin and add to all TestFlight groups
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          EMAIL: ${{ inputs.email }}
+          FIRST_NAME: ${{ inputs.first_name }}
+          LAST_NAME: ${{ inputs.last_name }}
+        run: |
+          cat > /tmp/add_owner.js << 'JSEOF'
+          const https = require('node:https');
+          const crypto = require('node:crypto');
+
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+          const email = process.env.EMAIL;
+          const firstName = process.env.FIRST_NAME || 'Fe';
+          const lastName = process.env.LAST_NAME || 'Loughran';
+
+          function makeJwt() {
+            const now = Math.floor(Date.now() / 1000);
+            const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+            const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+            const input = `${hdr}.${pay}`;
+            const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+            return `${input}.${sig.toString('base64url')}`;
+          }
+
+          function apiCall(method, path, body) {
+            return new Promise((resolve, reject) => {
+              const jwt = makeJwt();
+              const opts = {
+                hostname: 'api.appstoreconnect.apple.com',
+                path: '/v1' + path,
+                method,
+                headers: {
+                  'Authorization': `Bearer ${jwt}`,
+                  'Content-Type': 'application/json',
+                }
+              };
+              const req = https.request(opts, res => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+                  catch(e) { resolve({ status: res.statusCode, body: data }); }
+                });
+              });
+              req.on('error', reject);
+              if (body) req.write(JSON.stringify(body));
+              req.end();
+            });
+          }
+
+          async function main() {
+            // Step 1: Send ASC team invitation as ADMIN
+            console.log(`=== Step 1: Inviting ${email} to App Store Connect as ADMIN ===`);
+            const inviteResp = await apiCall('POST', '/userInvitations', {
+              data: {
+                type: 'userInvitations',
+                attributes: {
+                  email,
+                  firstName,
+                  lastName,
+                  roles: ['ADMIN'],
+                  allAppsVisible: true
+                }
+              }
+            });
+            console.log(`HTTP: ${inviteResp.status}`);
+            if (inviteResp.status === 201) {
+              const inv = inviteResp.body.data;
+              console.log(`[OK] Invitation sent — id: ${inv.id}, roles: ${inv.attributes.roles.join(', ')}`);
+            } else if (inviteResp.status === 409) {
+              console.log('[INFO] Invitation already exists or user is already a team member');
+            } else {
+              console.log('[WARN] Unexpected invite response:', JSON.stringify(inviteResp.body).slice(0, 300));
+            }
+            console.log('');
+
+            // Step 2: Get all apps
+            console.log('=== Step 2: Fetching all apps ===');
+            const appsResp = await apiCall('GET', '/apps?limit=50&fields[apps]=name,bundleId');
+            if (!appsResp.body.data) {
+              console.log('ERROR fetching apps:', JSON.stringify(appsResp.body));
+              process.exit(1);
+            }
+            const apps = appsResp.body.data;
+            apps.forEach(a => console.log(`  ${a.attributes.name} (${a.id})`));
+            console.log('');
+
+            // Step 3: Check if user is already a betaTester (they may have pre-existing account)
+            console.log('=== Step 3: Looking up betaTester record ===');
+            const testerLookup = await apiCall('GET', `/betaTesters?filter[email]=${encodeURIComponent(email)}&fields[betaTesters]=email,firstName,lastName,inviteType`);
+            let testerId = null;
+            if (testerLookup.body.data && testerLookup.body.data.length > 0) {
+              testerId = testerLookup.body.data[0].id;
+              console.log(`Found existing betaTester ID: ${testerId}`);
+            } else {
+              console.log('No existing betaTester record yet — will add to external groups directly by email');
+            }
+            console.log('');
+
+            // Step 4: For each app, add to all beta groups
+            console.log('=== Step 4: Adding to all TestFlight groups ===');
+            for (const app of apps) {
+              const appName = app.attributes.name;
+              const appId = app.id;
+              console.log(`--- ${appName} (${appId}) ---`);
+
+              const groupsResp = await apiCall('GET', `/apps/${appId}/betaGroups?limit=50`);
+              if (!groupsResp.body.data) {
+                console.log('  Could not fetch groups:', JSON.stringify(groupsResp.body).slice(0, 200));
+                continue;
+              }
+              const groups = groupsResp.body.data;
+
+              for (const group of groups) {
+                const groupName = group.attributes.name;
+                const groupId = group.id;
+                const isInternal = group.attributes.isInternalGroup;
+
+                if (isInternal && testerId) {
+                  // Internal group: add by betaTester ID (requires team membership)
+                  const addResp = await apiCall('POST', `/betaGroups/${groupId}/relationships/betaTesters`, {
+                    data: [{ type: 'betaTesters', id: testerId }]
+                  });
+                  if (addResp.status === 204) {
+                    console.log(`  [OK]   ${groupName} (internal) — added by ID`);
+                  } else if (addResp.status === 409) {
+                    console.log(`  [SKIP] ${groupName} (internal) — already in group`);
+                  } else {
+                    console.log(`  [WAIT] ${groupName} (internal) — HTTP ${addResp.status} (needs team invite accepted first)`);
+                  }
+                } else if (!isInternal) {
+                  // External group: add by email directly
+                  const addResp = await apiCall('POST', '/betaTesters', {
+                    data: {
+                      type: 'betaTesters',
+                      attributes: { email, firstName, lastName },
+                      relationships: { betaGroups: { data: [{ type: 'betaGroups', id: groupId }] } }
+                    }
+                  });
+                  if (addResp.status === 201) {
+                    console.log(`  [OK]   ${groupName} (external) — invite sent`);
+                  } else if (addResp.status === 409) {
+                    // Already exists — add by ID
+                    const searchResp = await apiCall('GET', `/betaTesters?filter[email]=${encodeURIComponent(email)}&fields[betaTesters]=email`);
+                    const tid = searchResp.body.data?.[0]?.id;
+                    if (tid) {
+                      const r2 = await apiCall('POST', `/betaGroups/${groupId}/relationships/betaTesters`, {
+                        data: [{ type: 'betaTesters', id: tid }]
+                      });
+                      if (r2.status === 204) {
+                        console.log(`  [OK]   ${groupName} (external) — added by ID`);
+                      } else {
+                        console.log(`  [SKIP] ${groupName} (external) — already in group`);
+                      }
+                    } else {
+                      console.log(`  [SKIP] ${groupName} (external) — already a tester`);
+                    }
+                  } else {
+                    console.log(`  [ERR]  ${groupName} — HTTP ${addResp.status}:`, JSON.stringify(addResp.body).slice(0, 200));
+                  }
+                } else {
+                  console.log(`  [PEND] ${groupName} (internal) — needs team invite accepted before we can add`);
+                }
+              }
+              console.log('');
+            }
+
+            console.log('==========================================');
+            console.log('Done.');
+            console.log('NEXT STEP: Ask them to accept the Apple team invitation email');
+            console.log('Once accepted, internal groups will also be accessible.');
+            console.log('==========================================');
+          }
+
+          main().catch(e => { console.error('Fatal:', e); process.exit(1); });
+          JSEOF
+          node /tmp/add_owner.js

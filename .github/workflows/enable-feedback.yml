@@ -29,44 +29,41 @@ jobs:
           node /tmp/gen_jwt.js > /tmp/jwt.txt
           echo "JWT ready"
 
-      - name: Get latest valid build ID
-        run: |
-          JWT=$(cat /tmp/jwt.txt)
-          APP_ID="6781050707"
-          BASE="https://api.appstoreconnect.apple.com/v1"
-          BUILD_RESP=$(curl -sg -H "Authorization: Bearer ${JWT}" \
-            "${BASE}/builds?filter%5Bapp%5D=${APP_ID}&filter%5BprocessingState%5D=VALID&sort=-uploadedDate&limit=5")
-          echo "Recent builds:"
-          echo "$BUILD_RESP" | jq '.data[] | {id:.id, version:.attributes.version, feedbackEnabled:.attributes.feedbackEnabled, uploaded:.attributes.uploadedDate}'
-          BUILD_ID=$(echo "$BUILD_RESP" | jq -r '.data[0].id')
-          BUILD_VER=$(echo "$BUILD_RESP" | jq -r '.data[0].attributes.version')
-          echo "BUILD_ID=${BUILD_ID}" >> "$GITHUB_ENV"
-          echo "BUILD_VER=${BUILD_VER}" >> "$GITHUB_ENV"
-          echo "Targeting build ${BUILD_VER} (${BUILD_ID})"
-
-      - name: Enable feedback (screenshots) on build
+      - name: Enable feedback on Internal Testers group
         run: |
           JWT=$(cat /tmp/jwt.txt)
           BASE="https://api.appstoreconnect.apple.com/v1"
+          GROUP_ID="29392d02-f5ea-4f47-a38a-bfbaf56f3c66"
 
-          HTTP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X PATCH \
+          HTTP=$(curl -s -o /tmp/resp_int.json -w "%{http_code}" -X PATCH \
             -H "Authorization: Bearer ${JWT}" \
             -H "Content-Type: application/json" \
-            "${BASE}/builds/${BUILD_ID}" \
-            -d "{\"data\":{\"type\":\"builds\",\"id\":\"${BUILD_ID}\",\"attributes\":{\"feedbackEnabled\":true}}}")
+            "${BASE}/betaGroups/${GROUP_ID}" \
+            -d "{\"data\":{\"type\":\"betaGroups\",\"id\":\"${GROUP_ID}\",\"attributes\":{\"feedbackEnabled\":true}}}")
 
-          echo "HTTP: ${HTTP}"
-          echo "Raw response:"
-          cat /tmp/resp.json
-          echo ""
-          echo "Parsed:"
-          cat /tmp/resp.json | jq '{id:.data.id, version:.data.attributes.version, feedbackEnabled:.data.attributes.feedbackEnabled}' 2>/dev/null || true
+          echo "Internal Testers HTTP: ${HTTP}"
+          cat /tmp/resp_int.json | jq '{name:.data.attributes.name, feedbackEnabled:.data.attributes.feedbackEnabled}' 2>/dev/null || cat /tmp/resp_int.json
+
+      - name: Enable feedback on Public Beta group
+        run: |
+          JWT=$(cat /tmp/jwt.txt)
+          BASE="https://api.appstoreconnect.apple.com/v1"
+          GROUP_ID="374b7066-0612-44ff-aaf3-52d644bd988b"
+
+          HTTP=$(curl -s -o /tmp/resp_pub.json -w "%{http_code}" -X PATCH \
+            -H "Authorization: Bearer ${JWT}" \
+            -H "Content-Type: application/json" \
+            "${BASE}/betaGroups/${GROUP_ID}" \
+            -d "{\"data\":{\"type\":\"betaGroups\",\"id\":\"${GROUP_ID}\",\"attributes\":{\"feedbackEnabled\":true}}}")
+
+          echo "Public Beta HTTP: ${HTTP}"
+          cat /tmp/resp_pub.json | jq '{name:.data.attributes.name, feedbackEnabled:.data.attributes.feedbackEnabled}' 2>/dev/null || cat /tmp/resp_pub.json
 
           if [ "$HTTP" = "200" ]; then
             echo ""
             echo "=========================================="
-            echo "SUCCESS — Screenshot feedback enabled on build ${BUILD_VER}"
-            echo "Testers can now: shake device or screenshot → Send Feedback"
+            echo "SUCCESS — Screenshot feedback enabled on both groups"
+            echo "Testers can now: take a screenshot in the app → tap Send Feedback"
             echo "Feedback arrives in App Store Connect → TestFlight → Feedback"
             echo "=========================================="
           else

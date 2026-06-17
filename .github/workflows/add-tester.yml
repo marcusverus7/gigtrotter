@@ -1,0 +1,135 @@
+name: Add TestFlight Tester
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Tester email address"
+        required: true
+      first_name:
+        description: "First name"
+        required: false
+        default: "Kieran"
+      last_name:
+        description: "Last name"
+        required: false
+        default: "McParland"
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate JWT
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cat > /tmp/gen_jwt.js << 'JSEOF'
+          const crypto = require('node:crypto');
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+          const now = Math.floor(Date.now() / 1000);
+          const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+          const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+          const input = `${hdr}.${pay}`;
+          const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+          process.stdout.write(`${input}.${sig.toString('base64url')}`);
+          JSEOF
+          node /tmp/gen_jwt.js > /tmp/jwt.txt
+          echo "JWT ready"
+
+      - name: Add tester to Internal Testers group
+        env:
+          EMAIL: ${{ inputs.email }}
+          FIRST_NAME: ${{ inputs.first_name }}
+          LAST_NAME: ${{ inputs.last_name }}
+        run: |
+          JWT=$(cat /tmp/jwt.txt)
+          BASE="https://api.appstoreconnect.apple.com/v1"
+          INTERNAL_GROUP_ID="29392d02-f5ea-4f47-a38a-bfbaf56f3c66"
+          PUBLIC_BETA_GROUP_ID="374b7066-0612-44ff-aaf3-52d644bd988b"
+
+          BODY=$(cat << EOF
+          {
+            "data": {
+              "type": "betaTesters",
+              "attributes": {
+                "email": "${EMAIL}",
+                "firstName": "${FIRST_NAME}",
+                "lastName": "${LAST_NAME}"
+              },
+              "relationships": {
+                "betaGroups": {
+                  "data": [{"type": "betaGroups", "id": "${INTERNAL_GROUP_ID}"}]
+                }
+              }
+            }
+          }
+          EOF
+          )
+
+          echo "Adding ${EMAIL} to Internal Testers group..."
+          RESP=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            -H "Authorization: Bearer ${JWT}" \
+            -H "Content-Type: application/json" \
+            "${BASE}/betaTesters" \
+            -d "${BODY}")
+
+          HTTP_STATUS=$(echo "$RESP" | grep "HTTP_STATUS:" | cut -d: -f2)
+          BODY_OUT=$(echo "$RESP" | grep -v "HTTP_STATUS:")
+
+          echo "HTTP status: ${HTTP_STATUS}"
+          echo "$BODY_OUT" | jq .
+
+          if [ "$HTTP_STATUS" = "201" ]; then
+            echo ""
+            echo "SUCCESS — ${EMAIL} added to Internal Testers."
+            echo "They will receive a TestFlight invitation email shortly."
+            echo "They can install the build immediately (no review needed)."
+          else
+            echo ""
+            echo "Internal group failed (tester may not be a team member)."
+            echo "Falling back: adding to Public Beta external group..."
+
+            BODY2=$(cat << EOF2
+            {
+              "data": {
+                "type": "betaTesters",
+                "attributes": {
+                  "email": "${EMAIL}",
+                  "firstName": "${FIRST_NAME}",
+                  "lastName": "${LAST_NAME}"
+                },
+                "relationships": {
+                  "betaGroups": {
+                    "data": [{"type": "betaGroups", "id": "${PUBLIC_BETA_GROUP_ID}"}]
+                  }
+                }
+              }
+            }
+            EOF2
+            )
+
+            RESP2=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
+              -H "Authorization: Bearer ${JWT}" \
+              -H "Content-Type: application/json" \
+              "${BASE}/betaTesters" \
+              -d "${BODY2}")
+
+            HTTP2=$(echo "$RESP2" | grep "HTTP_STATUS:" | cut -d: -f2)
+            BODY2_OUT=$(echo "$RESP2" | grep -v "HTTP_STATUS:")
+            echo "HTTP status: ${HTTP2}"
+            echo "$BODY2_OUT" | jq .
+
+            if [ "$HTTP2" = "201" ]; then
+              echo ""
+              echo "SUCCESS — ${EMAIL} added to Public Beta group."
+              echo "They will get an invite email. They can install once Beta App Review passes (24-48 hrs)."
+            else
+              echo "FAILED — check the error above."
+              exit 1
+            fi
+          fi

@@ -1,0 +1,114 @@
+workflows:
+
+  # ── iOS → TestFlight ─────────────────────────────────────────────────────────
+  ios-release:
+    name: GigTrotter iOS → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      node: 22
+      xcode: 15.4
+      groups:
+        - asc_credentials      # ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (base64)
+      vars:
+        BUNDLE_ID: com.gigtrotter.app
+        TEAM_ID: JQS67937W6
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+
+    scripts:
+      - name: Install pnpm + JS deps
+        script: |
+          npm install -g pnpm@latest
+          pnpm install --frozen-lockfile
+
+      - name: Sync Capacitor web content into iOS project
+        script: npx cap sync ios
+
+      - name: Set build number
+        script: |
+          cd ios/App
+          agvtool new-version -all $BUILD_NUMBER
+
+      - name: Set up App Store Connect API key
+        script: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$ASC_KEY_P8" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Fetch signing certificate and profile via match
+        script: |
+          gem install fastlane
+          cd ios/App
+          bundle exec fastlane run match \
+            type:appstore \
+            readonly:false \
+            git_url:"$MATCH_GIT_URL" \
+            git_basic_authorization:"$MATCH_GIT_BASIC_AUTHORIZATION" \
+            app_identifier:"$BUNDLE_ID" \
+            api_key_path:~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Build & archive IPA
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App \
+            --export-options-plist /tmp/ExportOptions.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        api_key: $ASC_KEY_P8
+        key_id: $ASC_KEY_ID
+        issuer_id: $ASC_ISSUER_ID
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers
+
+  # ── Android → APK artifact ────────────────────────────────────────────────────
+  android-debug:
+    name: GigTrotter Android APK
+    max_build_duration: 45
+    instance_type: linux_x2
+
+    environment:
+      node: 22
+      java: 17
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+
+    scripts:
+      - name: Install pnpm + JS deps
+        script: |
+          npm install -g pnpm@latest
+          pnpm install --frozen-lockfile
+
+      - name: Generate Android project
+        script: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Set version code
+        script: |
+          sed -i "s/versionCode 1/versionCode $BUILD_NUMBER/" android/app/build.gradle
+
+      - name: Build debug APK
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+    artifacts:
+      - android/app/build/outputs/apk/debug/app-debug.apk

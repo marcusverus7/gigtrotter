@@ -55,9 +55,11 @@ jobs:
             APP_NAME=$(echo "$APPS" | jq -r --arg id "$APP_ID" '.data[] | select(.id==$id) | .attributes.name' 2>/dev/null)
             echo "--- Processing: ${APP_NAME} (${APP_ID}) ---"
 
-            # Get all beta groups for this app
+            # Get all beta groups for this app (no fields filter — get everything)
             GROUPS=$(curl -sg -H "Authorization: Bearer ${JWT}" \
-              "${BASE}/apps/${APP_ID}/betaGroups?fields%5BbetaGroups%5D=name,isInternalGroup,feedbackEnabled&limit=50")
+              "${BASE}/apps/${APP_ID}/betaGroups?limit=50")
+
+            echo "  Raw groups response: $(echo "$GROUPS" | jq '{count:(.data|length), keys:(.data[0].attributes|keys)}' 2>/dev/null || echo "$GROUPS" | head -c 200)"
 
             GROUP_COUNT=$(echo "$GROUPS" | jq '.data | length' 2>/dev/null || echo 0)
             if [ "$GROUP_COUNT" = "0" ]; then

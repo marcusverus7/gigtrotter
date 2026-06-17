@@ -11,6 +11,10 @@ on:
       last_name:
         required: false
         default: "McParland"
+      role:
+        description: "ASC role: DEVELOPER, CUSTOMER_SUPPORT, MARKETING, etc."
+        required: false
+        default: "DEVELOPER"
 
 jobs:
   invite:
@@ -42,6 +46,7 @@ jobs:
           EMAIL: ${{ inputs.email }}
           FIRST_NAME: ${{ inputs.first_name }}
           LAST_NAME: ${{ inputs.last_name }}
+          ROLE: ${{ inputs.role }}
         run: |
           JWT=$(cat /tmp/jwt.txt)
           BASE="https://api.appstoreconnect.apple.com/v1"
@@ -53,7 +58,7 @@ jobs:
                 email: process.env.EMAIL,
                 firstName: process.env.FIRST_NAME,
                 lastName: process.env.LAST_NAME,
-                roles: ['CUSTOMER_SUPPORT'],
+                roles: [process.env.ROLE || 'DEVELOPER'],
                 allAppsVisible: true
               }
             }

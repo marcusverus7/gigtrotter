@@ -1,9 +1,9 @@
 name: Android Build & Distribute
 
-# Builds the Capacitor Android shell on Ubuntu (Android SDK pre-installed)
-# and uploads a debug APK. When FIREBASE_APP_ID + FIREBASE_SERVICE_ACCOUNT_JSON
-# secrets are set, also distributes via Firebase App Distribution, which
-# generates a shareable testing link visible in the Firebase Console.
+# Builds the Capacitor Android shell on Ubuntu (Android SDK pre-installed).
+# Outputs a debug APK as a workflow artifact.
+# To get a shareable Firebase testing link, set FIREBASE_APP_ID +
+# FIREBASE_SERVICE_ACCOUNT_JSON secrets and uncomment the distribution step.
 on:
   workflow_dispatch:
   push:
@@ -49,22 +49,9 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Stage APK for distribution
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk gigtrotter.apk
-
       - name: Upload APK artifact (30-day download)
         uses: actions/upload-artifact@v4
         with:
-          name: gigtrotter-android
-          path: gigtrotter.apk
+          name: gigtrotter-android-${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-
-      - name: Distribute via Firebase App Distribution
-        if: secrets.FIREBASE_APP_ID != ''
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          groups: testers
-          file: gigtrotter.apk
-          releaseNotes: "Build ${{ github.run_number }} — ${{ github.sha }}"

@@ -44,8 +44,7 @@ pnpm-debug.log*
 # OS
 Thumbs.db
 
-# Capacitor / iOS — the native project is generated fresh in CI by `cap add ios`
-/ios
+# Capacitor / Android — generated fresh in CI by `cap add android`
 /android
 .env.fastlane
 fastlane/report.xml

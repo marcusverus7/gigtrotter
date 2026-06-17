@@ -30,7 +30,9 @@ jobs:
           echo "JWT ready"
 
       - name: Enable feedbackEnabled on all beta groups for all apps
+        shell: bash
         run: |
+          set +e   # don't abort on non-zero; we handle errors explicitly
           JWT=$(cat /tmp/jwt.txt)
           BASE="https://api.appstoreconnect.apple.com/v1"
 
@@ -39,29 +41,37 @@ jobs:
             "${BASE}/apps?limit=50&fields%5Bapps%5D=name,bundleId")
 
           echo "=== Apps found ==="
-          echo "$APPS" | jq '.data[] | {id:.id, name:.attributes.name, bundle:.attributes.bundleId}'
+          echo "$APPS" | jq -r '.data[] | "  \(.attributes.name) (\(.id)) — \(.attributes.bundleId)"' 2>/dev/null || echo "$APPS"
           echo ""
 
-          APP_IDS=$(echo "$APPS" | jq -r '.data[].id')
+          APP_IDS=$(echo "$APPS" | jq -r '.data[].id // empty' 2>/dev/null)
+          if [ -z "$APP_IDS" ]; then
+            echo "ERROR: could not parse app list"
+            exit 1
+          fi
 
-          for APP_ID in $APP_IDS; do
-            APP_NAME=$(echo "$APPS" | jq -r --arg id "$APP_ID" '.data[] | select(.id==$id) | .attributes.name')
+          while IFS= read -r APP_ID; do
+            [ -z "$APP_ID" ] && continue
+            APP_NAME=$(echo "$APPS" | jq -r --arg id "$APP_ID" '.data[] | select(.id==$id) | .attributes.name' 2>/dev/null)
             echo "--- Processing: ${APP_NAME} (${APP_ID}) ---"
 
             # Get all beta groups for this app
             GROUPS=$(curl -sg -H "Authorization: Bearer ${JWT}" \
               "${BASE}/apps/${APP_ID}/betaGroups?fields%5BbetaGroups%5D=name,isInternalGroup,feedbackEnabled&limit=50")
 
-            GROUP_IDS=$(echo "$GROUPS" | jq -r '.data[].id')
-
-            if [ -z "$GROUP_IDS" ]; then
-              echo "  No beta groups found — skipping"
+            GROUP_COUNT=$(echo "$GROUPS" | jq '.data | length' 2>/dev/null || echo 0)
+            if [ "$GROUP_COUNT" = "0" ]; then
+              echo "  No beta groups — skipping"
+              echo ""
               continue
             fi
 
-            for GROUP_ID in $GROUP_IDS; do
-              GROUP_NAME=$(echo "$GROUPS" | jq -r --arg id "$GROUP_ID" '.data[] | select(.id==$id) | .attributes.name')
-              ALREADY=$(echo "$GROUPS" | jq -r --arg id "$GROUP_ID" '.data[] | select(.id==$id) | .attributes.feedbackEnabled')
+            GROUP_IDS=$(echo "$GROUPS" | jq -r '.data[].id // empty' 2>/dev/null)
+
+            while IFS= read -r GROUP_ID; do
+              [ -z "$GROUP_ID" ] && continue
+              GROUP_NAME=$(echo "$GROUPS" | jq -r --arg id "$GROUP_ID" '.data[] | select(.id==$id) | .attributes.name' 2>/dev/null)
+              ALREADY=$(echo "$GROUPS" | jq -r --arg id "$GROUP_ID" '.data[] | select(.id==$id) | .attributes.feedbackEnabled' 2>/dev/null)
 
               if [ "$ALREADY" = "true" ]; then
                 echo "  [SKIP] ${GROUP_NAME} — already enabled"
@@ -74,16 +84,16 @@ jobs:
                 "${BASE}/betaGroups/${GROUP_ID}" \
                 -d "{\"data\":{\"type\":\"betaGroups\",\"id\":\"${GROUP_ID}\",\"attributes\":{\"feedbackEnabled\":true}}}")
 
-              RESULT=$(cat /tmp/patch_resp.json | jq -r '.data.attributes.feedbackEnabled // "error"' 2>/dev/null)
+              RESULT=$(jq -r '.data.attributes.feedbackEnabled // "error"' /tmp/patch_resp.json 2>/dev/null)
               if [ "$HTTP" = "200" ] && [ "$RESULT" = "true" ]; then
                 echo "  [OK]   ${GROUP_NAME} — feedback enabled"
               else
                 echo "  [ERR]  ${GROUP_NAME} — HTTP ${HTTP}"
-                cat /tmp/patch_resp.json | jq '.errors[0] | {code:.code, detail:.detail}' 2>/dev/null || cat /tmp/patch_resp.json
+                jq '.errors[0] | {code:.code, detail:.detail}' /tmp/patch_resp.json 2>/dev/null || cat /tmp/patch_resp.json
               fi
-            done
+            done <<< "$GROUP_IDS"
             echo ""
-          done
+          done <<< "$APP_IDS"
 
           echo "=========================================="
           echo "Done — feedback enabled on all eligible beta groups"

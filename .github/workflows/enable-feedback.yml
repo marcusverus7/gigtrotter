@@ -56,7 +56,11 @@ jobs:
             -d "{\"data\":{\"type\":\"builds\",\"id\":\"${BUILD_ID}\",\"attributes\":{\"feedbackEnabled\":true}}}")
 
           echo "HTTP: ${HTTP}"
-          cat /tmp/resp.json | jq '{id:.data.id, version:.data.attributes.version, feedbackEnabled:.data.attributes.feedbackEnabled}' 2>/dev/null || cat /tmp/resp.json
+          echo "Raw response:"
+          cat /tmp/resp.json
+          echo ""
+          echo "Parsed:"
+          cat /tmp/resp.json | jq '{id:.data.id, version:.data.attributes.version, feedbackEnabled:.data.attributes.feedbackEnabled}' 2>/dev/null || true
 
           if [ "$HTTP" = "200" ]; then
             echo ""

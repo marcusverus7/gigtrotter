@@ -1,0 +1,80 @@
+name: Invite App Store Connect Team Member
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        required: true
+      first_name:
+        required: false
+        default: "Kieran"
+      last_name:
+        required: false
+        default: "McParland"
+
+jobs:
+  invite:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate JWT
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cat > /tmp/gen_jwt.js << 'JSEOF'
+          const crypto = require('node:crypto');
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+          const now = Math.floor(Date.now() / 1000);
+          const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+          const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+          const input = `${hdr}.${pay}`;
+          const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+          process.stdout.write(`${input}.${sig.toString('base64url')}`);
+          JSEOF
+          node /tmp/gen_jwt.js > /tmp/jwt.txt
+
+      - name: Send team invitation
+        env:
+          EMAIL: ${{ inputs.email }}
+          FIRST_NAME: ${{ inputs.first_name }}
+          LAST_NAME: ${{ inputs.last_name }}
+        run: |
+          JWT=$(cat /tmp/jwt.txt)
+          BASE="https://api.appstoreconnect.apple.com/v1"
+
+          PAYLOAD=$(node -e "process.stdout.write(JSON.stringify({
+            data: {
+              type: 'userInvitations',
+              attributes: {
+                email: process.env.EMAIL,
+                firstName: process.env.FIRST_NAME,
+                lastName: process.env.LAST_NAME,
+                roles: ['CUSTOMER_SUPPORT'],
+                allAppsVisible: true
+              }
+            }
+          }))")
+
+          echo "Inviting ${EMAIL} to App Store Connect team..."
+          HTTP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${JWT}" \
+            -H "Content-Type: application/json" \
+            "${BASE}/userInvitations" \
+            -d "${PAYLOAD}")
+
+          echo "HTTP: ${HTTP}"
+          cat /tmp/resp.json | jq '{id:.data.id, email:.data.attributes.email, roles:.data.attributes.roles}' 2>/dev/null || cat /tmp/resp.json
+
+          if [ "$HTTP" = "201" ]; then
+            echo ""
+            echo "SUCCESS — team invitation sent to ${EMAIL}"
+            echo "Role: CUSTOMER_SUPPORT (TestFlight access, no app management)"
+            echo "They must accept the email from Apple before they appear as an internal tester."
+          else
+            echo "Error — see above."
+            exit 1
+          fi

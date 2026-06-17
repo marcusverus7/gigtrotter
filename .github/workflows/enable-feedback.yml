@@ -1,0 +1,71 @@
+name: Enable TestFlight Screenshot Feedback
+
+on:
+  workflow_dispatch:
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate JWT
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cat > /tmp/gen_jwt.js << 'JSEOF'
+          const crypto = require('node:crypto');
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+          const now = Math.floor(Date.now() / 1000);
+          const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+          const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+          const input = `${hdr}.${pay}`;
+          const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+          process.stdout.write(`${input}.${sig.toString('base64url')}`);
+          JSEOF
+          node /tmp/gen_jwt.js > /tmp/jwt.txt
+          echo "JWT ready"
+
+      - name: Get latest valid build ID
+        run: |
+          JWT=$(cat /tmp/jwt.txt)
+          APP_ID="6781050707"
+          BASE="https://api.appstoreconnect.apple.com/v1"
+          BUILD_RESP=$(curl -sg -H "Authorization: Bearer ${JWT}" \
+            "${BASE}/builds?filter%5Bapp%5D=${APP_ID}&filter%5BprocessingState%5D=VALID&sort=-uploadedDate&limit=5")
+          echo "Recent builds:"
+          echo "$BUILD_RESP" | jq '.data[] | {id:.id, version:.attributes.version, feedbackEnabled:.attributes.feedbackEnabled, uploaded:.attributes.uploadedDate}'
+          BUILD_ID=$(echo "$BUILD_RESP" | jq -r '.data[0].id')
+          BUILD_VER=$(echo "$BUILD_RESP" | jq -r '.data[0].attributes.version')
+          echo "BUILD_ID=${BUILD_ID}" >> "$GITHUB_ENV"
+          echo "BUILD_VER=${BUILD_VER}" >> "$GITHUB_ENV"
+          echo "Targeting build ${BUILD_VER} (${BUILD_ID})"
+
+      - name: Enable feedback (screenshots) on build
+        run: |
+          JWT=$(cat /tmp/jwt.txt)
+          BASE="https://api.appstoreconnect.apple.com/v1"
+
+          HTTP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X PATCH \
+            -H "Authorization: Bearer ${JWT}" \
+            -H "Content-Type: application/json" \
+            "${BASE}/builds/${BUILD_ID}" \
+            -d "{\"data\":{\"type\":\"builds\",\"id\":\"${BUILD_ID}\",\"attributes\":{\"feedbackEnabled\":true}}}")
+
+          echo "HTTP: ${HTTP}"
+          cat /tmp/resp.json | jq '{id:.data.id, version:.data.attributes.version, feedbackEnabled:.data.attributes.feedbackEnabled}' 2>/dev/null || cat /tmp/resp.json
+
+          if [ "$HTTP" = "200" ]; then
+            echo ""
+            echo "=========================================="
+            echo "SUCCESS — Screenshot feedback enabled on build ${BUILD_VER}"
+            echo "Testers can now: shake device or screenshot → Send Feedback"
+            echo "Feedback arrives in App Store Connect → TestFlight → Feedback"
+            echo "=========================================="
+          else
+            echo "Failed — HTTP ${HTTP}"
+            exit 1
+          fi

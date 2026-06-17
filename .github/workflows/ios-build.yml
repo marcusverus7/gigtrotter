@@ -32,10 +32,8 @@ jobs:
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate native iOS project
-        run: |
-          npx cap add ios
-          npx cap sync ios
+      - name: Sync Capacitor web assets into committed iOS project
+        run: npx cap sync ios
 
       - name: Set version and build number
         run: |

@@ -38,6 +38,7 @@ platform :ios do
       app_identifier:          APP_IDENTIFIER,
       api_key:                 api_key,
       readonly:                false,
+      force:                   true,
       keychain_name:           keychain_name,
       keychain_password:       keychain_password,
       git_url:                 ENV["MATCH_GIT_URL"],

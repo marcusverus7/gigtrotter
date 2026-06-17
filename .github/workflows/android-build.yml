@@ -1,0 +1,88 @@
+name: Android Build & Distribute
+
+# Builds the Capacitor Android shell and uploads to Firebase App Distribution.
+# A shareable testing link appears in Firebase Console once the upload completes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "capacitor.config.ts"
+      - "ios-shell/**"
+      - ".github/workflows/android-build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          cmdline-tools-version: latest
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+
+      - name: Generate Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Set version code
+        run: |
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
+
+      # Sign with a release keystore stored as a CI secret.
+      # Falls back to debug build if no keystore is configured.
+      - name: Build APK
+        run: |
+          cd android
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+            ./gradlew assembleRelease \
+              -Pandroid.injected.signing.store.file=$(pwd)/keystore.jks \
+              -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+              -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+              -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
+            APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          else
+            ./gradlew assembleDebug
+            APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
+          fi
+          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+          cp "$APK_PATH" ../gigtrotter.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gigtrotter-android
+          path: gigtrotter.apk
+          retention-days: 30
+
+      # Uploads to Firebase App Distribution when FIREBASE_APP_ID is configured.
+      # This generates a shareable testing link in the Firebase Console.
+      - name: Distribute via Firebase App Distribution
+        if: ${{ secrets.FIREBASE_APP_ID != '' }}
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          groups: testers
+          file: gigtrotter.apk
+          releaseNotes: "Build ${{ github.run_number }} from ${{ github.sha }}"

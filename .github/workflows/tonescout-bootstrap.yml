@@ -163,6 +163,12 @@ jobs:
               ['ASC_KEY_ID', process.env.ASC_KEY_ID],
               ['ASC_ISSUER_ID', process.env.ASC_ISSUER_ID],
               ['ASC_KEY_P8', process.env.ASC_KEY_P8],
+              // Reuse GigTrotter match repo so ToneScout picks up the existing
+              // distribution cert instead of trying to create a new one (Apple
+              // caps distribution certs at 2 per team).
+              ['MATCH_GIT_URL', process.env.MATCH_GIT_URL],
+              ['MATCH_PASSWORD', process.env.MATCH_PASSWORD],
+              ['MATCH_GIT_BASIC_AUTHORIZATION', process.env.MATCH_GIT_BASIC_AUTHORIZATION],
             ];
 
             for (const [name, value] of secrets) {

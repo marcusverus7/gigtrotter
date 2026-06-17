@@ -106,14 +106,14 @@ jobs:
           }
 
           async function setGhSecret(repo, secretName, secretValue) {
-            const { execSync } = require('node:child_process');
+            const { execFileSync } = require('node:child_process');
             try {
-              // Use gh CLI with the token
+              // execFileSync avoids shell interpretation of special chars in the value
               const env = { ...process.env, GH_TOKEN: ghToken, GITHUB_TOKEN: ghToken };
-              execSync(`gh secret set ${secretName} --repo ${repo} --body "${secretValue.replace(/"/g, '\\"')}"`, { env, stdio: 'pipe' });
+              execFileSync('gh', ['secret', 'set', secretName, '--repo', repo, '--body', secretValue], { env, stdio: 'pipe' });
               return true;
             } catch(e) {
-              console.error(`Failed to set ${secretName}:`, e.message);
+              console.error(`Failed to set ${secretName}:`, e.stderr?.toString() || e.message);
               return false;
             }
           }

@@ -1,0 +1,105 @@
+name: TestFlight Public Beta Setup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: pip install pyjwt cryptography requests
+
+      - name: Add build to Public Beta group and enable public link
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          python3 << 'PYEOF'
+          import jwt
+          import time
+          import requests
+          import os
+          import json
+
+          key_id = os.environ["ASC_KEY_ID"]
+          issuer_id = os.environ["ASC_ISSUER_ID"]
+          private_key = os.environ["ASC_KEY_P8"]
+
+          payload = {
+              "iss": issuer_id,
+              "iat": int(time.time()),
+              "exp": int(time.time()) + 1200,
+              "aud": "appstoreconnect-v1"
+          }
+          token = jwt.encode(payload, private_key, algorithm="ES256", headers={"kid": key_id})
+          headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+          app_id = "6781050707"
+          group_id = "374b7066-0612-44ff-aaf3-52d644bd988b"
+
+          # List all beta groups to confirm
+          r = requests.get("https://api.appstoreconnect.apple.com/v1/apps/" + app_id + "/betaGroups", headers=headers)
+          print("Beta groups:", json.dumps(r.json(), indent=2))
+
+          # Get the latest valid build
+          r = requests.get(
+              "https://api.appstoreconnect.apple.com/v1/builds",
+              headers=headers,
+              params={
+                  "filter[app]": app_id,
+                  "filter[processingState]": "VALID",
+                  "sort": "-uploadedDate",
+                  "limit": 5,
+                  "fields[builds]": "version,uploadedDate,processingState,betaGroups"
+              }
+          )
+          builds_data = r.json()
+          print("Recent builds:", json.dumps(builds_data, indent=2))
+
+          if not builds_data.get("data"):
+              print("ERROR: No valid builds found")
+              exit(1)
+
+          build_id = builds_data["data"][0]["id"]
+          build_version = builds_data["data"][0]["attributes"]["version"]
+          print(f"Using build ID: {build_id}, version: {build_version}")
+
+          # Add build to the Public Beta group
+          payload_data = {"data": [{"type": "builds", "id": build_id}]}
+          r = requests.post(
+              f"https://api.appstoreconnect.apple.com/v1/betaGroups/{group_id}/relationships/builds",
+              headers=headers,
+              json=payload_data
+          )
+          print(f"Add build to group: HTTP {r.status_code}")
+          if r.text:
+              print(r.text)
+
+          # Enable the public link on the group
+          patch_payload = {
+              "data": {
+                  "type": "betaGroups",
+                  "id": group_id,
+                  "attributes": {
+                      "publicLinkEnabled": True,
+                      "publicLinkLimitEnabled": False
+                  }
+              }
+          }
+          r = requests.patch(
+              f"https://api.appstoreconnect.apple.com/v1/betaGroups/{group_id}",
+              headers=headers,
+              json=patch_payload
+          )
+          print(f"Enable public link: HTTP {r.status_code}")
+          result = r.json()
+          print(json.dumps(result, indent=2))
+
+          public_link = result.get("data", {}).get("attributes", {}).get("publicLink")
+          public_link_id = result.get("data", {}).get("attributes", {}).get("publicLinkId")
+          print(f"\n=== PUBLIC LINK: https://testflight.apple.com/join/{public_link_id} ===")
+          if public_link:
+              print(f"=== FULL URL: {public_link} ===")
+          PYEOF

@@ -16,9 +16,22 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      - name: Show available Xcode versions
+        run: ls /Applications/Xcode*.app 2>/dev/null | sort || true
+
+      # Select the latest available Xcode so we get the newest iOS SDK.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Show selected Xcode and SDK versions
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
 
       # Version comes from the "packageManager" field in package.json.
       - uses: pnpm/action-setup@v4

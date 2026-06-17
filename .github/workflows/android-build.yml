@@ -55,3 +55,21 @@ jobs:
           name: gigtrotter-android-${{ github.run_number }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+
+      - name: Create public GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-build-${{ github.run_number }}
+          name: "GigTrotter Android Build ${{ github.run_number }}"
+          body: |
+            **Debug APK for Android testing**
+
+            1. Download `app-debug.apk` below
+            2. On your Android device: Settings → Apps → Install unknown apps → allow your browser
+            3. Open the downloaded file to install
+
+            Built from commit ${{ github.sha }} by run #${{ github.run_number }}.
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

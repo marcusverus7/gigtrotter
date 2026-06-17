@@ -46,6 +46,17 @@ platform :ios do
 
     profile_name = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][APP_IDENTIFIER]
 
+    # Capacitor generates the project with CODE_SIGN_IDENTITY = "iPhone Developer".
+    # Override it before building so xcodebuild uses the distribution identity.
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path:                  "ios/App/App.xcodeproj",
+      team_id:               DEVELOPMENT_TEAM,
+      code_sign_identity:    "iPhone Distribution",
+      profile_name:          profile_name,
+      targets:               ["App"]
+    )
+
     build_file = File.exist?(WORKSPACE) ? { workspace: WORKSPACE } : { project: PROJECT }
 
     build_app(
@@ -55,7 +66,7 @@ platform :ios do
       export_options: {
         provisioningProfiles: { APP_IDENTIFIER => profile_name }
       },
-      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{DEVELOPMENT_TEAM} PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'"
+      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{DEVELOPMENT_TEAM}"
     )
 
     upload_to_testflight(

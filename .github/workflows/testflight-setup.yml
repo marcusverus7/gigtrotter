@@ -19,8 +19,8 @@ jobs:
           const keyId = process.env.ASC_KEY_ID;
           const issuerId = process.env.ASC_ISSUER_ID;
           const rawKey = process.env.ASC_KEY_P8;
-          // GitHub Secrets preserve real newlines; handle literal \n just in case
-          const privateKeyPem = rawKey.replace(/\\n/g, '\n');
+          // Key is stored base64-encoded (fastlane uses is_key_content_base64: true)
+          const privateKeyPem = Buffer.from(rawKey, 'base64').toString('utf8');
           const privateKey = crypto.createPrivateKey(privateKeyPem);
           const now = Math.floor(Date.now() / 1000);
           const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');

@@ -1,0 +1,90 @@
+name: Enable Feedback on All Apps
+
+on:
+  workflow_dispatch:
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate JWT
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cat > /tmp/gen_jwt.js << 'JSEOF'
+          const crypto = require('node:crypto');
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+          const now = Math.floor(Date.now() / 1000);
+          const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+          const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+          const input = `${hdr}.${pay}`;
+          const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+          process.stdout.write(`${input}.${sig.toString('base64url')}`);
+          JSEOF
+          node /tmp/gen_jwt.js > /tmp/jwt.txt
+          echo "JWT ready"
+
+      - name: Enable feedbackEnabled on all beta groups for all apps
+        run: |
+          JWT=$(cat /tmp/jwt.txt)
+          BASE="https://api.appstoreconnect.apple.com/v1"
+
+          # Get all apps
+          APPS=$(curl -sg -H "Authorization: Bearer ${JWT}" \
+            "${BASE}/apps?limit=50&fields%5Bapps%5D=name,bundleId")
+
+          echo "=== Apps found ==="
+          echo "$APPS" | jq '.data[] | {id:.id, name:.attributes.name, bundle:.attributes.bundleId}'
+          echo ""
+
+          APP_IDS=$(echo "$APPS" | jq -r '.data[].id')
+
+          for APP_ID in $APP_IDS; do
+            APP_NAME=$(echo "$APPS" | jq -r --arg id "$APP_ID" '.data[] | select(.id==$id) | .attributes.name')
+            echo "--- Processing: ${APP_NAME} (${APP_ID}) ---"
+
+            # Get all beta groups for this app
+            GROUPS=$(curl -sg -H "Authorization: Bearer ${JWT}" \
+              "${BASE}/apps/${APP_ID}/betaGroups?fields%5BbetaGroups%5D=name,isInternalGroup,feedbackEnabled&limit=50")
+
+            GROUP_IDS=$(echo "$GROUPS" | jq -r '.data[].id')
+
+            if [ -z "$GROUP_IDS" ]; then
+              echo "  No beta groups found — skipping"
+              continue
+            fi
+
+            for GROUP_ID in $GROUP_IDS; do
+              GROUP_NAME=$(echo "$GROUPS" | jq -r --arg id "$GROUP_ID" '.data[] | select(.id==$id) | .attributes.name')
+              ALREADY=$(echo "$GROUPS" | jq -r --arg id "$GROUP_ID" '.data[] | select(.id==$id) | .attributes.feedbackEnabled')
+
+              if [ "$ALREADY" = "true" ]; then
+                echo "  [SKIP] ${GROUP_NAME} — already enabled"
+                continue
+              fi
+
+              HTTP=$(curl -s -o /tmp/patch_resp.json -w "%{http_code}" -X PATCH \
+                -H "Authorization: Bearer ${JWT}" \
+                -H "Content-Type: application/json" \
+                "${BASE}/betaGroups/${GROUP_ID}" \
+                -d "{\"data\":{\"type\":\"betaGroups\",\"id\":\"${GROUP_ID}\",\"attributes\":{\"feedbackEnabled\":true}}}")
+
+              RESULT=$(cat /tmp/patch_resp.json | jq -r '.data.attributes.feedbackEnabled // "error"' 2>/dev/null)
+              if [ "$HTTP" = "200" ] && [ "$RESULT" = "true" ]; then
+                echo "  [OK]   ${GROUP_NAME} — feedback enabled"
+              else
+                echo "  [ERR]  ${GROUP_NAME} — HTTP ${HTTP}"
+                cat /tmp/patch_resp.json | jq '.errors[0] | {code:.code, detail:.detail}' 2>/dev/null || cat /tmp/patch_resp.json
+              fi
+            done
+            echo ""
+          done
+
+          echo "=========================================="
+          echo "Done — feedback enabled on all eligible beta groups"
+          echo "=========================================="

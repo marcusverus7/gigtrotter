@@ -1,0 +1,117 @@
+name: Generate TestFlight Redeem Code
+
+on:
+  workflow_dispatch:
+
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate JWT
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cat > /tmp/gen_jwt.js << 'JSEOF'
+          const crypto = require('node:crypto');
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+          const now = Math.floor(Date.now() / 1000);
+          const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+          const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+          const input = `${hdr}.${pay}`;
+          const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+          process.stdout.write(`${input}.${sig.toString('base64url')}`);
+          JSEOF
+          node /tmp/gen_jwt.js > /tmp/jwt.txt
+
+      - name: Get latest build and generate redeem code
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cat > /tmp/gen_code.js << 'JSEOF'
+          const https = require('node:https');
+          const crypto = require('node:crypto');
+
+          const keyId = process.env.ASC_KEY_ID;
+          const issuerId = process.env.ASC_ISSUER_ID;
+          const privateKeyPem = Buffer.from(process.env.ASC_KEY_P8, 'base64').toString('utf8');
+          const privateKey = crypto.createPrivateKey(privateKeyPem);
+
+          function makeJwt() {
+            const now = Math.floor(Date.now() / 1000);
+            const hdr = Buffer.from(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'})).toString('base64url');
+            const pay = Buffer.from(JSON.stringify({iss:issuerId,iat:now,exp:now+1200,aud:'appstoreconnect-v1'})).toString('base64url');
+            const input = `${hdr}.${pay}`;
+            const sig = crypto.sign('sha256', Buffer.from(input), {key: privateKey, dsaEncoding: 'ieee-p1363'});
+            return `${input}.${sig.toString('base64url')}`;
+          }
+
+          function apiCall(method, path, body) {
+            return new Promise((resolve, reject) => {
+              const jwt = makeJwt();
+              const opts = {
+                hostname: 'api.appstoreconnect.apple.com',
+                path: '/v1' + path,
+                method,
+                headers: {
+                  'Authorization': `Bearer ${jwt}`,
+                  'Content-Type': 'application/json',
+                }
+              };
+              const req = https.request(opts, res => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+                  catch(e) { resolve({ status: res.statusCode, body: data }); }
+                });
+              });
+              req.on('error', reject);
+              if (body) req.write(JSON.stringify(body));
+              req.end();
+            });
+          }
+
+          async function main() {
+            // Get latest valid build
+            const APP_ID = '6781050707'; // GigTrotter
+            const buildResp = await apiCall('GET', `/builds?filter[app]=${APP_ID}&filter[processingState]=VALID&sort=-uploadedDate&limit=1`);
+            const build = buildResp.body.data?.[0];
+            if (!build) {
+              console.log('ERROR: No valid builds found');
+              process.exit(1);
+            }
+
+            const buildId = build.id;
+            const buildVer = build.attributes.version;
+            console.log(`Latest build: ${buildVer} (${buildId})`);
+            console.log('');
+
+            // Generate redeem code
+            console.log('Generating redeem code...');
+            const codeResp = await apiCall('POST', `/builds/${buildId}/betaTesters`, {
+              data: {
+                type: 'betaTesters',
+                attributes: {}
+              }
+            });
+
+            if (codeResp.status === 201 && codeResp.body.data?.attributes?.inviteType === 'PUBLIC_LINK') {
+              const code = codeResp.body.data.attributes.invitationCode || codeResp.body.data.attributes.publicLinkCode;
+              console.log(`Code: ${code}`);
+            } else {
+              // The endpoint might be /betaTesters with a different structure
+              // Try alternative: POST to /betaTesters to create an external tester without email
+              console.log('Response:', JSON.stringify(codeResp.body).slice(0, 500));
+            }
+          }
+
+          main().catch(e => { console.error('Fatal:', e); process.exit(1); });
+          JSEOF
+          node /tmp/gen_code.js

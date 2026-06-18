@@ -6,7 +6,7 @@
 -- never visible beyond Inner Circle) lands in migration 0002 with experiences.
 -- ─────────────────────────────────────────────────────────────────────────────
 
-create extension if not exists "pgcrypto";
+create extension if not exists "pgcrypto" with schema "extensions";
 
 -- ── enums ──────────────────────────────────────────────────────────────────
 create type audience as enum ('vault', 'inner', 'friends', 'open');
@@ -224,9 +224,6 @@ begin
   return new;
 end;
 $$;
-
--- pgcrypto provides digest() in extensions schema on Supabase
-create extension if not exists "pgcrypto" with schema "extensions";
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created

@@ -18,6 +18,17 @@ export async function updateProfile(input: z.infer<typeof ProfileInput>) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  // First check if profile exists
+  const { data: profileExists } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .single();
+
+  if (!profileExists) {
+    throw new Error("Profile not found. Please contact support.");
+  }
+
   const { data, error } = await supabase
     .from("profiles")
     .update({
@@ -31,7 +42,7 @@ export async function updateProfile(input: z.infer<typeof ProfileInput>) {
     if (error.code === "23505") throw new Error("Username already taken.");
     throw error;
   }
-  if (!data || data.length === 0) throw new Error("Update was blocked.");
+  if (!data || data.length === 0) throw new Error("Profile update failed.");
 
   revalidatePath("/app/settings");
 }

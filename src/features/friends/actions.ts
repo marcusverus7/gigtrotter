@@ -41,6 +41,7 @@ export async function sendFriendRequest(username: string) {
     if (error.code === "23505") throw new Error("Already requested or friends.");
     throw error;
   }
+  revalidatePath("/app/friends");
   revalidatePath("/app/discover");
 }
 
@@ -64,6 +65,7 @@ export async function acceptFriendRequest(friendshipId: string) {
   if (error) throw error;
   if (!data || data.length === 0)
     throw new Error("Couldn't accept (not yours, or already updated).");
+  revalidatePath("/app/friends");
   revalidatePath("/app/discover");
 }
 
@@ -80,5 +82,6 @@ export async function removeFriend(friendshipId: string) {
     .eq("id", friendshipId)
     .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
   if (error) throw error;
+  revalidatePath("/app/friends");
   revalidatePath("/app/discover");
 }

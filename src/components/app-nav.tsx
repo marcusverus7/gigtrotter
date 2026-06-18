@@ -20,6 +20,7 @@ import {
   Ticket,
   Trophy,
   Upload,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -52,6 +53,7 @@ const navGroups: NavGroup[] = [
       { href: "/app/marketplace", label: "Marketplace", icon: ShoppingBag },
       { href: "/app/merch", label: "Merch Store", icon: Shirt },
       { href: "/app/discover", label: "People", icon: Compass },
+      { href: "/app/friends", label: "Friends", icon: Users },
     ],
   },
   {

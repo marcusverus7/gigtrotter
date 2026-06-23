@@ -203,6 +203,9 @@ export default async function WalletItemDetail({
             itemId={id}
             title={item.title}
             kind={item.kind}
+            venueName={item.venues?.name ?? ""}
+            city={item.venues?.city ?? ""}
+            country={item.venues?.country ?? ""}
           />
 
           {item.barcode_ref || item.kind === "ticket" || item.kind === "flight" ? (

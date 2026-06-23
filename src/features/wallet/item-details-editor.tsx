@@ -29,14 +29,23 @@ export function ItemDetailsEditor({
   itemId,
   title,
   kind,
+  venueName,
+  city,
+  country,
 }: {
   itemId: string;
   title: string;
   kind: string;
+  venueName?: string;
+  city?: string;
+  country?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [titleValue, setTitleValue] = useState(title);
   const [kindValue, setKindValue] = useState(kind);
+  const [venueNameValue, setVenueNameValue] = useState(venueName ?? "");
+  const [cityValue, setCityValue] = useState(city ?? "");
+  const [countryValue, setCountryValue] = useState(country ?? "");
   const [pending, startTransition] = useTransition();
 
   function onSave() {
@@ -45,6 +54,9 @@ export function ItemDetailsEditor({
         await updateWalletItemDetails(itemId, {
           title: titleValue,
           kind: kindValue,
+          venueName: venueNameValue,
+          city: cityValue,
+          country: countryValue,
         });
         toast.success("Details updated.");
         setEditing(false);
@@ -57,6 +69,9 @@ export function ItemDetailsEditor({
   function onCancel() {
     setTitleValue(title);
     setKindValue(kind);
+    setVenueNameValue(venueName ?? "");
+    setCityValue(city ?? "");
+    setCountryValue(country ?? "");
     setEditing(false);
   }
 
@@ -104,6 +119,36 @@ export function ItemDetailsEditor({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Venue</Label>
+          <Input
+            type="text"
+            value={venueNameValue}
+            onChange={(e) => setVenueNameValue(e.target.value)}
+            className="h-8 text-sm"
+            placeholder="Venue name (leave blank to clear)"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">City</Label>
+          <Input
+            type="text"
+            value={cityValue}
+            onChange={(e) => setCityValue(e.target.value)}
+            className="h-8 text-sm"
+            placeholder="City"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Country</Label>
+          <Input
+            type="text"
+            value={countryValue}
+            onChange={(e) => setCountryValue(e.target.value)}
+            className="h-8 text-sm"
+            placeholder="Country"
+          />
         </div>
       </div>
       <div className="flex justify-end gap-2">

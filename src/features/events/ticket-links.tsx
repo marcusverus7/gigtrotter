@@ -6,6 +6,7 @@ import { ExternalLink, Ticket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import { affiliateUrl } from "@/lib/affiliate";
 import { trackOutboundClick } from "./actions";
 
 type TicketLink = {
@@ -54,7 +55,7 @@ export function TicketLinks({
         eventCategory,
       );
     });
-    window.open(link.url, "_blank", "noopener,noreferrer");
+    window.open(affiliateUrl(link.provider, link.url), "_blank", "noopener,noreferrer");
   }
 
   if (links.length === 0) {

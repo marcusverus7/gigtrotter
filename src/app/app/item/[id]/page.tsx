@@ -25,6 +25,7 @@ import { CountdownShare } from "@/features/wallet/countdown-share";
 import { WhoElseGoing } from "@/features/wallet/who-else-going";
 import { ExperienceEditor } from "@/features/wallet/experience-editor";
 import { ItemDateEditor } from "@/features/wallet/item-date-editor";
+import { ItemDetailsEditor } from "@/features/wallet/item-details-editor";
 import { GigMerchSection } from "@/features/merch/gig-merch-section";
 
 const ICONS = {
@@ -195,6 +196,12 @@ export default async function WalletItemDetail({
             itemId={id}
             startsAt={item.starts_at ?? null}
             endsAt={item.ends_at ?? null}
+          />
+
+          <ItemDetailsEditor
+            itemId={id}
+            title={item.title}
+            kind={item.kind}
           />
 
           {item.barcode_ref || item.kind === "ticket" || item.kind === "flight" ? (

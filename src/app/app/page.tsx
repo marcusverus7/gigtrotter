@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus, Ticket } from "lucide-react";
+import { Plus } from "lucide-react";
 
 export const metadata: Metadata = { title: "Wallet" };
 
@@ -10,6 +10,7 @@ import { Wallet } from "@/features/wallet/wallet";
 import { MorningAfterQueue } from "@/features/wallet/morning-after-queue";
 import { ThrowbacksStrip } from "@/features/wallet/throwbacks";
 import { YearReviewTeaser } from "@/features/review/review-teaser";
+import { EmptyWalletCta } from "@/features/wallet/empty-wallet-cta";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -60,22 +61,7 @@ export default async function WalletPage() {
 
       <Wallet items={items ?? []} />
 
-      {(!items || items.length === 0) && <EmptyState />}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="mx-auto mt-12 max-w-md rounded-xl border border-dashed border-border bg-card/40 p-10 text-center">
-      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <Ticket className="h-6 w-6" />
-      </div>
-      <h2 className="text-lg font-semibold">No items yet</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Drop your next ticket into <Link href="/app/capture" className="text-primary underline">Capture</Link>{" "}
-        — or backfill from your camera roll. Your map populates as you go.
-      </p>
+      {(!items || items.length === 0) && <EmptyWalletCta />}
     </div>
   );
 }

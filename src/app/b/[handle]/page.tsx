@@ -133,6 +133,21 @@ export default async function AnonBoardPage({
           </CardContent>
         </Card>
 
+        {/* Brand CTA — gives every anonymous board a route back in */}
+        <div className="rounded-lg border border-border bg-card/60 px-6 py-5 text-center">
+          <p className="text-sm font-medium">Want your own music map?</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Track gigs, flights, and stays. Share your taste — not your
+            identity.
+          </p>
+          <Link
+            href="/"
+            className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+          >
+            Start your own map — it&apos;s free
+          </Link>
+        </div>
+
         <p className="text-center text-xs text-muted-foreground">
           <Eye className="mr-1 inline h-3 w-3" />
           {profile.anon_views} view{profile.anon_views === 1 ? "" : "s"}

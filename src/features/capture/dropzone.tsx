@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { UploadCloud, Loader2 } from "lucide-react";
+import { UploadCloud, Loader2, Camera } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import type { ParsedCapture } from "@/lib/capture/schema";
 export function CaptureDropzone() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -89,6 +90,15 @@ export function CaptureDropzone() {
           className="sr-only"
           onChange={(e) => handleFiles(e.target.files)}
         />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          capture="environment"
+          multiple={false}
+          className="sr-only"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
         <div className="flex flex-col items-center gap-3">
           {pending ? (
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -103,15 +113,27 @@ export function CaptureDropzone() {
               Or click to pick, or paste from the clipboard.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => inputRef.current?.click()}
-            disabled={pending}
-          >
-            Choose file
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => inputRef.current?.click()}
+              disabled={pending}
+            >
+              Choose file
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={pending}
+            >
+              <Camera className="h-4 w-4" />
+              Take photo
+            </Button>
+          </div>
         </div>
       </label>
 

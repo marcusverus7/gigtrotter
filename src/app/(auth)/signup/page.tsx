@@ -34,11 +34,15 @@ export default function SignupPage() {
             </p>
           )}
           <p className="text-center text-xs text-muted-foreground">
-            By signing up you agree to the{" "}
-            <Link href="/privacy" className="underline">
-              privacy promise
+            By signing up you agree to our{" "}
+            <Link href="/terms" className="underline">
+              Terms
             </Link>{" "}
-            — your life, your map, your terms.
+            and{" "}
+            <Link href="/privacy" className="underline">
+              Privacy Policy
+            </Link>
+            .
           </p>
         </div>
       </div>

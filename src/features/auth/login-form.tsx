@@ -121,7 +121,7 @@ export function LoginForm({
             setError(null);
             startTransition(async () => {
               const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth/callback?next=/app/settings`,
+                redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
               });
               if (error) setError(error.message);
               else setError("Check your inbox for a password reset link.");

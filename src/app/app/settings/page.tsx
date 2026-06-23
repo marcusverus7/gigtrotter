@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -152,6 +153,9 @@ export default async function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-start gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/update-password">Change password</Link>
+          </Button>
           <Button asChild variant="outline" size="sm">
             <a href="/api/account/export" download="gigtrotter-export.json">
               Export data (JSON)

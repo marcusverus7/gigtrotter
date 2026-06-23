@@ -27,6 +27,7 @@ import { ExperienceEditor } from "@/features/wallet/experience-editor";
 import { ItemDateEditor } from "@/features/wallet/item-date-editor";
 import { ItemDetailsEditor } from "@/features/wallet/item-details-editor";
 import { GigMerchSection } from "@/features/merch/gig-merch-section";
+import { DeleteItemButton } from "@/features/wallet/delete-item-button";
 
 const ICONS = {
   ticket: TicketIcon,
@@ -252,6 +253,11 @@ export default async function WalletItemDetail({
               <GigMerchSection items={gigMerch} />
             </>
           ) : null}
+
+          <Separator />
+          <div className="flex justify-end">
+            <DeleteItemButton itemId={id} />
+          </div>
         </CardContent>
       </Card>
     </div>

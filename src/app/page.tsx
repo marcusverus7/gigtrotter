@@ -300,6 +300,7 @@ export default function LandingPage() {
           <div className="flex gap-4">
             <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
             <Link href="/terms" className="hover:text-foreground">Terms</Link>
+            <Link href="/support" className="hover:text-foreground">Support</Link>
             <Link href="/design" className="hover:text-foreground">Design</Link>
           </div>
         </div>

@@ -10,8 +10,14 @@ Working roadmap for usability, monetisation, and growth. Status legend:
 The scan pipeline was broken in beta (missing `ANTHROPIC_API_KEY`) — now fixed and live.
 Before building further, prove the capture → confirm → map loop delights real users.
 
-- 📋 **Parse-corpus test** — run 30+ real ticket/boarding-pass/hotel screenshots through the live
-  scanner, log the top failure modes, fix the worst 3. (`eval/captures/`, see PARKED #12.)
+- 🔨 **Parse-corpus harness** — fixed and runnable via `pnpm eval`. A 36-image synthetic
+  starter corpus + answer keys is loaded under `eval/captures/`, the scorer now maps answer-key
+  fields to the parser's actual output (was silently scoring a perfect parse at ~14%), and the
+  `server-only` import that blocked `tsx` runs is shimmed for the eval. **To run:** add
+  `ANTHROPIC_API_KEY` to `.env.local` (rotate the chat-exposed key first).
+- 📋 **Real-ticket validation** — drop ~20–30 real (redaction-OK) ticket/boarding-pass/hotel
+  screenshots into real-vendor folders, run `pnpm eval`, fix the top failure modes. Synthetic
+  proves the plumbing; real layouts are the actual go/no-go signal. (See PARKED #12.)
 
 ## 1. Usability
 

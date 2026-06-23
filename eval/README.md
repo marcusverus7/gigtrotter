@@ -1,30 +1,89 @@
-# Parse corpus
+# GigTrotter ticket parser — synthetic eval set
 
-Per §14 pre-build checklist: **the single highest-leverage prep task in v3**.
+Fully synthetic event tickets for the GigTrotter parse harness (`eval/run.ts`).
+**No real brands, logos, artists or venues** — every platform, act and venue is
+invented. This keeps the set clear of trademark/IP issues while giving the parser
+the layout variety it needs.
 
-Drop 50+ real ticket / boarding pass / booking screenshots into this directory, structured by vendor:
+## Layout (matches eval/run.ts)
 
 ```
 eval/captures/
-  ticketmaster/
-    glastonbury-2026.png
-    fontaines-ally-pally.jpg
-  ryanair/
-    dub-stn-2026-04.png
-  easyjet/
-  booking/
-  airbnb/
-  dice/
-  eventbrite/
-  edge-cases/        # PDFs, weird crops, multi-ticket
+  <vendor>/                     vendor folder name = vendor label in the report
+    ticket_NNN_<style>.png
+    ticket_NNN_<style>.expected.json   <- scored against parser output
+  edge-cases/                   weird crops, multi-ticket, rotated, glare, dark mode
+  manifest.json
 ```
 
-Then run:
+Vendors are fictional: tickethub, eventwave, livepass, gatezero, stagely, rowseat,
+opendoor. The harness only uses the folder name as a label string, so these slot
+straight in. Rename folders to your own real-vendor labels if/when you add real
+redacted screenshots alongside.
+
+## Run it
 
 ```bash
-pnpm tsx eval/run.ts   # to be implemented in Phase 2 polish
+pnpm eval            # all vendors
+pnpm eval tickethub  # one vendor folder only
 ```
 
-It runs each through the live parser, prints accuracy per field, and writes a markdown report into `eval/reports/<datestamp>.md`. This is your week-two go/no-go signal: parsing reliability is the bet.
+Needs `ANTHROPIC_API_KEY` in `.env.local` (the parser calls Claude directly).
+`pnpm eval` runs via `eval/tsconfig.json`, which aliases the parser's
+`server-only` guard to a no-op shim (`eval/_shims/server-only.ts`) so the harness
+runs under `tsx` outside Next's bundler. The app build is unaffected.
 
-**Tracked-but-empty:** `.gitkeep` keeps the folder; screenshots themselves are gitignored — they contain PII.
+## .expected.json schema
+
+Sidecars carry only the fields visible on each image, matching run.ts's convention
+(`{"title": "...", "starts_at": "2026-06-26T20:00"}`):
+
+```
+title, artist, venue, city,
+starts_at   (ISO local datetime, from show time)
+doors_at    (ISO local datetime, from doors time)
+ticket_type, order_ref, barcode, price_total, currency
+section, row, seat   (seated tickets only)
+```
+
+The harness scores per-field accuracy; you only need the fields you care about, so
+trim sidecars freely.
+
+**Scoring maps sidecar fields → parser output** (`eval/score.ts`): the parser
+emits a smaller `ParsedCapture` shape than these sidecars carry, so `venue` is
+scored against `destination.name`, `city` against `destination.city`, `barcode`
+against `barcode_present` (presence). Fields the parser doesn't extract by design
+(`artist`, `doors_at`, `ticket_type`, `order_ref`, `price_total`, `currency`,
+`section`, `row`, `seat`) are reported as **unscored**, not counted as failures —
+otherwise a perfect parse would score ~14%. With the mapping, a perfect parse
+scores 100% on the fields the parser is designed to produce.
+
+## Render styles
+
+| style      | mimics                              | degradation                          |
+|------------|-------------------------------------|--------------------------------------|
+| `mobile`   | in-app wallet-pass **screenshot**   | status bar, app chrome, mild blur    |
+| `physical` | thermal **stub** (photo of paper)   | rotation, lighting gradient, noise   |
+| `pdf`      | print-at-home **e-ticket**          | clean or light phone-photo skew      |
+
+Edge cases add: top/bottom hard crops, ~18° rotation + glare, two-ticket sheet
+(sidecar = top ticket), low-res/compressed, dark-mode screenshot.
+
+## Regenerate / scale up
+
+```bash
+pip install pillow qrcode numpy
+python3 generate_tickets.py --count 200 --out eval/captures --layout vendor --seed 7
+python3 make_edge_cases.py            # adds eval/captures/edge-cases/
+```
+
+`--layout flat` instead gives a single folder + labels.jsonl if you ever want that.
+
+## Honest limitations
+
+- Layouts are *plausible*, not pixel-copies of real platforms. A parser tuned only
+  on this set may still miss real-world quirks — keep your ~20–30 real redacted
+  captures as a separate held-out set. This synthetic set is for bulk coverage and
+  labelled regression testing, not a replacement.
+- All GBP, all UK/IE venues. Extend the pools in generate_tickets.py for other
+  regions/currencies.

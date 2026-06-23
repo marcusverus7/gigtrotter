@@ -23,15 +23,16 @@
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, basename, extname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { parseCaptureBytes, ParseError } from "../src/lib/capture/parser";
 import type { ParsedCapture } from "../src/lib/capture/schema";
+import { scoreSample, type Expected } from "./score";
 
 const CAPTURES_DIR = join(process.cwd(), "eval", "captures");
 const REPORTS_DIR = join(process.cwd(), "eval", "reports");
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 
-type Expected = Partial<ParsedCapture>;
 type SampleResult = {
   vendor: string;
   filename: string;
@@ -42,6 +43,7 @@ type SampleResult = {
   fieldsChecked: number;
   fieldsCorrect: number;
   mismatches: { field: string; expected: unknown; got: unknown }[];
+  unscored: string[];
   error?: string;
 };
 
@@ -78,52 +80,8 @@ async function loadExpected(imagePath: string): Promise<Expected | undefined> {
   }
 }
 
-function fieldEquals(expected: unknown, got: unknown): boolean {
-  // Strings: lowercase + trim + accent-normalise for forgiving compares.
-  if (typeof expected === "string" && typeof got === "string") {
-    const norm = (s: string) =>
-      s
-        .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "")
-        .toLowerCase()
-        .trim();
-    return norm(expected) === norm(got);
-  }
-  // Dates: same calendar day at minute precision.
-  if (
-    typeof expected === "string" &&
-    typeof got === "string" &&
-    /\d{4}-\d{2}-\d{2}/.test(expected) &&
-    /\d{4}-\d{2}-\d{2}/.test(got)
-  ) {
-    return expected.slice(0, 16) === got.slice(0, 16);
-  }
-  return JSON.stringify(expected) === JSON.stringify(got);
-}
-
-function scoreSample(
-  parsed: ParsedCapture,
-  expected: Expected,
-): {
-  fieldsChecked: number;
-  fieldsCorrect: number;
-  mismatches: { field: string; expected: unknown; got: unknown }[];
-} {
-  const mismatches: { field: string; expected: unknown; got: unknown }[] = [];
-  let checked = 0;
-  let correct = 0;
-  for (const [field, expectedValue] of Object.entries(expected)) {
-    if (expectedValue == null) continue;
-    checked += 1;
-    const got = (parsed as Record<string, unknown>)[field];
-    if (fieldEquals(expectedValue, got)) {
-      correct += 1;
-    } else {
-      mismatches.push({ field, expected: expectedValue, got });
-    }
-  }
-  return { fieldsChecked: checked, fieldsCorrect: correct, mismatches };
-}
+// Scoring helpers (fieldEquals / FIELD_MAP / getPath / scoreSample) live in
+// ./score — a parser-free module so they run under tsx and are unit-testable.
 
 async function runOne(vendor: string, imagePath: string): Promise<SampleResult> {
   const bytes = new Uint8Array(await readFile(imagePath));
@@ -134,7 +92,7 @@ async function runOne(vendor: string, imagePath: string): Promise<SampleResult> 
     const elapsed = Date.now() - t0;
     const scored = expected
       ? scoreSample(parsed, expected)
-      : { fieldsChecked: 0, fieldsCorrect: 0, mismatches: [] };
+      : { fieldsChecked: 0, fieldsCorrect: 0, mismatches: [], unscored: [] };
     return {
       vendor,
       filename: basename(imagePath),
@@ -153,6 +111,7 @@ async function runOne(vendor: string, imagePath: string): Promise<SampleResult> 
       fieldsChecked: 0,
       fieldsCorrect: 0,
       mismatches: [],
+      unscored: [],
       error:
         err instanceof ParseError
           ? `${err.reason}: ${err.message}`
@@ -188,6 +147,15 @@ function renderReport(results: SampleResult[]): string {
     }`,
   );
   out.push(`**Avg parse latency:** ${avgMs.toFixed(0)} ms`);
+  const unscoredUnion = [...new Set(results.flatMap((r) => r.unscored))].sort();
+  if (unscoredUnion.length > 0) {
+    out.push("");
+    out.push(
+      `> **Not scored** (parser doesn't extract these by design — they'd surface in \`details[]\`): ${unscoredUnion
+        .map((f) => `\`${f}\``)
+        .join(", ")}`,
+    );
+  }
   out.push("");
   out.push("---");
   out.push("");
@@ -287,7 +255,12 @@ async function main() {
   console.log(`\nReport: ${reportPath}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run when invoked directly (`tsx eval/run.ts`), so the scoring helpers
+// above can be imported by an offline test without triggering a full run.
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

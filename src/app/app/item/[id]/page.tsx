@@ -24,6 +24,7 @@ import { AudienceSelector } from "@/features/wallet/audience-selector";
 import { CountdownShare } from "@/features/wallet/countdown-share";
 import { WhoElseGoing } from "@/features/wallet/who-else-going";
 import { ExperienceEditor } from "@/features/wallet/experience-editor";
+import { ItemDateEditor } from "@/features/wallet/item-date-editor";
 import { GigMerchSection } from "@/features/merch/gig-merch-section";
 
 const ICONS = {
@@ -189,6 +190,12 @@ export default async function WalletItemDetail({
               ) : null}
             </div>
           ) : null}
+
+          <ItemDateEditor
+            itemId={id}
+            startsAt={item.starts_at ?? null}
+            endsAt={item.ends_at ?? null}
+          />
 
           {item.barcode_ref || item.kind === "ticket" || item.kind === "flight" ? (
             <BarcodePanel

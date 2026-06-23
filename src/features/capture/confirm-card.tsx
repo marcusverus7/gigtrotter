@@ -38,8 +38,10 @@ export function ConfirmCard({
   parsed: ParsedCapture;
   onDone?: () => void;
 }) {
+  const parseFailed = parsed.confidence === 0 && parsed.title === "Couldn't read this one";
+
   const [kind, setKind] = useState<CaptureKind>(parsed.kind);
-  const [title, setTitle] = useState(parsed.title);
+  const [title, setTitle] = useState(parseFailed ? "" : parsed.title);
   const [venueName, setVenueName] = useState(parsed.destination?.name ?? "");
   const [city, setCity] = useState(parsed.destination?.city ?? "");
   const [country, setCountry] = useState(parsed.destination?.country ?? "");
@@ -49,7 +51,7 @@ export function ConfirmCard({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const lowConfidence = parsed.confidence < 0.6;
+  const lowConfidence = !parseFailed && parsed.confidence < 0.6;
 
   function onConfirm() {
     setError(null);
@@ -87,15 +89,20 @@ export function ConfirmCard({
         <div className="flex items-start justify-between gap-3">
           <CardTitle className="text-base">Confirm this capture</CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant={lowConfidence ? "outline" : "verified"}>
-              {(parsed.confidence * 100).toFixed(0)}% confident
+            <Badge variant={parseFailed ? "destructive" : lowConfidence ? "outline" : "verified"}>
+              {parseFailed ? "Manual entry" : `${(parsed.confidence * 100).toFixed(0)}% confident`}
             </Badge>
             {parsed.vendor ? (
               <Badge variant="outline">{parsed.vendor}</Badge>
             ) : null}
           </div>
         </div>
-        {lowConfidence ? (
+        {parseFailed ? (
+          <div className="mt-2 flex items-center gap-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            AI couldn&apos;t read this image — fill in all fields manually, or discard and try again.
+          </div>
+        ) : lowConfidence ? (
           <div className="mt-2 flex items-center gap-2 rounded-md bg-yellow-500/10 p-2 text-xs text-yellow-200">
             <AlertTriangle className="h-3.5 w-3.5" />
             Confidence is low — check every field before confirming.

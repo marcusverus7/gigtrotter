@@ -14,10 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
-import {
-  exportMyData,
-  deleteMyAccount,
-} from "@/features/auth/actions";
+import { DeleteAccountButton } from "@/features/auth/delete-account-button";
 import {
   regenerateAnonHandle,
   toggleAnonRevoked,
@@ -48,11 +45,6 @@ export default async function SettingsPage() {
     process.env.FORWARDING_DOMAIN ?? "capture.gigtrotter.example";
   const forwardingAddress = `${profile.anon_handle}@${forwardingDomain}`;
 
-  async function downloadExport() {
-    "use server";
-    // Phase 8 will email the archive; for now we just touch the DB.
-    await exportMyData();
-  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -159,17 +151,13 @@ export default async function SettingsPage() {
             GDPR — export everything you&apos;ve put in, or delete it.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <form action={downloadExport}>
-            <Button type="submit" variant="outline" size="sm">
+        <CardContent className="flex flex-wrap items-start gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a href="/api/account/export" download="gigtrotter-export.json">
               Export data (JSON)
-            </Button>
-          </form>
-          <form action={deleteMyAccount}>
-            <Button type="submit" variant="destructive" size="sm">
-              Delete account
-            </Button>
-          </form>
+            </a>
+          </Button>
+          <DeleteAccountButton />
         </CardContent>
       </Card>
     </div>

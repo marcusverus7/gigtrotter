@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export async function signOut() {
   const supabase = await createClient();
@@ -13,38 +13,11 @@ export async function signOut() {
 }
 
 /**
- * GDPR — full export of the current user's data as JSON. Phase 1 stub:
- * returns the rows the user owns. Phase 8+ will email an archive instead.
- */
-export async function exportMyData() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const tables = [
-    "profiles",
-    "circles",
-    "circle_members",
-    "friendships",
-    "captures",
-    "wallet_items",
-    "experiences",
-    "trips",
-  ] as const;
-
-  const out: Record<string, unknown> = {};
-  for (const t of tables) {
-    const { data } = await supabase.from(t).select("*");
-    out[t] = data ?? [];
-  }
-  return out;
-}
-
-/**
- * GDPR — full account erasure. Cascades through auth.users → public.* via
- * `on delete cascade` on every owner_id reference.
+ * GDPR — full account erasure. Deletes the auth user via the service-role
+ * admin API, which cascades through every `references auth.users on delete
+ * cascade` (profiles, captures, wallet_items, experiences, friendships,
+ * circles…). Storage objects don't cascade, so we clear the user's capture
+ * folder first (best-effort). This is irreversible.
  */
 export async function deleteMyAccount() {
   const supabase = await createClient();
@@ -52,12 +25,31 @@ export async function deleteMyAccount() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  // The actual delete requires service-role; this stub queues the request.
-  // (Phase 8 implements the secure deletion job with a re-auth challenge.)
-  await supabase
-    .from("profiles")
-    .update({ display_name: "(deleted)", avatar_url: null })
-    .eq("id", user.id);
+
+  const admin = createServiceClient();
+
+  // 1) Remove the user's encrypted captures + uploaded photos from Storage.
+  //    DB rows cascade on the auth.users delete below, but storage objects do
+  //    not — so wipe the `${userId}/` prefix explicitly. Best-effort: deletion
+  //    proceeds even if this partially fails.
+  try {
+    const { data: files } = await admin.storage
+      .from("captures")
+      .list(user.id, { limit: 1000 });
+    if (files && files.length > 0) {
+      await admin.storage
+        .from("captures")
+        .remove(files.map((f) => `${user.id}/${f.name}`));
+    }
+  } catch {
+    // ignore — the DB cascade is the source of truth for erasure
+  }
+
+  // 2) Delete the auth user → cascades to every owned row in public.*.
+  const { error } = await admin.auth.admin.deleteUser(user.id);
+  if (error) throw new Error(`Account deletion failed: ${error.message}`);
+
+  // 3) Clear the session and leave.
   await supabase.auth.signOut();
   redirect("/");
 }

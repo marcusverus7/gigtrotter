@@ -10,6 +10,7 @@ on:
     paths:
       - "capacitor.config.ts"
       - "ios-shell/**"
+      - "ios/App/App/Assets.xcassets/**"
       - "fastlane/**"
       - "Gemfile"
       - ".github/workflows/ios-build.yml"

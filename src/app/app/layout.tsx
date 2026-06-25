@@ -96,7 +96,7 @@ export default async function AppLayout({
 
       <div className="flex flex-1 flex-col overflow-x-hidden">
         {/* Top bar — mobile only */}
-        <header className="flex items-center justify-between border-b border-border/40 bg-card/30 p-4 backdrop-blur-xl md:hidden">
+        <header className="flex items-center justify-between border-b border-border/40 bg-card/30 px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] backdrop-blur-xl md:hidden">
           <Link href="/app">
             <GigTrotterMark />
           </Link>

@@ -44,7 +44,7 @@ export function FeedbackButton() {
       {/* Floating trigger */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(124,58,237,0.45)] transition-all hover:scale-105 hover:shadow-[0_12px_40px_rgba(124,58,237,0.55)] active:scale-95 md:bottom-8 md:right-8"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(124,58,237,0.45)] transition-all hover:scale-105 hover:shadow-[0_12px_40px_rgba(124,58,237,0.55)] active:scale-95 md:bottom-8 md:right-8"
       >
         <MessageSquarePlus className="h-5 w-5" />
         Feedback

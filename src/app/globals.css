@@ -78,10 +78,12 @@
   }
   html {
     color-scheme: dark;
+    overscroll-behavior: none;
   }
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    overscroll-behavior: none;
   }
   /* Tabular figures for the stats surfaces — Geist Mono */
   .tnum {

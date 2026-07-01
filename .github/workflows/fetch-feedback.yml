@@ -27,104 +27,106 @@ jobs:
           process.stdout.write(`${input}.${sig.toString('base64url')}`);
           JSEOF
           node /tmp/gen_jwt.js > /tmp/jwt.txt
-          echo "JWT ready"
+          echo "JWT ready (length: $(wc -c < /tmp/jwt.txt))"
 
-      - name: Get App ID for com.gigtrotter.app
+      - name: List all accessible apps (raw)
         run: |
           JWT=$(cat /tmp/jwt.txt)
-          curl -s \
+          echo "=== GET /v1/apps ==="
+          curl -s -w "\nHTTP_STATUS:%{http_code}" \
             -H "Authorization: Bearer ${JWT}" \
-            "https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=com.gigtrotter.app&fields[apps]=bundleId,name" \
-            | jq '{app: .data[0] | {id: .id, name: .attributes.name, bundleId: .attributes.bundleId}}' \
-            | tee /tmp/app.json
+            "https://api.appstoreconnect.apple.com/v1/apps?fields[apps]=bundleId,name&limit=10" \
+            | tee /tmp/apps_raw.json
+          echo ""
+          echo "--- parsed ---"
+          # Extract app ID if present
+          APP_ID=$(cat /tmp/apps_raw.json | jq -r '.data[0].id // empty' 2>/dev/null || true)
+          if [ -n "$APP_ID" ]; then
+            echo "APP_ID=${APP_ID}" >> $GITHUB_ENV
+            echo "Found app ID: ${APP_ID}"
+            cat /tmp/apps_raw.json | jq '.data[] | {id:.id, name:.attributes.name, bundleId:.attributes.bundleId}' 2>/dev/null
+          else
+            echo "No app ID found in response — trying via builds endpoint"
+          fi
 
-          APP_ID=$(cat /tmp/app.json | jq -r '.app.id')
-          echo "APP_ID=${APP_ID}" >> $GITHUB_ENV
-          echo "App ID: ${APP_ID}"
-
-      - name: Get recent builds
+      - name: Find app via builds (fallback if app list denied)
         run: |
           JWT=$(cat /tmp/jwt.txt)
-          curl -s \
+          echo "=== GET /v1/builds (filter by bundleId) ==="
+          curl -s -w "\nHTTP_STATUS:%{http_code}" \
             -H "Authorization: Bearer ${JWT}" \
-            "https://api.appstoreconnect.apple.com/v1/builds?filter[app]=${APP_ID}&sort=-uploadedDate&limit=5&fields[builds]=version,uploadedDate,processingState,betaAppReviewSubmission" \
-            | jq '.data[] | {id: .id, version: .attributes.version, uploaded: .attributes.uploadedDate, state: .attributes.processingState}' \
-            | tee /tmp/builds.json
-          echo "---"
-          LATEST_BUILD_ID=$(curl -s \
-            -H "Authorization: Bearer ${JWT}" \
-            "https://api.appstoreconnect.apple.com/v1/builds?filter[app]=${APP_ID}&sort=-uploadedDate&limit=1&fields[builds]=version" \
-            | jq -r '.data[0].id')
-          echo "LATEST_BUILD_ID=${LATEST_BUILD_ID}" >> $GITHUB_ENV
-          echo "Latest build: ${LATEST_BUILD_ID}"
+            "https://api.appstoreconnect.apple.com/v1/builds?filter[bundleId]=com.gigtrotter.app&sort=-uploadedDate&limit=5&fields[builds]=version,uploadedDate,processingState" \
+            | tee /tmp/builds_raw.json
+          echo ""
+          BUILD_ID=$(cat /tmp/builds_raw.json | jq -r '.data[0].id // empty' 2>/dev/null || true)
+          if [ -n "$BUILD_ID" ]; then
+            echo "LATEST_BUILD_ID=${BUILD_ID}" >> $GITHUB_ENV
+            echo "Latest build: ${BUILD_ID}"
+            cat /tmp/builds_raw.json | jq '.data[] | {id:.id, version:.attributes.version, uploaded:.attributes.uploadedDate}' 2>/dev/null
+          else
+            echo "No builds found via bundleId filter — trying via beta group"
+          fi
 
-      - name: Fetch TestFlight beta feedback (screenshot + written)
+      - name: Find builds via known beta group
         run: |
           JWT=$(cat /tmp/jwt.txt)
-          echo "=== BETA FEEDBACK FOR APP ${APP_ID} ==="
-          HTTP=$(curl -s -o /tmp/feedback.json -w "%{http_code}" \
+          PUBLIC_BETA_GROUP="374b7066-0612-44ff-aaf3-52d644bd988b"
+          echo "=== Builds in Public Beta group ==="
+          curl -s -w "\nHTTP_STATUS:%{http_code}" \
             -H "Authorization: Bearer ${JWT}" \
-            "https://api.appstoreconnect.apple.com/v1/betaFeedbacks?filter[app]=${APP_ID}&limit=50&fields[betaFeedbacks]=timestamp,comment,screenshotData,tester,buildVersion")
-          echo "HTTP: ${HTTP}"
-          echo "--- feedback response ---"
-          cat /tmp/feedback.json | jq '
+            "https://api.appstoreconnect.apple.com/v1/betaGroups/${PUBLIC_BETA_GROUP}/builds?limit=3&fields[builds]=version,uploadedDate,processingState" \
+            | tee /tmp/group_builds.json
+          echo ""
+          BUILD_ID=$(cat /tmp/group_builds.json | jq -r '.data[0].id // empty' 2>/dev/null || true)
+          if [ -n "$BUILD_ID" ] && [ -z "${LATEST_BUILD_ID}" ]; then
+            echo "LATEST_BUILD_ID=${BUILD_ID}" >> $GITHUB_ENV
+            echo "Build from group: ${BUILD_ID}"
+          fi
+          cat /tmp/group_builds.json | jq '.data[] | {id:.id, version:.attributes.version}' 2>/dev/null || true
+
+      - name: Fetch beta feedback for build
+        run: |
+          JWT=$(cat /tmp/jwt.txt)
+          if [ -z "${LATEST_BUILD_ID}" ]; then
+            echo "No build ID available — cannot fetch build-specific feedback"
+          else
+            echo "=== Beta feedback for build ${LATEST_BUILD_ID} ==="
+            curl -s -w "\nHTTP_STATUS:%{http_code}" \
+              -H "Authorization: Bearer ${JWT}" \
+              "https://api.appstoreconnect.apple.com/v1/builds/${LATEST_BUILD_ID}/betaFeedbacks?limit=50" \
+              | tee /tmp/build_feedback.json
+            echo ""
+          fi
+
+          # Also try the top-level betaFeedbacks endpoint
+          echo "=== GET /v1/betaFeedbacks (all) ==="
+          curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            -H "Authorization: Bearer ${JWT}" \
+            "https://api.appstoreconnect.apple.com/v1/betaFeedbacks?limit=50&fields[betaFeedbacks]=timestamp,comment,buildVersion,tester" \
+            | tee /tmp/all_feedback.json
+          echo ""
+          echo "--- feedback items ---"
+          cat /tmp/all_feedback.json | jq '
             if .data then
-              "Total feedback items: \(.data | length)",
+              "Total: \(.data | length)",
               (.data[] | {
-                id: .id,
-                timestamp: .attributes.timestamp,
-                comment: .attributes.comment,
-                buildVersion: .attributes.buildVersion,
-                hasScreenshot: (.attributes.screenshotData != null)
-              })
-            else
-              .
-            end' 2>/dev/null || cat /tmp/feedback.json
-
-      - name: Fetch feedback for latest build specifically
-        run: |
-          JWT=$(cat /tmp/jwt.txt)
-          echo "=== FEEDBACK ON BUILD ${LATEST_BUILD_ID} ==="
-          HTTP=$(curl -s -o /tmp/build_feedback.json -w "%{http_code}" \
-            -H "Authorization: Bearer ${JWT}" \
-            "https://api.appstoreconnect.apple.com/v1/builds/${LATEST_BUILD_ID}/betaFeedbacks?limit=50")
-          echo "HTTP: ${HTTP}"
-          cat /tmp/build_feedback.json | jq '
-            if .data then
-              "Items: \(.data | length)",
-              (.data[] | {
-                id: .id,
                 timestamp: .attributes.timestamp,
                 comment: .attributes.comment,
                 buildVersion: .attributes.buildVersion
               })
-            else .
-            end' 2>/dev/null || cat /tmp/build_feedback.json
+            else . end' 2>/dev/null || cat /tmp/all_feedback.json
 
-      - name: List beta testers and their status
+      - name: List beta testers
         run: |
           JWT=$(cat /tmp/jwt.txt)
-          echo "=== BETA TESTERS ==="
-          curl -s \
+          echo "=== Beta testers in Public Beta group ==="
+          curl -s -w "\nHTTP_STATUS:%{http_code}" \
             -H "Authorization: Bearer ${JWT}" \
-            "https://api.appstoreconnect.apple.com/v1/betaTesters?filter[apps]=${APP_ID}&limit=50&fields[betaTesters]=email,firstName,lastName,inviteType,betaGroups" \
-            | jq '.data[] | {
-                email: .attributes.email,
-                name: "\(.attributes.firstName) \(.attributes.lastName)",
-                invite: .attributes.inviteType
-              }' 2>/dev/null || echo "No testers found or permission denied"
+            "https://api.appstoreconnect.apple.com/v1/betaGroups/374b7066-0612-44ff-aaf3-52d644bd988b/betaTesters?limit=50&fields[betaTesters]=email,firstName,lastName" \
+            | jq '.data[] | "\(.attributes.firstName) \(.attributes.lastName) <\(.attributes.email)>"' 2>/dev/null || echo "(none or permission denied)"
 
-      - name: Check beta groups and feedback enabled
-        run: |
-          JWT=$(cat /tmp/jwt.txt)
-          echo "=== BETA GROUPS ==="
-          curl -s \
+          echo "=== Beta testers in Internal Testers group ==="
+          curl -s -w "\nHTTP_STATUS:%{http_code}" \
             -H "Authorization: Bearer ${JWT}" \
-            "https://api.appstoreconnect.apple.com/v1/betaGroups?filter[app]=${APP_ID}&fields[betaGroups]=name,feedbackEnabled,publicLink,publicLinkEnabled,betaTesters" \
-            | jq '.data[] | {
-                id: .id,
-                name: .attributes.name,
-                feedbackEnabled: .attributes.feedbackEnabled,
-                publicLink: .attributes.publicLink,
-                publicLinkEnabled: .attributes.publicLinkEnabled
-              }' 2>/dev/null
+            "https://api.appstoreconnect.apple.com/v1/betaGroups/29392d02-f5ea-4f47-a38a-bfbaf56f3c66/betaTesters?limit=50&fields[betaTesters]=email,firstName,lastName" \
+            | jq '.data[] | "\(.attributes.firstName) \(.attributes.lastName) <\(.attributes.email)>"' 2>/dev/null || echo "(none or permission denied)"

@@ -8,7 +8,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Admin — Feedback" };
 
-const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; variant: "outline" | "verified" | "destructive" | "friends" }> = {
+const CATEGORY_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; variant: "outline" | "verified" | "destructive" | "friends" }> = {
   bug:     { label: "Bug",     icon: Bug,          variant: "destructive" },
   idea:    { label: "Idea",    icon: Lightbulb,    variant: "verified" },
   design:  { label: "Design",  icon: Paintbrush,   variant: "friends" },
@@ -30,12 +30,27 @@ export default async function FeedbackAdminPage() {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (adminEmail && user.email !== adminEmail) redirect("/app");
 
+  type FeedbackRow = {
+    id: string;
+    user_id: string | null;
+    page_url: string | null;
+    category: string;
+    message: string;
+    created_at: string;
+    profiles: { display_name: string | null; username: string | null } | null;
+  };
+
   const service = createServiceClient();
-  const { data: rows } = await service
-    .from("feedback")
-    .select("id, user_id, page_url, category, message, created_at, profiles(display_name, username)")
+  // The `feedback` table and its `profiles` embed aren't in the generated
+  // Supabase types, so the query builder can't infer them. Query loosely at the
+  // `.from()` boundary and apply our own row shape.
+  const { data } = await (service.from("feedback") as any)
+    .select(
+      "id, user_id, page_url, category, message, created_at, profiles(display_name, username)",
+    )
     .order("created_at", { ascending: false })
     .limit(200);
+  const rows = (data ?? []) as FeedbackRow[];
 
   const byCategory = (rows ?? []).reduce<Record<string, number>>((acc, r) => {
     acc[r.category] = (acc[r.category] ?? 0) + 1;
@@ -78,8 +93,8 @@ export default async function FeedbackAdminPage() {
           const meta = CATEGORY_META[row.category] ?? CATEGORY_META.general;
           const Icon = meta.icon;
           const submitter =
-            (row.profiles as any)?.display_name ??
-            (row.profiles as any)?.username ??
+            row.profiles?.display_name ??
+            row.profiles?.username ??
             "Anonymous";
           const ts = new Intl.DateTimeFormat(undefined, {
             day: "numeric",

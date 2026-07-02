@@ -32,28 +32,15 @@ function money(cents: number, currency: string) {
 export function TicketLinks({
   links,
   eventId,
-  eventTitle,
-  eventCity,
-  eventCategory,
 }: {
   links: TicketLink[];
   eventId: string;
-  eventTitle: string;
-  eventCity: string | null;
-  eventCategory: string;
 }) {
   const [pending, startTransition] = useTransition();
 
   function handleClick(link: TicketLink) {
     startTransition(async () => {
-      await trackOutboundClick(
-        eventId,
-        link.id,
-        link.provider,
-        eventTitle,
-        eventCity,
-        eventCategory,
-      );
+      await trackOutboundClick(eventId, link.id);
     });
     window.open(affiliateUrl(link.provider, link.url), "_blank", "noopener,noreferrer");
   }

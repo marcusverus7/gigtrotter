@@ -66,17 +66,17 @@ export async function createDiscussionReply(input: {
     throw error;
   }
 
-  const { data: post } = await supabase
+  // Recompute from the source of truth rather than read-then-increment: that
+  // pattern loses counts under concurrent replies and drifts if an insert was
+  // silently blocked. A direct count is race-safe and self-healing.
+  const { count } = await supabase
+    .from("discussion_replies")
+    .select("id", { count: "exact", head: true })
+    .eq("post_id", input.postId);
+  await supabase
     .from("discussion_posts")
-    .select("reply_count")
-    .eq("id", input.postId)
-    .single();
-  if (post) {
-    await supabase
-      .from("discussion_posts")
-      .update({ reply_count: (post.reply_count ?? 0) + 1 })
-      .eq("id", input.postId);
-  }
+    .update({ reply_count: count ?? 0 })
+    .eq("id", input.postId);
 
   revalidatePath(`/app/events/${input.eventId}/discussion`);
 }

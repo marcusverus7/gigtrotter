@@ -89,7 +89,7 @@ export function SubmitEventForm({
           ticketProvider: ticketProvider || null,
         });
         setSuccess(true);
-        toast.success("Event submitted! It's now live on the Events page.");
+        toast.success("Event submitted for review — we'll publish it once it's approved.");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't submit event.");
       }

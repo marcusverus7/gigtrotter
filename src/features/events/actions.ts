@@ -47,27 +47,40 @@ export async function toggleEventInterest(
   revalidatePath("/app/events");
 }
 
-export async function trackOutboundClick(
-  eventId: string,
-  ticketLinkId: string,
-  provider: string,
-  eventTitle: string,
-  eventCity: string | null,
-  eventCategory: string,
-) {
+export async function trackOutboundClick(eventId: string, ticketLinkId: string) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Trust the database, not the client. Verify the link genuinely belongs to
+  // this event and derive the provider + event fields server-side, so click
+  // metrics can't be spoofed by a caller passing arbitrary strings. This
+  // matters before any revenue (affiliate payout / partner pitch) is tied to
+  // the counts.
+  const { data: link } = await supabase
+    .from("event_ticket_links")
+    .select("provider")
+    .eq("id", ticketLinkId)
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (!link) return;
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("title, venue_city, category")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!event) return;
+
   await supabase.from("event_outbound_clicks").insert({
     event_id: eventId,
     ticket_link_id: ticketLinkId,
     user_id: user?.id ?? null,
-    provider,
-    event_title: eventTitle,
-    event_city: eventCity,
-    event_category: eventCategory,
+    provider: link.provider,
+    event_title: event.title,
+    event_city: event.venue_city,
+    event_category: event.category,
   });
 }
 
@@ -122,6 +135,10 @@ export async function submitEvent(input: {
       max_price_cents: input.maxPriceCents,
       tags: input.tags,
       source: "manual",
+      // User-submitted events are held for review; only external feed syncs are
+      // trusted to publish directly. Enforced in the DB by the events read RLS
+      // policy (migration 0011).
+      status: "pending",
       promoter_id: user.id,
       promoter_name: profile?.display_name ?? null,
     })

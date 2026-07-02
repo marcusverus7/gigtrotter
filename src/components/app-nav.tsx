@@ -20,17 +20,20 @@ import {
   Ticket,
   Trophy,
   Upload,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+
+// Flip to true when these surfaces have real data/payments wired.
+const SHOW_UNLAUNCHED = false;
 
 export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
   badge?: number;
+  flag?: boolean;
 };
 
 export type NavGroup = {
@@ -38,7 +41,7 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-const navGroups: NavGroup[] = [
+const rawNavGroups: NavGroup[] = [
   {
     items: [
       { href: "/app", label: "Wallet", icon: Ticket },
@@ -49,11 +52,10 @@ const navGroups: NavGroup[] = [
   {
     label: "Discover",
     items: [
-      { href: "/app/events", label: "Events", icon: CalendarSearch },
-      { href: "/app/marketplace", label: "Marketplace", icon: ShoppingBag },
-      { href: "/app/merch", label: "Merch Store", icon: Shirt },
+      { href: "/app/events", label: "Events", icon: CalendarSearch, flag: true },
+      { href: "/app/marketplace", label: "Marketplace", icon: ShoppingBag, flag: true },
+      { href: "/app/merch", label: "Merch Store", icon: Shirt, flag: true },
       { href: "/app/discover", label: "People", icon: Compass },
-      { href: "/app/friends", label: "Friends", icon: Users },
     ],
   },
   {
@@ -76,11 +78,18 @@ const navGroups: NavGroup[] = [
   },
   {
     items: [
-      { href: "/app/import", label: "Import", icon: Download },
+      { href: "/app/import", label: "Import", icon: Download, flag: true },
       { href: "/app/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
+
+const navGroups: NavGroup[] = rawNavGroups
+  .map((g) => ({
+    ...g,
+    items: g.items.filter((n) => SHOW_UNLAUNCHED || !n.flag),
+  }))
+  .filter((g) => g.items.length > 0);
 
 function applyBadges(groups: NavGroup[], alertBadge?: number): NavGroup[] {
   if (!alertBadge) return groups;
@@ -142,11 +151,20 @@ export function SidebarNav({ alertBadge }: { alertBadge?: number }) {
   );
 }
 
+const bottomNavItems: NavItem[] = [
+  { href: "/app", label: "Wallet", icon: Ticket },
+  { href: "/app/night", label: "Tonight", icon: Moon },
+  { href: "/app/capture", label: "Capture", icon: Upload },
+  { href: "/app/map", label: "Map", icon: Globe2 },
+  { href: "/app/memories", label: "Memories", icon: History },
+];
+
 export function BottomNav({ alertBadge }: { alertBadge?: number }) {
   const pathname = usePathname();
-  const items = applyBadges(navGroups, alertBadge)
-    .flatMap((g) => g.items)
-    .slice(0, 5);
+  const items = applyBadges(
+    [{ items: bottomNavItems }],
+    alertBadge,
+  ).flatMap((g) => g.items);
 
   return (
     <nav className="sticky bottom-0 z-40 flex justify-around border-t border-border/40 bg-card/80 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl md:hidden">
@@ -160,7 +178,7 @@ export function BottomNav({ alertBadge }: { alertBadge?: number }) {
             key={n.href}
             href={n.href}
             className={cn(
-              "flex flex-1 flex-col items-center gap-0.5 rounded-md p-2 text-xs transition-colors",
+              "flex min-h-[44px] flex-1 flex-col items-center gap-0.5 rounded-md px-2 py-2.5 text-xs transition-colors",
               active
                 ? "text-primary font-medium"
                 : "text-muted-foreground hover:text-primary",

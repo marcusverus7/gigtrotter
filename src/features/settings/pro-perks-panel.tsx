@@ -1,8 +1,6 @@
-import Link from "next/link";
 import { Crown, Plane, Shield, Sparkles, Ticket } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PlusMembershipCta } from "./plus-membership-cta";
 
 /**
  * GigTrotter+ as a perks club — NOT a feature paywall.
@@ -63,24 +62,7 @@ export function ProPerksPanel({ isPlus }: { isPlus: boolean }) {
           />
         </ul>
 
-        <div className="rounded-md border border-border bg-background/50 p-3 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">Pricing TBD in private beta.</p>
-          <p className="mt-1">
-            We&apos;ll set the price once we&apos;ve signed enough partner
-            perks to justify it. Until then, every account is on free. The
-            wallet, the map, the year-in-review, capture — all of it stays
-            free, always.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="outline" disabled>
-            <span>Join the waitlist (V1)</span>
-          </Button>
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/app/perks">View live perks</Link>
-          </Button>
-        </div>
+        <PlusMembershipCta />
       </CardContent>
     </Card>
   );

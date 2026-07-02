@@ -175,25 +175,25 @@ export function OnboardingWizard({
               You&apos;re in{displayName ? `, ${displayName.split(" ")[0]}` : ""}.
             </h1>
             <p className="text-muted-foreground">
-              Pick your starting move — capture your first item, or backfill
-              years of history from your camera roll.
+              The fastest way to light up your map: scan your camera roll for old
+              tickets. Or capture a single item to start.
             </p>
           </div>
           <div className="mx-auto grid max-w-md gap-3">
+            <StartCard
+              icon={Camera}
+              title="Backfill from camera roll"
+              desc="Scan years of ticket screenshots in minutes — your map fills fast."
+              href="/app/capture/backfill"
+              primary
+              onClick={() => router.push("/app/capture/backfill")}
+            />
             <StartCard
               icon={ScanLine}
               title="Capture your first item"
               desc="Drop a screenshot or forward an email."
               href="/app/capture"
-              primary
               onClick={() => router.push("/app/capture")}
-            />
-            <StartCard
-              icon={Camera}
-              title="Backfill from camera roll"
-              desc="Scan years of ticket screenshots in minutes."
-              href="/app/capture/backfill"
-              onClick={() => router.push("/app/capture/backfill")}
             />
             <button
               onClick={() => router.push("/app")}

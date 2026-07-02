@@ -350,13 +350,7 @@ export default async function EventDetailPage({
           <Separator />
 
           {/* Ticket links with tracking */}
-          <TicketLinks
-            links={ticketLinks}
-            eventId={id}
-            eventTitle={event.title}
-            eventCity={event.venue_city}
-            eventCategory={event.category}
-          />
+          <TicketLinks links={ticketLinks} eventId={id} />
 
           {/* Discussion CTA */}
           <Separator />

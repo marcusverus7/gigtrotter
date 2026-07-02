@@ -11,6 +11,29 @@ Things I can't decide or do without you. Ranked by what blocks the most downstre
 - **Hero direction:** the interactive Three.js globe (option A)
 - **Pricing model:** GigTrotter+ is a **perks club** (promoter discounts, VIP, prize draws, marketplace fee waiver). Free tier loses nothing. Revenue: subscriptions + face-value resale marketplace booking fees + affiliate commissions
 
+## Hidden from nav until ready (`SHOW_UNLAUNCHED` flag)
+
+Six surfaces are built but empty (no data / no payments), so they're hidden from
+the sidebar + bottom nav to keep the beta feeling finished. Their routes still
+work — only nav entries are gated.
+
+- **Flip to reveal:** set `SHOW_UNLAUNCHED = true` in `src/components/app-nav.tsx`.
+- **Hidden:** Events, Marketplace, Merch Store, Import, Perks (and the promoter
+  event-submit surface).
+- **Un-hide each only when its blocker below clears** (events pipeline, Stripe
+  Connect, partner perks, import OAuth). Don't reveal the whole set at once.
+
+### Before un-hiding **Events** specifically
+
+- **Apply migration `0011_event_moderation.sql`** first, then verify. It adds an
+  `events.status` column and narrows the public-read RLS so user-submitted events
+  are held as `pending` until approved (stops any user publishing / claiming
+  promoter powers on an event). The submit action already writes `status:
+  'pending'`; without the migration applied, manual submit will error — which is
+  fine while Events is hidden, but must be applied before reveal.
+- Still TODO: an **admin approve/reject UI** for pending events (none yet — you'd
+  flip `status` in Supabase directly until built).
+
 ## Blocks deploy
 
 1. **Supabase project keys** — drop URL + anon + service-role into `.env.local`

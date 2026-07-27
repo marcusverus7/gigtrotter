@@ -1,0 +1,82 @@
+[
+  {
+    "image": "tickethub/ticket_003_pdf.png",
+    "parse": {
+      "kind": "ticket",
+      "title": "Gloss Hounds + Pylon",
+      "starts_at": "2026-07-04T20:00:00",
+      "ends_at": null,
+      "origin": null,
+      "destination": { "name": "O2 Forum", "city": "London", "country": null, "iata": null },
+      "vendor": "tickethub",
+      "barcode_present": true,
+      "confidence": 0.95,
+      "details": ["Doors 18:30", "VIP Package", "General Standing", "Age 16+", "Order 2XSW63HY", "Total £45.10"],
+      "pii_detected": false
+    }
+  },
+  {
+    "image": "tickethub/ticket_007_mobile.png",
+    "parse": {
+      "kind": "ticket",
+      "title": "Neon Vespers",
+      "starts_at": "2026-10-16T19:00:00",
+      "ends_at": null,
+      "origin": null,
+      "destination": { "name": "The Junction", "city": "Cambridge", "country": null, "iata": null },
+      "vendor": "tickethub",
+      "barcode_present": true,
+      "confidence": 0.95,
+      "details": ["Doors 17:30", "GA Standing", "Order CM7QS55N", "E-Ticket", "Under 14s with adult"],
+      "pii_detected": false
+    }
+  },
+  {
+    "image": "edge-cases/edge_rotated_glare.png",
+    "parse": {
+      "kind": "ticket",
+      "title": "Paper Cathedral + Junebug",
+      "starts_at": "2026-12-17",
+      "ends_at": null,
+      "origin": null,
+      "destination": { "name": "Vicar Street", "city": "Dublin", "country": null, "iata": null },
+      "vendor": "livepass",
+      "barcode_present": true,
+      "confidence": 0.65,
+      "details": ["Tier 2", "Row G", "Seat 42", "Price £68.00", "Ref W2FHCF64", "Doors/show times obscured by glare"],
+      "pii_detected": false
+    }
+  },
+  {
+    "image": "edge-cases/edge_darkmode.png",
+    "parse": {
+      "kind": "ticket",
+      "title": "Velvet Arc",
+      "starts_at": "2026-07-18",
+      "ends_at": null,
+      "origin": null,
+      "destination": { "name": "Northgate Arena", "city": "Chester", "country": null, "iata": null },
+      "vendor": "tickethub",
+      "barcode_present": true,
+      "confidence": 0.7,
+      "details": ["Doors 18:00", "Stalls", "Tier 2", "Row B", "Seat 46", "Order VGWENBJ7", "Show time not visible"],
+      "pii_detected": false
+    }
+  },
+  {
+    "image": "edge-cases/edge_multi_ticket.png",
+    "parse": {
+      "kind": "ticket",
+      "title": "Dust Republic",
+      "starts_at": "2026-11-22T20:30:00",
+      "ends_at": null,
+      "origin": null,
+      "destination": { "name": "Barrowland Ballroom", "city": "Glasgow", "country": null, "iata": null },
+      "vendor": "tickethub",
+      "barcode_present": true,
+      "confidence": 0.85,
+      "details": ["Doors 19:00", "GA", "£22.00", "Ref 74NGZUHS", "Second ticket on sheet: Marble Tide (Gatezero)"],
+      "pii_detected": false
+    }
+  }
+]

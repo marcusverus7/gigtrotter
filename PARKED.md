@@ -36,26 +36,44 @@ work — only nav entries are gated.
   Until the migration is applied it shows a "migration not applied" notice rather
   than failing, so it's safe to visit now.
 
-## ⚠ iOS builds are currently failing — `MATCH_PASSWORD`
+## ⚠ iOS signing: shared Apple team, and how it broke (RESOLVED 2026-07-27)
 
-Every `iOS Build & Upload` run since **2026-06-25** has failed at the signing step:
+iOS builds failed from **2026-06-25** to **2026-07-27**. Fixed — but the cause
+lives in *other repos*, so read this before touching any iOS pipeline.
 
-```
-[!] Invalid password passed via 'MATCH_PASSWORD'
-```
+**Root cause: distribution certificates are team-wide, not per-app.** Apple team
+`JQS67937W6` is shared by GigTrotter, Mezo, Klert, ToneScout, Grimoire and
+Skyline. Two sibling pipelines — `klert/ios-release.yml` and
+`tonescout/ios-build.yml` — had a "Create distribution certificate" step that
+issued `DELETE /v1/certificates` for **every** `DISTRIBUTION` cert in the account
+before minting a fresh one for themselves. Each of their builds therefore
+destroyed GigTrotter's signing identity. Nothing in GigTrotter's own logs could
+reveal this.
 
-The `MATCH_PASSWORD` GitHub secret doesn't match the passphrase the fastlane
-match certificates repo was encrypted with, so signing never starts.
+Symptoms seen here, in order:
 
-- **Last successful build: 2026-06-17 → TestFlight build 14.** That is still the
-  only binary testers have.
-- **Consequence:** the branded **app icon** (25 Jun) and **splash screen** (1 Jul)
-  are committed but have *never* shipped to a device. They land on the next
-  successful build.
-- **Not affected:** anything web. The Capacitor shell loads the live site, so all
-  web changes reach existing testers on build 14 without a rebuild.
-- **Fix:** update the `MATCH_PASSWORD` repo secret to the match repo's real
-  passphrase, then re-run the workflow. (Only Mark can set this.)
+1. `[!] Invalid password passed via 'MATCH_PASSWORD'` — a *secondary* effect. A
+   ToneScout match run had also overwritten `gigtrotter-certs` with ToneScout's
+   assets, encrypted with ToneScout's passphrase.
+2. After clearing that repo: `Could not create another Distribution certificate,
+   reached the maximum number of available Distribution certificates.`
+
+**What was done:** cleared `gigtrotter-certs` (history preserved), revoked the
+orphaned distribution cert in the Apple portal, re-ran → green. The repo now
+holds GigTrotter's own cert plus `AppStore_com.gigtrotter.app.mobileprovision`.
+
+**Guarding against recurrence:** PRs raised to stop both siblings revoking —
+`marcusverus7/tonescout#2` and `marcusverus7/klert#5`. **Until those merge, any
+Klert or ToneScout iOS build will revoke GigTrotter's certificate again.**
+
+**Proper long-term fix:** put every app on fastlane match against one shared
+certificates repo, so all six reuse a single distribution certificate (private
+key available to each build) with per-app provisioning profiles. Certificates are
+team-wide; profiles are per-app.
+
+**Note:** web is never affected by any of this. The Capacitor shell loads the
+live site, so web changes reach existing testers without a rebuild — only native
+assets (icon, splash) need a successful build.
 
 ## Blocks deploy
 

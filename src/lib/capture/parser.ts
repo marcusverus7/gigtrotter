@@ -26,7 +26,16 @@ export class ParseError extends Error {
 const anthropic = () =>
   new Anthropic({ apiKey: serverEnv.anthropicApiKey });
 
-function detectMimeType(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | "application/pdf" {
+/**
+ * The model occasionally wraps its JSON in a ```json fence despite the prompt;
+ * strip it defensively rather than retry on cost. Exported for the offline
+ * logic tests (eval/logic.test.ts).
+ */
+export function stripCodeFence(text: string): string {
+  return text.replace(/^```(?:json)?\s*|\s*```$/g, "");
+}
+
+export function detectMimeType(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | "application/pdf" {
   // Cheap magic-number sniff; enough for the formats Apple/Android share sheets emit.
   if (bytes[0] === 0x89 && bytes[1] === 0x50) return "image/png";
   if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
@@ -79,9 +88,7 @@ export async function parseCaptureBytes(
     .join("")
     .trim();
 
-  // The model occasionally wraps JSON in a ```json fence despite the prompt;
-  // strip it defensively rather than retry on cost.
-  const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, "");
+  const cleaned = stripCodeFence(text);
 
   let json: unknown;
   try {

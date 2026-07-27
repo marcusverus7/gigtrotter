@@ -10,7 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "eval": "tsx --tsconfig eval/tsconfig.json eval/run.ts"
+    "eval": "tsx --tsconfig eval/tsconfig.json eval/run.ts",
+    "test:logic": "tsx --tsconfig eval/tsconfig.json eval/logic.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

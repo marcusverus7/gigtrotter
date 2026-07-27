@@ -31,8 +31,31 @@ work — only nav entries are gated.
   promoter powers on an event). The submit action already writes `status:
   'pending'`; without the migration applied, manual submit will error — which is
   fine while Events is hidden, but must be applied before reveal.
-- Still TODO: an **admin approve/reject UI** for pending events (none yet — you'd
-  flip `status` in Supabase directly until built).
+- The **admin approve/reject UI** is built: `/app/admin/events` lists everything
+  awaiting review with Approve / Reject buttons (admin-gated, service-role write).
+  Until the migration is applied it shows a "migration not applied" notice rather
+  than failing, so it's safe to visit now.
+
+## ⚠ iOS builds are currently failing — `MATCH_PASSWORD`
+
+Every `iOS Build & Upload` run since **2026-06-25** has failed at the signing step:
+
+```
+[!] Invalid password passed via 'MATCH_PASSWORD'
+```
+
+The `MATCH_PASSWORD` GitHub secret doesn't match the passphrase the fastlane
+match certificates repo was encrypted with, so signing never starts.
+
+- **Last successful build: 2026-06-17 → TestFlight build 14.** That is still the
+  only binary testers have.
+- **Consequence:** the branded **app icon** (25 Jun) and **splash screen** (1 Jul)
+  are committed but have *never* shipped to a device. They land on the next
+  successful build.
+- **Not affected:** anything web. The Capacitor shell loads the live site, so all
+  web changes reach existing testers on build 14 without a rebuild.
+- **Fix:** update the `MATCH_PASSWORD` repo secret to the match repo's real
+  passphrase, then re-run the workflow. (Only Mark can set this.)
 
 ## Blocks deploy
 

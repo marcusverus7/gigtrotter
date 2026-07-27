@@ -21,9 +21,22 @@
  */
 
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// tsx does not auto-load .env.local, so hydrate process.env from it here.
+// (Static imports hoist above this block, but that's fine — the parser reads
+// its env lazily at call time, not at import time.) Shell env values win.
+const envPath = join(process.cwd(), ".env.local");
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)=(.*)$/);
+    if (m && !(m[1] in process.env) && m[2].trim() !== "") {
+      process.env[m[1]] = m[2].trim();
+    }
+  }
+}
 
 import { parseCaptureBytes, ParseError } from "../src/lib/capture/parser";
 import type { ParsedCapture } from "../src/lib/capture/schema";

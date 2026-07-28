@@ -8,7 +8,12 @@
  */
 
 function clean(v: string): string {
-  return v.replace(/[^\x20-\x7E]/g, "");
+  // Trim first: a value pasted into a hosting dashboard keeps whatever
+  // whitespace came with it. Vercel stores exactly what you paste (unlike
+  // dotenv, which trims), so a stray leading space on an API key ships a
+  // malformed credential and the provider answers 401 — with nothing in the
+  // value that looks wrong. Cost several hours on 2026-07-28.
+  return v.trim().replace(/[^\x20-\x7E]/g, "");
 }
 
 function required(name: string, value: string | undefined): string {

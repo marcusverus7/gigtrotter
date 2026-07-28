@@ -1,26 +1,130 @@
-name: Android Build & Distribute
+name: Android Build & Play Internal
 
-# Builds the Capacitor Android shell on Ubuntu (Android SDK pre-installed).
-# Outputs a debug APK as a workflow artifact.
-# To get a shareable Firebase testing link, set FIREBASE_APP_ID +
-# FIREBASE_SERVICE_ACCOUNT_JSON secrets and uncomment the distribution step.
+# Builds the Capacitor Android shell on Ubuntu and produces a SIGNED RELEASE
+# bundle (.aab, for Google Play) plus a signed .apk (for sideload testing),
+# then submits the .aab to the Play internal testing track.
+#
+# This is the Android counterpart of "iOS Build & Upload" (ios-build.yml) and
+# is deliberately kept at the same level of capability: release-signed binary,
+# automatic store upload, artifact retained on the run.
+#
+# Required repository secrets (see the "Preflight" step for the exact list —
+# it fails loudly with instructions when any are missing):
+#   ANDROID_KEYSTORE_BASE64        base64 of the upload keystore (.jks)
+#   ANDROID_KEYSTORE_PASSWORD      keystore password
+#   ANDROID_KEY_ALIAS              alias of the signing key inside the keystore
+#   ANDROID_KEY_PASSWORD           password for that key
+#   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON  Play Developer API service-account JSON
+#
+# Nothing secret is ever written to the repo — the keystore is decoded into the
+# runner's temp dir and the service-account JSON is streamed to the upload
+# action from the secret.
+
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Pipeline validation: build the release artifacts UNSIGNED and skip Play upload (use before the keystore secrets exist)"
+        type: boolean
+        default: false
+      skip_play:
+        description: "Build and sign, but do not upload to Google Play"
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
-      - "capacitor.config.ts"
-      - "ios-shell/**"
+      # The shell binary only changes when the native shell or its inputs
+      # change — the app itself is the live Next.js site loaded over HTTPS, so
+      # ordinary web changes reach Android through the Vercel deploy without a
+      # rebuild. These are the paths that DO change the .aab:
+      - "capacitor.config.ts" # appId / appName / server.url
+      - "ios-shell/**" # shared webDir (splash shim) — used by both platforms
+      - "ios/App/App/Assets.xcassets/**" # shared source art for icon + splash
+      - "scripts/assets/android_icons.py" # derives the Android res/ from it
+      - "package.json" # Capacitor / plugin versions
+      - "pnpm-lock.yaml"
       - ".github/workflows/android-build.yml"
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
-      contents: write
+      contents: write # needed to publish the sideload APK as a GitHub Release
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      SKIP_PLAY: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_play || false }}
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+      HAS_PLAY_SA: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != '' }}
+      # Play requires a strictly increasing versionCode. github.run_number is
+      # per-workflow-file and monotonic, so it is a safe source.
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: "1.0"
+
     steps:
       - uses: actions/checkout@v4
 
+      # ── Preflight ──────────────────────────────────────────────────────────
+      # Fail *before* spending 10 minutes on Gradle if we can't sign the output.
+      - name: Preflight — check signing credentials
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::Dry run — building UNSIGNED release artifacts to validate the pipeline. The output is NOT installable or distributable."
+            exit 0
+          fi
+          if [ "$HAS_KEYSTORE" = "true" ]; then
+            echo "Upload keystore secrets present — building a signed release."
+            exit 0
+          fi
+          echo "::error title=Android upload keystore is not configured::Cannot produce a signed release build."
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## Android release blocked — missing signing secrets
+
+          This workflow builds a **signed release** bundle for Google Play. It needs an
+          upload keystore, which is not present in this repository's secrets.
+
+          ### Create the keystore locally (never commit it)
+
+          ```bash
+          keytool -genkeypair -v \
+            -keystore gigtrotter-upload.jks \
+            -alias gigtrotter-upload \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storetype JKS
+          base64 -w0 gigtrotter-upload.jks > gigtrotter-upload.jks.b64
+          ```
+
+          Keep `gigtrotter-upload.jks` somewhere safe and backed up — losing it means you
+          can never ship an update to the same Play listing again.
+
+          ### Then add these repository secrets
+
+          | Secret | Value |
+          |---|---|
+          | `ANDROID_KEYSTORE_BASE64` | contents of `gigtrotter-upload.jks.b64` |
+          | `ANDROID_KEYSTORE_PASSWORD` | the keystore password you chose |
+          | `ANDROID_KEY_ALIAS` | `gigtrotter-upload` |
+          | `ANDROID_KEY_PASSWORD` | the key password you chose |
+
+          ```bash
+          gh secret set ANDROID_KEYSTORE_BASE64 < gigtrotter-upload.jks.b64
+          gh secret set ANDROID_KEYSTORE_PASSWORD
+          gh secret set ANDROID_KEY_ALIAS
+          gh secret set ANDROID_KEY_PASSWORD
+          ```
+
+          To validate the rest of the pipeline before you have a keystore, re-run this
+          workflow from the Actions tab with **dry_run** ticked.
+          EOF
+          exit 1
+
+      # ── Toolchain ──────────────────────────────────────────────────────────
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -36,42 +140,179 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - uses: gradle/actions/setup-gradle@v4
+
+      # ── Native project ─────────────────────────────────────────────────────
+      # `android/` is gitignored and regenerated every run, so every change to
+      # capacitor.config.ts is picked up automatically and there is no drifting
+      # checked-in Gradle project to maintain.
       - name: Generate Android project
         run: |
+          set -euo pipefail
           npx cap add android
           npx cap sync android
 
-      - name: Set version code
+      - name: Apply branded launcher icon and splash
         run: |
-          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          set -euo pipefail
+          python3 -m pip install --quiet --disable-pip-version-check pillow
+          python3 scripts/assets/android_icons.py
 
-      - name: Build debug APK
+      - name: Set version code and name
         run: |
-          cd android
+          set -euo pipefail
+          GRADLE=android/app/build.gradle
+          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" "$GRADLE"
+          sed -i -E "s/versionName[[:space:]]+\"[^\"]*\"/versionName \"${VERSION_NAME}\"/" "$GRADLE"
+          grep -qE "versionCode[[:space:]]+${VERSION_CODE}\b" "$GRADLE" || {
+            echo "::error::Failed to set versionCode in $GRADLE — the generated Gradle template changed."
+            grep -nE "version(Code|Name)" "$GRADLE" || true
+            exit 1
+          }
+          grep -nE "version(Code|Name)" "$GRADLE"
+
+      # ── Signing ────────────────────────────────────────────────────────────
+      # Decoded into RUNNER_TEMP (outside the workspace) so it can never be
+      # picked up by an artifact glob or a stray `git add`.
+      - name: Decode upload keystore
+        if: env.DRY_RUN != 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$RUNNER_TEMP/gigtrotter-upload.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$KEYSTORE_PATH"
+          if [ ! -s "$KEYSTORE_PATH" ]; then
+            echo "::error title=Keystore decode failed::ANDROID_KEYSTORE_BASE64 did not decode to a non-empty file. Re-create it with 'base64 -w0 your-keystore.jks'."
+            exit 1
+          fi
+          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "Decoded keystore: $(stat -c%s "$KEYSTORE_PATH") bytes"
+
+      # ── Build ──────────────────────────────────────────────────────────────
+      # Signing is injected via Gradle's android.injected.signing.* properties
+      # rather than by patching the generated build.gradle, so the generated
+      # project stays exactly as Capacitor produced it.
+      - name: Build signed release bundle and APK
+        if: env.DRY_RUN != 'true'
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace \
+            "-Pandroid.injected.signing.store.file=$KEYSTORE_PATH" \
+            "-Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD" \
+            "-Pandroid.injected.signing.key.alias=$KEY_ALIAS" \
+            "-Pandroid.injected.signing.key.password=$KEY_PASSWORD"
 
-      - name: Upload APK artifact (30-day download)
+      - name: Build UNSIGNED release bundle and APK (dry run)
+        if: env.DRY_RUN == 'true'
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
+
+      - name: Locate and verify artifacts
+        run: |
+          set -euo pipefail
+          AAB=$(find android/app/build/outputs/bundle/release -name '*.aab' 2>/dev/null | head -n1 || true)
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' 2>/dev/null | head -n1 || true)
+          [ -n "$AAB" ] || { echo "::error::No .aab produced by bundleRelease."; exit 1; }
+          [ -n "$APK" ] || { echo "::error::No .apk produced by assembleRelease."; exit 1; }
+          echo "AAB_PATH=$AAB" >> "$GITHUB_ENV"
+          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
+          ls -l "$AAB" "$APK"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            {
+              echo "## Android dry run"
+              echo ""
+              echo ":warning: These artifacts are **unsigned** — they cannot be installed on a device or uploaded to Play."
+              echo "They only prove the Gradle release pipeline builds. Add the keystore secrets and re-run normally."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Prove the APK really carries a signature before we hand it to anyone.
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          {
+            echo "## Android release ${VERSION_NAME} (versionCode ${VERSION_CODE})"
+            echo ""
+            echo "- \`$(basename "$AAB")\` — signed app bundle for Google Play"
+            echo "- \`$(basename "$APK")\` — signed APK for sideload testing"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: gigtrotter-android-${{ github.run_number }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk
           retention-days: 30
+          if-no-files-found: error
 
-      - name: Create public GitHub Release with APK
+      # ── Distribute ─────────────────────────────────────────────────────────
+      - name: Preflight — check Google Play credentials
+        if: env.DRY_RUN != 'true' && env.SKIP_PLAY != 'true' && env.HAS_PLAY_SA != 'true'
+        run: |
+          echo "::error title=Google Play service account is not configured::Built a signed release but cannot upload it."
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+
+          ## Play upload blocked — missing `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
+
+          The signed `.aab` above is ready; it just has nowhere to go yet.
+
+          1. Google Play Console → **Users and permissions** → invite a service account,
+             or Google Cloud Console → create a service account and a JSON key, then link
+             it under **Play Console → Setup → API access**.
+          2. Grant it **Release to testing tracks** on the `com.gigtrotter.app` app
+             (it does not need production release rights).
+          3. `gh secret set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON < service-account.json`
+
+          Also note: **the very first upload of `com.gigtrotter.app` must be done by hand**
+          in the Play Console (create the app, complete the store listing, upload the
+          `.aab` from this run's artifacts). The API cannot create a new application.
+          After that first manual release, every push handled by this workflow uploads
+          automatically.
+          EOF
+          exit 1
+
+      - name: Upload to Play internal testing track
+        if: env.DRY_RUN != 'true' && env.SKIP_PLAY != 'true' && env.HAS_PLAY_SA == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.gigtrotter.app
+          releaseFiles: ${{ env.AAB_PATH }}
+          track: internal
+          # "completed" matters: a release left in draft blocks the next one from
+          # being created and leaves testers stuck on the previous build.
+          status: completed
+
+      - name: Publish sideload APK as a GitHub Release
+        if: env.DRY_RUN != 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-build-${{ github.run_number }}
-          name: "GigTrotter Android Build ${{ github.run_number }}"
+          tag_name: android-${{ github.run_number }}
+          name: "GigTrotter Android ${{ env.VERSION_NAME }} (${{ github.run_number }})"
           body: |
-            **Debug APK for Android testing**
+            **Signed release APK for Android testing**
 
-            1. Download `app-debug.apk` below
-            2. On your Android device: Settings → Apps → Install unknown apps → allow your browser
-            3. Open the downloaded file to install
+            1. Download `app-release.apk` below.
+            2. On your Android device: Settings → Apps → Install unknown apps → allow your browser.
+            3. Open the downloaded file to install.
 
-            Built from commit ${{ github.sha }} by run #${{ github.run_number }}.
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+            The matching `.aab` goes to the Play internal testing track automatically.
+
+            Built from commit ${{ github.sha }} — versionName ${{ env.VERSION_NAME }}, versionCode ${{ github.run_number }}.
+          files: ${{ env.APK_PATH }}
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

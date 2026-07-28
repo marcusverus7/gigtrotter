@@ -120,7 +120,8 @@ vision, scored per-field by `eval/score.ts`:
 | Baseline prompt | 36/36 | 147/180 (81.7%) | 7.8 s |
 | After prompt fix | 35/36 | 166/175 (94.9%) | 7.8 s |
 | + price extraction | 36/36 | 187/200 (93.5%) | 9.1 s |
-| **+ corpus labels fixed** | **36/36** | **195/200 (97.5%)** | 9.4 s |
+| + corpus labels fixed | 36/36 | 195/200 (97.5%) | 9.4 s |
+| **+ travel corpus (42 samples)** | **42/42** | **233/238 (97.9%)** | 9.1 s |
 
 **All five remaining misses are in the two deliberately-destroyed images** —
 `edge_crop_bottom` (title cropped away) and `edge_rotated_glare` (18° rotation
@@ -153,6 +154,31 @@ review instead of writing a junk title. That single rejection is why clean parse
 read 35/36 rather than 36/36 — arguably the safer behaviour, since the baseline
 prompt "passed" it by inventing the title
 `"Unknown event (name not visible in crop)"`.
+
+## Non-ticket coverage (`eval/captures/travel/`)
+
+`generate_tickets.py` only produces `kind: "ticket"`, so flight, stay and
+restaurant — three of the five kinds the parser claims, with airlines, hotel
+platforms and reservation systems all listed in `KNOWN_VENDORS` — had **no
+coverage at all**. `generate_travel.py` adds six artefacts (2 boarding passes,
+2 hotel confirmations, 2 restaurant reservations) and runs cross-platform, unlike
+the ticket generator's hardcoded Linux font paths.
+
+```bash
+python eval/generate_travel.py
+pnpm eval travel
+```
+
+First run: **38/38 fields, all six parsed cleanly.** `kind` was classified
+correctly on every one, so the non-ticket paths were sound — but the run did
+surface a real inconsistency. Both boarding passes returned
+`country: "United Kingdom"` / `"Ireland"` where hotels and restaurants returned
+`"GB"` / `"IE"`. The difference is that hotel and restaurant artefacts print the
+code on the image, while boarding passes don't, so the model inferred it and
+chose a different format. Nothing in the schema or prompt had ever specified one.
+The prompt now pins `country` to ISO 3166-1 alpha-2, which makes
+`destination.country` canonical everywhere rather than depending on what the
+artefact happened to print.
 
 ### Three harness defects this exposed
 

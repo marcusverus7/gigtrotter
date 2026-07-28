@@ -36,6 +36,7 @@ Rules:
 - For stays: \`title\` is the property name, \`destination\` is the city.
 - For restaurants: \`title\` is the venue name, \`destination\` is the city.
 - Dates: prefer ISO 8601 (\`2026-09-14T19:30:00\`). Drop timezones unless explicitly stated.
+- \`country\` is always the ISO 3166-1 alpha-2 code — "GB", "IE", "NL" — never the full name. Infer it from the city or airport when the artefact doesn't print it.
 - \`price_total_cents\`: the TOTAL amount paid, in minor units — "£45.10" becomes 4510, "€30" becomes 3000. Prefer a line labelled Total/Order Total/Amount Paid over a per-ticket or face-value line. If several tickets are shown on one artefact, use the total for the whole order. Return null if no price is printed — null means "not visible", never "free". Set \`currency\` to the ISO 4217 code for that amount (£ -> GBP, € -> EUR, $ -> USD).
 - If a field is not visible, return null. Do NOT invent.
 - Set \`pii_detected\`: true if you observed a passport number, full payment card number, government ID number, or driver's licence — these are NEVER copied into \`details\` or \`title\`.

@@ -234,10 +234,27 @@ whom — so data minimisation is a design constraint, not a policy page.
   pins and is not search-indexed.
 - **Time-shifted visibility.** Future plans are visible only to the inner circle;
   the wider graph sees history, not live location.
-- **Verifiability without spoofing.** The "verified attendance" badge is driven by
-  a server-set flag (geofence / ticket scan / manual), never client-settable.
+- **Attendance verification — a known-weak control, stated as such.** The
+  `verified_by` flag is *written* server-side and cannot be set directly by a
+  client. But the geofence path decides from a coordinate the client supplies, so
+  a determined user can mint a `geofence`-verified pin from anywhere. The flag is
+  therefore evidence of *plausible* attendance, not proof. It is deliberately
+  scoped to cosmetic surfaces (badges, streaks); nothing with money or trust
+  attached depends on it. Hardening it needs an independent signal — device
+  attestation, a scanned barcode, or venue-side confirmation.
 - **GDPR flows.** Self-serve data export and account deletion; capture payloads
   encrypted at rest.
+
+> **A note on "enforced in the database."** That phrase appears in several places
+> in this product, and it is only ever as strong as the *input* to the
+> constraint. Both were audited on 2026-07-27. The time-shift rule holds: it
+> depends on `ends_at` and the viewer's identity, neither of which the viewer
+> controls — verified adversarially above. The marketplace's anti-scalper rule
+> does **not**: `check (asking_price_cents <= face_value_cents)` is a genuine
+> constraint, but `face_value_cents` is supplied by the seller, so it is
+> satisfied by declaring a higher face value. The constraint is real; the input
+> is not trusted. That distinction is the whole finding, and the marketplace is
+> gated until it is closed.
 
 ---
 
@@ -286,6 +303,23 @@ content, a race-prone counter made self-healing, an App-Store anti-steering gate
 added for the native shell, and unfinished surfaces hidden behind a single
 feature flag so the beta reflects only what actually works.
 
+A second pass on 2026-07-27 tested the claims rather than reading them, and the
+results are worth reporting honestly because the misses are more instructive than
+the hits:
+
+| Claim audited | Verdict |
+|---|---|
+| Time-shift rule blocks future-event leakage | **Held** — verified adversarially against production |
+| Encrypted capture blobs not publicly reachable | **Held** — anonymous download refused |
+| Parse-fingerprint cache is private | **Failed** — was world-readable to any anon-key holder; fixed |
+| Discussion photo upload works | **Failed** — denied by RLS *and* returned a dead URL; fixed |
+| Marketplace price cap prevents scalping | **Failed** — constraint real, but face value is seller-declared; gated |
+
+Two of five held. The three failures share one root cause: a control was only as
+trustworthy as the input feeding it. That is the lesson the audit actually
+produced, and it is why "enforced in the database" is now qualified wherever it
+appears in this product.
+
 ### How this maps to an AI-assurance skill set
 
 | Auditor concern | Demonstrated in this system | Status |
@@ -293,15 +327,16 @@ feature flag so the beta reflects only what actually works.
 | LLM output safety | Constrained JSON contract, runtime schema validation, typed failure taxonomy, human-in-the-loop before persistence | ✅ Shipped |
 | Model evaluation | Reproducible harness, labelled + adversarial corpus, field-level accuracy, privacy-aware scoring | ✅ Shipped |
 | Authorization | Database-enforced RLS, audience tiers, least-privilege service-role isolation | ✅ Shipped |
-| Input-trust boundaries | Server-side derivation of trusted fields; spoofability analysis and remediation | ✅ Shipped |
+| Input-trust boundaries | Click metrics derived server-side; two further input-trust defects found by audit (self-declared face value, client-supplied geofence coordinate) — one gated, one scoped and documented | 🟡 Partly open |
 | Data minimisation | Barcode presence-only, fuzzed public identity, time-shifted visibility, encryption at rest | ✅ Shipped |
 | Content governance | Moderation policy for user-submitted records (RLS + status) | 🟡 Staged |
 | Regulatory / platform | GDPR export & delete; Apple/Google anti-steering compliance | ✅ Shipped |
 
-> **In one line.** A system where a probabilistic model feeds a system of record —
-> and every control an assurance reviewer would look for (constraint, validation,
-> evaluation, human oversight, least-privilege authz, data minimisation) is
-> present and verifiable in the code.
+> **In one line.** A system where a probabilistic model feeds a system of record,
+> with the controls an assurance reviewer looks for — constrained output, runtime
+> validation, measured accuracy, human oversight, database-enforced authz, data
+> minimisation — present in the code, tested against production, and where they
+> fell short, documented rather than asserted.
 
 ---
 

@@ -11,6 +11,7 @@ import {
 import { ParseError, parseCaptureBytes } from "@/lib/capture/parser";
 import {
   KNOWN_VENDORS,
+  ParsedCaptureSchema,
   type ParsedCapture,
 } from "@/lib/capture/schema";
 
@@ -50,12 +51,18 @@ export async function ingestCapture(opts: {
     });
   if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
 
-  // 2) Fingerprint cache lookup (skip the LLM if a known template matches).
+  // 2) Fingerprint cache lookup (skip the LLM if we've parsed this exact
+  //    artefact for this user before). Scoped per user: field_map holds the
+  //    extracted VALUES (title, venue, details like "seat 12A"), so a global
+  //    cache would replay one user's capture into another's — see migration
+  //    0012. templateHash is a SHA-256 of the bytes, so this only ever hits on
+  //    a genuinely identical re-upload.
   const hash = await templateHash(opts.bytes);
   const { data: cached } = await supabase
     .from("vendor_fingerprints")
-    .select("vendor, field_map")
+    .select("vendor, field_map, hit_count")
     .eq("template_hash", hash)
+    .eq("user_id", opts.userId)
     .maybeSingle();
 
   let parsed: ParsedCapture;
@@ -63,9 +70,15 @@ export async function ingestCapture(opts: {
   let parseError: string | null = null;
   let confidence = 0;
 
-  if (cached) {
-    // Replay the cached field map — confidence is high because we've seen this exact template before.
-    parsed = cached.field_map as unknown as ParsedCapture;
+  // Re-validate the cached blob rather than casting it. Stored JSON is just
+  // another untrusted input — it may predate a schema change — and skipping
+  // validation here would bypass the same guarantee parseCaptureBytes enforces.
+  const cachedParse = cached
+    ? ParsedCaptureSchema.safeParse(cached.field_map)
+    : null;
+
+  if (cachedParse?.success) {
+    parsed = cachedParse.data;
     cacheHit = true;
     confidence = parsed.confidence ?? 0.95;
   } else {
@@ -78,6 +91,7 @@ export async function ingestCapture(opts: {
       const vendor = (parsed.vendor ?? "unknown").toLowerCase();
       await supabase.from("vendor_fingerprints").insert({
         vendor,
+        user_id: opts.userId,
         template_hash: hash,
         field_map: parsed as never,
       });
@@ -146,10 +160,16 @@ export async function ingestCapture(opts: {
   }
 
   if (cacheHit) {
+    // Was `(cached ? 1 : 0) + 1`, which pinned every row at 2 forever — the
+    // count never reflected real reuse. Increment the stored value instead.
     await supabase
       .from("vendor_fingerprints")
-      .update({ hit_count: (cached ? 1 : 0) + 1, last_seen_at: new Date().toISOString() })
-      .eq("template_hash", hash);
+      .update({
+        hit_count: (cached?.hit_count ?? 0) + 1,
+        last_seen_at: new Date().toISOString(),
+      })
+      .eq("template_hash", hash)
+      .eq("user_id", opts.userId);
   }
 
   return { captureId: row.id, parsed };

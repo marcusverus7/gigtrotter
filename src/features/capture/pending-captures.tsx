@@ -1,15 +1,7 @@
 import { Clock } from "lucide-react";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
-import type { ParsedCapture } from "@/lib/capture/schema";
+import { ParsedCaptureSchema } from "@/lib/capture/schema";
 
 import { ConfirmCard } from "./confirm-card";
 
@@ -30,18 +22,26 @@ export async function PendingCaptures() {
 
   if (!captures || captures.length === 0) return null;
 
+  // Validate rather than cast. `parse_json` is stored JSON — rows written before
+  // a schema change won't carry newer fields, and a bare cast would hand the UI
+  // `undefined` where the type promises a value. safeParse applies the schema's
+  // defaults, so older rows normalise instead of rendering half-empty. Anything
+  // genuinely unreadable is dropped rather than crashing the whole queue.
+  const pending = captures.flatMap((c) => {
+    const result = ParsedCaptureSchema.safeParse(c.parse_json);
+    return result.success ? [{ id: c.id, parsed: result.data }] : [];
+  });
+
+  if (pending.length === 0) return null;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Clock className="h-4 w-4" />
-        {captures.length} waiting to confirm
+        {pending.length} waiting to confirm
       </div>
-      {captures.map((c) => (
-        <ConfirmCard
-          key={c.id}
-          captureId={c.id}
-          parsed={c.parse_json as unknown as ParsedCapture}
-        />
+      {pending.map((c) => (
+        <ConfirmCard key={c.id} captureId={c.id} parsed={c.parsed} />
       ))}
     </div>
   );

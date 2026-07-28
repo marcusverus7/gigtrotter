@@ -52,6 +52,38 @@ applying this costs no data migration. **Apply it before fixing the Anthropic
 key**, otherwise the first successful capture starts populating a
 world-readable table.
 
+## 🔴 Marketplace launch blocker — face value is self-declared
+
+The anti-scalper rule is a real DB constraint
+(`check (asking_price_cents <= face_value_cents)`, migration 0006 line 112), but
+**`face_value_cents` comes straight from the client**. `createListing` verifies
+the seller owns the wallet item, that it's a ticket, and that it's still
+`going` — it never consults what the ticket actually cost.
+
+So the cap is satisfied by declaring a higher face value. A £50 ticket listed as
+*face value £500, asking £500* passes the constraint, under a banner promising
+scalping is impossible. **The marketplace's entire differentiator is currently
+cosmetic.**
+
+Not exploitable today: the marketplace is behind `SHOW_UNLAUNCHED` and Stripe
+Connect isn't wired, so no money can move. But this must be fixed **before** any
+launch.
+
+Options, roughly in order of strength:
+
+1. **Derive face value from the capture.** The ticket image usually shows the
+   price. The parser doesn't extract it today (`price_total`/`currency` are
+   listed as unscored-by-design in `eval/README.md`) — adding them to
+   `ParsedCaptureSchema` and the prompt would let the listing cross-check the
+   declared value against the artefact it came from.
+2. **Cap against a per-event ceiling** sourced from the events pipeline.
+3. **Manual review** of listings above a threshold.
+
+Copy was overclaiming and has been corrected: the marketplace page and listing
+form now say asking price can't exceed *the face value you enter*, rather than
+implying scalping is structurally impossible. Restore the stronger wording once
+one of the options above lands.
+
 ## Migration `0013_discussion_photos_bucket.sql` — apply before revealing Events
 
 Discussion photo upload is broken two ways (found 2026-07-27, not yet

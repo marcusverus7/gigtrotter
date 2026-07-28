@@ -51,8 +51,8 @@ export default async function MarketplacePage() {
         </div>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">Marketplace</h1>
         <p className="text-sm text-muted-foreground">
-          A local exchange for sold-out tickets. The price cap is enforced in
-          the database — scalping isn&apos;t a setting that can be flipped.
+          A local exchange for sold-out tickets. Asking price can never exceed
+          the listed face value — a database constraint, not a UI check.
         </p>
       </header>
 

@@ -126,7 +126,8 @@ export function ListMyTicketsForm({ items }: { items: Item[] }) {
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Cap is face value — enforced in the database.
+            Asking price can&apos;t exceed the face value you enter — enforced in
+            the database.
           </p>
         )}
         <Button type="submit" disabled={pending}>

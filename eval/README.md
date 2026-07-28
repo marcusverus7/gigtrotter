@@ -102,6 +102,36 @@ python3 make_edge_cases.py            # adds eval/captures/edge-cases/
 
 `--layout flat` instead gives a single folder + labels.jsonl if you ever want that.
 
+## Measured accuracy — live API, 2026-07-27
+
+Full corpus (36 images: 30 vendor tickets + 6 edge cases) against live Claude
+vision, scored per-field by `eval/score.ts`:
+
+| Run | Clean parses | Field accuracy | Avg latency |
+|-----|--------------|----------------|-------------|
+| Baseline prompt | 36/36 | 147/180 (81.7%) | 7.8 s |
+| **After prompt fix** | 35/36 | **166/175 (94.9%)** | 7.8 s |
+
+The 33 baseline misses collapsed into two systematic prompt gaps, not vision
+failures:
+
+- **Support acts dropped from `title`** (~19): returned `"Dust Republic"` where
+  the ticket reads `"Dust Republic + Coral Static"`.
+- **Doors time used as `starts_at`** (~10): every wrong timestamp was 1–1.5 h
+  early, i.e. the doors time rather than the show time.
+
+Two rules in `src/lib/capture/prompt.ts` fixed both (+13.2 pts). PDFs and
+physical stubs now score ~5/5 consistently; remaining misses are mobile
+screenshots that crop the support act off-screen.
+
+Confidence is well calibrated: clean parses report 93–95%, and the one
+deliberately-destroyed sample (`edge_crop_bottom`, title cropped away) reports
+45% or returns `title: null` → `schema_mismatch`, so it fails closed to manual
+review instead of writing a junk title. That single rejection is why clean parses
+read 35/36 rather than 36/36 — arguably the safer behaviour, since the baseline
+prompt "passed" it by inventing the title
+`"Unknown event (name not visible in crop)"`.
+
 ## Honest limitations
 
 - Layouts are *plausible*, not pixel-copies of real platforms. A parser tuned only

@@ -156,6 +156,8 @@ const parsed: ParsedCapture = {
   ends_at: null,
   destination: { name: "O2 Forum", city: "London", country: "GB" },
   vendor: "tickethub",
+  price_total_cents: 4510,
+  currency: "GBP",
   barcode_present: true,
   confidence: 0.9,
   details: ["VIP Package"],
@@ -186,15 +188,36 @@ check(
 );
 check(
   "designed-out fields are unscored, not failures",
-  ["artist", "doors_at", "ticket_type", "order_ref", "price_total", "currency"].every((f) =>
+  ["artist", "doors_at", "ticket_type", "order_ref"].every((f) =>
     s.unscored.includes(f),
   ),
   `unscored=${JSON.stringify(s.unscored)}`,
 );
 check(
-  "barcode scored as presence (string sidecar vs boolean parse)",
-  s.fieldsChecked === 5, // title, starts_at, venue, city, barcode
+  "price and currency are now scored, not unscored",
+  !s.unscored.includes("price_total") && !s.unscored.includes("currency"),
+  `unscored=${JSON.stringify(s.unscored)}`,
+);
+check(
+  "scored set is title, starts_at, venue, city, barcode, price, currency",
+  s.fieldsChecked === 7,
   `fieldsChecked=${s.fieldsChecked}`,
+);
+// Price crosses a unit boundary: sidecar 45.1 (major) vs parse 4510 (minor).
+check(
+  "price compared across major/minor units",
+  scoreSample({ ...parsed, price_total_cents: 4510 }, { price_total: 45.1 })
+    .fieldsCorrect === 1,
+);
+check(
+  "wrong price is a mismatch, not a pass",
+  scoreSample({ ...parsed, price_total_cents: 4500 }, { price_total: 45.1 })
+    .mismatches.some((m) => m.field === "price_total"),
+);
+check(
+  "missing price is a mismatch when the sidecar has one",
+  scoreSample({ ...parsed, price_total_cents: null }, { price_total: 45.1 })
+    .mismatches.some((m) => m.field === "price_total"),
 );
 
 // Wrong city + missing barcode must surface as mismatches.
@@ -208,7 +231,11 @@ check(
     worse.mismatches.some((m) => m.field === "barcode"),
   JSON.stringify(worse.mismatches),
 );
-check("mismatches reduce the correct count", worse.fieldsCorrect === worse.fieldsChecked - 2);
+check(
+  "mismatches reduce the correct count",
+  worse.fieldsCorrect === worse.fieldsChecked - 2,
+  `${worse.fieldsCorrect}/${worse.fieldsChecked}`,
+);
 
 // Null sidecar values are skipped entirely.
 const skipped = scoreSample(parsed, { title: "Gloss Hounds + Pylon", venue: null });
@@ -217,7 +244,8 @@ check("null sidecar values are skipped", skipped.fieldsChecked === 1);
 // Every FIELD_MAP dot-path target must exist in the ParsedCapture shape —
 // guards against the scorer silently drifting from the schema.
 const pathTargets = Object.values(FIELD_MAP).filter(
-  (v): v is string => typeof v === "string" && v !== "__barcode__",
+  (v): v is string =>
+    typeof v === "string" && !v.startsWith("__"), // __barcode__/__price__ are handled specially
 );
 check(
   "every FIELD_MAP path resolves against a real parse",

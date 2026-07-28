@@ -106,6 +106,8 @@ export async function ingestCapture(opts: {
         starts_at: null,
         ends_at: null,
         vendor: null,
+        price_total_cents: null,
+        currency: null,
         barcode_present: false,
         confidence: 0,
         details: [],

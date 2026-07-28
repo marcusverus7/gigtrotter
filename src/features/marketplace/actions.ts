@@ -49,6 +49,42 @@ export async function createListing(input: z.infer<typeof ListInput>) {
     );
   }
 
+  // Cross-check the DECLARED face value against the artefact the seller
+  // actually holds. The DB constraint only enforces asking <= face_value, so
+  // without this the anti-scalper rule is satisfied by declaring a higher face
+  // value — a £50 ticket listed as "face value £500, asking £500" would pass.
+  // The parser records the total printed on the ticket (price_total_cents);
+  // face value can't exceed what they paid.
+  const { data: exp } = await supabase
+    .from("experiences")
+    .select("capture_id")
+    .eq("wallet_item_id", parsed.walletItemId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  let evidenceCents: number | null = null;
+  if (exp?.capture_id) {
+    const { data: cap } = await supabase
+      .from("captures")
+      .select("parse_json")
+      .eq("id", exp.capture_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const pj = cap?.parse_json as { price_total_cents?: number | null } | null;
+    evidenceCents = pj?.price_total_cents ?? null;
+  }
+
+  if (evidenceCents !== null && parsed.faceValueCents > evidenceCents) {
+    const fmt = (c: number) =>
+      new Intl.NumberFormat("en-GB", {
+        style: "currency",
+        currency: parsed.currency ?? "GBP",
+      }).format(c / 100);
+    throw new Error(
+      `Your ticket shows ${fmt(evidenceCents)}. Face value can't be listed above what you paid.`,
+    );
+  }
+
   const { data, error } = await supabase
     .from("listings")
     .insert({

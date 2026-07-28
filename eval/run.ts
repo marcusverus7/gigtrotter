@@ -87,8 +87,20 @@ async function loadExpected(imagePath: string): Promise<Expected | undefined> {
   if (!existsSync(expectedPath)) return undefined;
   const raw = await readFile(expectedPath, "utf8");
   try {
-    return JSON.parse(raw) as Expected;
-  } catch {
+    // Strip a UTF-8 BOM before parsing. Windows editors and
+    // `Set-Content -Encoding utf8` (PowerShell 5.1) both write one, and
+    // JSON.parse rejects it.
+    return JSON.parse(raw.replace(/^﻿/, "")) as Expected;
+  } catch (err) {
+    // Loudly. A silently-skipped answer key removes checks from the
+    // denominator, so a corrupted sidecar makes the score go UP — the worst
+    // possible failure mode for an eval harness. This cost a bogus 94.3%
+    // (computed over 10 of 36 samples) before it was caught.
+    console.error(
+      `  !! UNREADABLE SIDECAR ${basename(expectedPath)} — this sample will be UNSCORED: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
     return undefined;
   }
 }

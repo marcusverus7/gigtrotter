@@ -35,6 +35,16 @@ export const ParsedCaptureSchema = z.object({
   origin: ParsedLocationSchema.nullable().optional(),
   destination: ParsedLocationSchema.nullable().optional(),
   vendor: z.string().nullable(),
+  /**
+   * Total price printed on the artefact, in minor units (pence/cents), plus its
+   * currency. Extracted so the resale marketplace can cross-check a seller's
+   * DECLARED face value against the ticket they actually hold — without it, the
+   * anti-scalper constraint (`asking <= face_value`) is satisfied by simply
+   * declaring a higher face value. Null whenever no price is visible; a null
+   * here means "no evidence", never "free".
+   */
+  price_total_cents: z.number().int().min(0).nullable().default(null),
+  currency: z.string().length(3).nullable().default(null),
   // Encrypted on store; the parser only ever sees the raw value briefly.
   barcode_present: z.boolean().default(false),
   // 0..1 — overall confidence; below 0.6 routes to manual review.

@@ -27,13 +27,15 @@ export const FIELD_MAP: Record<string, string | null> = {
   city: "destination.city",
   country: "destination.country",
   barcode: "__barcode__",
+  // Sidecars carry price as a decimal (45.1); the parser emits minor units
+  // (4510), so this needs a conversion rather than a plain path compare.
+  price_total: "__price__",
+  currency: "currency",
   // Not extracted by the current parser (live in details[] or dropped on purpose):
   artist: null,
   doors_at: null,
   ticket_type: null,
   order_ref: null,
-  price_total: null,
-  currency: null,
   section: null,
   row: null,
   seat: null,
@@ -96,6 +98,22 @@ export function scoreSample(
     const mapped = field in FIELD_MAP ? FIELD_MAP[field] : field;
     if (mapped === null) {
       unscored.push(field);
+      continue;
+    }
+
+    // Price: sidecar is a decimal in major units, parser emits minor units.
+    // Compared at whole-minor-unit precision to absorb float noise (45.1 * 100
+    // is 4510.000000000001 in IEEE-754).
+    if (mapped === "__price__") {
+      checked += 1;
+      const expectedCents =
+        typeof expectedValue === "number" ? Math.round(expectedValue * 100) : null;
+      const got = parsed.price_total_cents ?? null;
+      if (expectedCents !== null && got === expectedCents) {
+        correct += 1;
+      } else {
+        mismatches.push({ field, expected: expectedCents, got });
+      }
       continue;
     }
 

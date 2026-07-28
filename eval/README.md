@@ -75,11 +75,19 @@ trim sidecars freely.
 **Scoring maps sidecar fields → parser output** (`eval/score.ts`): the parser
 emits a smaller `ParsedCapture` shape than these sidecars carry, so `venue` is
 scored against `destination.name`, `city` against `destination.city`, `barcode`
-against `barcode_present` (presence). Fields the parser doesn't extract by design
-(`artist`, `doors_at`, `ticket_type`, `order_ref`, `price_total`, `currency`,
-`section`, `row`, `seat`) are reported as **unscored**, not counted as failures —
-otherwise a perfect parse would score ~14%. With the mapping, a perfect parse
-scores 100% on the fields the parser is designed to produce.
+against `barcode_present` (presence), and `price_total` against
+`price_total_cents` (sidecars are decimal major units, the parser emits minor
+units, so the scorer converts). Fields the parser doesn't extract by design
+(`artist`, `doors_at`, `ticket_type`, `order_ref`, `section`, `row`, `seat`) are
+reported as **unscored**, not counted as failures — otherwise a perfect parse
+would score ~14%. With the mapping, a perfect parse scores 100% on the fields the
+parser is designed to produce.
+
+`price_total` and `currency` were unscored until 2026-07-27. They're now
+extracted because the resale marketplace needs them: its anti-scalper constraint
+(`asking <= face_value`) was satisfiable by declaring a higher face value, since
+face value came from the seller. `createListing` now cross-checks the declared
+value against the price printed on the captured ticket.
 
 ## Render styles
 
@@ -110,7 +118,13 @@ vision, scored per-field by `eval/score.ts`:
 | Run | Clean parses | Field accuracy | Avg latency |
 |-----|--------------|----------------|-------------|
 | Baseline prompt | 36/36 | 147/180 (81.7%) | 7.8 s |
-| **After prompt fix** | 35/36 | **166/175 (94.9%)** | 7.8 s |
+| After prompt fix | 35/36 | 166/175 (94.9%) | 7.8 s |
+| **+ price extraction** | **36/36** | **187/200 (93.5%)** | 9.1 s |
+
+The third run scores two extra fields (`price_total`, `currency`), so its
+denominator is larger — it is not a regression. Price and currency are **20/20**
+on every image that actually prints a total. `starts_at` is now the dominant
+remaining miss (10 of 13).
 
 The 33 baseline misses collapsed into two systematic prompt gaps, not vision
 failures:
@@ -131,6 +145,27 @@ review instead of writing a junk title. That single rejection is why clean parse
 read 35/36 rather than 36/36 — arguably the safer behaviour, since the baseline
 prompt "passed" it by inventing the title
 `"Unknown event (name not visible in crop)"`.
+
+### Two harness defects this exposed
+
+Adding price scoring surfaced problems in the corpus and the runner, not the
+parser:
+
+- **Sidecars claimed prices that were never rendered.** `expected_sidecar` always
+  wrote `price_total = total_gbp` (price + booking fee), but only `render_pdf`
+  prints a Total line. `render_physical` shows the base price and
+  `render_mobile` shows no price at all, so a correct parse was marked wrong on
+  26 of 36 samples. The generator now emits price only for the `pdf` style, and
+  the existing sidecars were corrected to match their images.
+- **A corrupted answer key made the score go UP.** `loadExpected` swallowed
+  JSON.parse failures and returned `undefined`, which removes that sample's
+  checks from the denominator rather than failing. A BOM written by
+  `Set-Content -Encoding utf8` silently invalidated 26 sidecars and produced a
+  healthy-looking **94.3%** computed over just 10 samples. The loader now strips
+  BOMs and logs unreadable sidecars loudly.
+
+The second one is the more important lesson: an eval that degrades quietly is
+worse than one that crashes, because the number it reports still looks fine.
 
 ## Honest limitations
 

@@ -438,9 +438,15 @@ def main():
             "ticket_type": rec["ticket_type"],
             "order_ref": rec["order_ref"],
             "barcode": rec["barcode_value"],
-            "price_total": rec["total_gbp"],
-            "currency": rec["currency"],
         }
+        # Only the pdf layout prints a Total line (render_pdf). render_physical
+        # shows the base ticket price without the booking fee, and render_mobile
+        # shows no price at all — so claiming `price_total` (price + fee) for
+        # those styles marks a correct parse wrong. Sidecars must describe what
+        # is actually on the image.
+        if style == "pdf":
+            sc["price_total"] = rec["total_gbp"]
+            sc["currency"] = rec["currency"]
         if rec["seated"]:
             sc["section"] = rec["section"]
             sc["row"] = rec["row"]

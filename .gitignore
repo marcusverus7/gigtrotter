@@ -59,3 +59,14 @@ fastlane/test_output
 /eval/reports/
 
 .vercel
+
+# Generated asset/report OUTPUTS. The scripts that produce them live in
+# scripts/assets/ and are tracked; the artefacts themselves are regenerable and
+# shouldn't bloat history. The app icon and splash screens that actually ship are
+# committed under ios/App/App/Assets.xcassets/, not here.
+/appstore-screenshots/
+/icon_preview.png
+/splash_preview.png
+/GigTrotter-Status-Report.pdf
+/test-report.pdf
+/generate-test-report.py

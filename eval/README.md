@@ -119,12 +119,20 @@ vision, scored per-field by `eval/score.ts`:
 |-----|--------------|----------------|-------------|
 | Baseline prompt | 36/36 | 147/180 (81.7%) | 7.8 s |
 | After prompt fix | 35/36 | 166/175 (94.9%) | 7.8 s |
-| **+ price extraction** | **36/36** | **187/200 (93.5%)** | 9.1 s |
+| + price extraction | 36/36 | 187/200 (93.5%) | 9.1 s |
+| **+ corpus labels fixed** | **36/36** | **195/200 (97.5%)** | 9.4 s |
 
-The third run scores two extra fields (`price_total`, `currency`), so its
-denominator is larger — it is not a regression. Price and currency are **20/20**
-on every image that actually prints a total. `starts_at` is now the dominant
-remaining miss (10 of 13).
+**All five remaining misses are in the two deliberately-destroyed images** —
+`edge_crop_bottom` (title cropped away) and `edge_rotated_glare` (18° rotation
+plus glare). Every one of the other 34 samples is perfect. Both failures
+self-report low confidence — 45% and 72% — so they route to manual review rather
+than writing junk, which is the behaviour the confidence field exists for.
+
+Most of the climb from 81.7% was **not** the model getting better. Two prompt
+rules were worth real points (support acts, doors-vs-show), but the last jump —
+93.5% → 97.5% — came entirely from fixing answer keys that asserted things the
+images never showed. The parser was already doing this correctly; the eval was
+scoring it wrong.
 
 The 33 baseline misses collapsed into two systematic prompt gaps, not vision
 failures:
@@ -146,7 +154,7 @@ read 35/36 rather than 36/36 — arguably the safer behaviour, since the baselin
 prompt "passed" it by inventing the title
 `"Unknown event (name not visible in crop)"`.
 
-### Two harness defects this exposed
+### Three harness defects this exposed
 
 Adding price scoring surfaced problems in the corpus and the runner, not the
 parser:
@@ -166,8 +174,19 @@ parser:
   healthy-looking **94.3%** computed over just 10 samples. The loader now strips
   BOMs and logs unreadable sidecars loudly.
 
-The second one is the more important lesson: an eval that degrades quietly is
-worse than one that crashes, because the number it reports still looks fine.
+- **Sidecars demanded a show time that isn't always drawn.** `render_mobile`
+  prints `Show` only for standing tickets — seated ones lose that slot to
+  Section/Row/Seat, so the image carries `DATE` and `DOORS` and nothing else. The
+  answer key still expected the show time, so a parse that correctly returned the
+  date alone was marked wrong on 8 samples. Fixing the labels moved the corpus
+  from 93.5% to 97.5% without touching the parser.
+
+The middle one is the most important lesson: an eval that degrades quietly is
+worse than one that crashes, because the number it reports still looks fine. The
+other two share a theme — **an answer key is code, and it can be wrong.** Two of
+the three defects here made a correct parser look broken; the third made a broken
+corpus look healthy. Whenever a field scores badly across the board, suspect the
+labels before the model, and go and look at the actual image.
 
 ## Honest limitations
 

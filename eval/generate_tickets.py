@@ -433,7 +433,15 @@ def main():
             "artist": rec["artist"],
             "venue": rec["venue"],
             "city": rec["city"],
-            "starts_at": starts_at(rec),
+            # The SHOW time is not drawn on every layout: render_mobile prints it
+            # only for standing tickets (seated ones lose it to Section/Row/Seat).
+            # When it isn't on the image, a correct parse can only return the
+            # date, so that is what the answer key must expect.
+            "starts_at": (
+                starts_at(rec)
+                if (style in ("pdf", "physical") or not rec["seated"])
+                else rec["date_iso"]
+            ),
             "doors_at": f"{rec['date_iso']}T{rec['doors_time']}:00",
             "ticket_type": rec["ticket_type"],
             "order_ref": rec["order_ref"],

@@ -31,7 +31,7 @@ Return STRICTLY valid JSON with this shape:
 Rules:
 - For tickets: \`title\` is the artist/event name, \`origin\` is null, \`destination\` is the venue {name, city, country}.
 - If a support act is listed ("Special Guest: X", "+ X", "with X"), include it in \`title\` as "Headliner + Support" (e.g. "Paper Cathedral + Junebug"). One "+" per support act.
-- \`starts_at\` is the SHOW/performance start time — never the doors time. If both appear, use the show time. If ONLY a doors time is visible, return the date alone (e.g. "2026-12-17") and mention doors in \`details\`.
+- \`starts_at\` is the SHOW/performance start time — never the doors time. Tickets very often print BOTH, labelled "Doors" and "Show" (or "Performance", "Curtain", "Start"): read the SHOW one and put the doors time in \`details\`. Never return a date without a time when any start time is legible — dropping it loses the information the wallet is built on. Only if no start time appears anywhere may you return the date alone (e.g. "2026-12-17").
 - For flights: \`title\` is "FLIGHTNUM ORIGIN→DEST", \`origin\`/\`destination\` filled with IATA where visible.
 - For stays: \`title\` is the property name, \`destination\` is the city.
 - For restaurants: \`title\` is the venue name, \`destination\` is the city.

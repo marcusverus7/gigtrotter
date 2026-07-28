@@ -171,6 +171,25 @@ Authorization lives in the database. Supabase Postgres **Row-Level Security** is
 the primary boundary — not application middleware — so a query is safe by virtue
 of the policy, regardless of which code path issues it.
 
+### Verified against production, not just read
+
+The time-shift rule is the highest-stakes control in the system, so it was tested
+empirically (2026-07-27) rather than taken on trust. Four pins were inserted for
+one user — past/`open`, future/`open`, past/`friends`, past/`vault` — and the
+unauthenticated surfaces queried:
+
+| Assertion | Result |
+|---|---|
+| Anonymous caller reading `experiences` directly | 0 of 4 rows |
+| Past `open` pin appears on the public board | visible |
+| **Future `open` pin hidden** (the stalking rule) | **hidden** |
+| `friends` and `vault` pins hidden from anonymous | hidden |
+| Date fuzzed to month granularity | `2026-06-01` |
+
+All four passed; the test rows were then removed and the table confirmed empty.
+The same review also found two genuine defects elsewhere (a world-readable parse
+cache and a broken photo-upload path), both fixed — see `PARKED.md`.
+
 ### Audience tiers enforced in SQL
 
 Every shareable record carries an audience tier, and read visibility is a policy,

@@ -54,7 +54,11 @@ export const serverEnv = {
     return required("ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY);
   },
   get anthropicParseModel() {
-    return process.env.ANTHROPIC_PARSE_MODEL ?? "claude-fable-5";
+    // clean() here too, not just on the secrets. The deployed value carried a
+    // UTF-8 BOM ("﻿claude-fable-5"), which would have failed as an unknown
+    // model the moment authentication started succeeding — a confusingly
+    // different error from the 401 it was hiding behind.
+    return clean(process.env.ANTHROPIC_PARSE_MODEL ?? "claude-fable-5");
   },
   get inboundWebhookSecret() {
     return required("INBOUND_WEBHOOK_SECRET", process.env.INBOUND_WEBHOOK_SECRET);

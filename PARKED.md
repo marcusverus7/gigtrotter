@@ -38,6 +38,20 @@ field accuracy). Only Vercel's copy is stale.
 Handles for testing live in `profiles.anon_handle`. Note this writes a real
 capture into that user's pending queue — dismiss it afterwards.
 
+## 🔴 Migration `0012_fingerprint_cache_privacy.sql` — apply with 0011
+
+Security fix, committed but **not applied**. `vendor_fingerprints` stores whole
+capture parses (title, venue, `details[]` like *"seat 12A"*) with no `user_id`
+and a `for select using (true)` policy — so any caller with the public anon key
+(which ships in the client bundle) can read every user's capture data. Verified
+against production: an anonymous read returned **200, not 403**.
+
+**Nothing has leaked** — the table is empty (0 rows) because captures have been
+failing on the invalid API key, so nothing was ever cached. That also means
+applying this costs no data migration. **Apply it before fixing the Anthropic
+key**, otherwise the first successful capture starts populating a
+world-readable table.
+
 ## Migration `0011_event_moderation.sql` still not applied
 
 Confirmed against production: querying `events.status` returns

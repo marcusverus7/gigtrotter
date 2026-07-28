@@ -52,6 +52,21 @@ applying this costs no data migration. **Apply it before fixing the Anthropic
 key**, otherwise the first successful capture starts populating a
 world-readable table.
 
+## Migration `0013_discussion_photos_bucket.sql` — apply before revealing Events
+
+Discussion photo upload is broken two ways (found 2026-07-27, not yet
+user-visible because discussions sit behind `SHOW_UNLAUNCHED`):
+
+- The upload is **denied by RLS**. The `captures` policy requires the first path
+  segment to be the caller's uid, but the code wrote `discussions/<uid>/…`, so
+  the check could never pass.
+- The returned URL is **dead**. `captures` is private (correctly — encrypted
+  source artefacts), so `getPublicUrl` builds an `/object/public/…` link that
+  answers **400**.
+
+0013 adds a public `discussion-photos` bucket mirroring the `avatars` policy
+shape, and the code now leads the path with the uid. Apply alongside 0011/0012.
+
 ## Migration `0011_event_moderation.sql` still not applied
 
 Confirmed against production: querying `events.status` returns

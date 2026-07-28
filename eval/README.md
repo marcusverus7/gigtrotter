@@ -33,6 +33,29 @@ Needs `ANTHROPIC_API_KEY` in `.env.local` (the parser calls Claude directly).
 `server-only` guard to a no-op shim (`eval/_shims/server-only.ts`) so the harness
 runs under `tsx` outside Next's bundler. The app build is unaffected.
 
+## API corpus eval — 2026-07-27
+
+Full 36-sample corpus, `claude-fable-5`: **166/175 fields (94.9%)**, **35/36 parsed
+cleanly**, avg 7.8s/parse. Consistent with the 25-field session baseline in
+`fable-session-parses.json` (92%). Adding the show-vs-doors and support-act rules to
+the system prompt moved this from 81.7% → 94.9% in the same session.
+
+Weak spots, both worth knowing before trusting the number:
+
+- **`starts_at` is the only mismatching field** — all 9 misses. The prompt fix stopped
+  the parser emitting the *doors* time as `starts_at`; it now sometimes drops the time
+  entirely and returns a date-only value instead. 6 of the 9 are clean (non-degraded)
+  images that render both times, and they come back at 90–92% confidence — i.e. above
+  the 0.7 manual-review threshold, so a missing time can land unreviewed.
+- **`edge_crop_bottom.png` is the one schema failure**: the title is cropped off the
+  image, the parser correctly declines to invent one and returns `title: null`, and
+  `ParsedCaptureSchema` requires a string. Arguably the schema should allow a null
+  title rather than fail the whole parse.
+
+Per-vendor: gatezero, livepass, tickethub 100%; opendoor 24/25; stagely 28/30;
+eventwave 14/15; rowseat 18/20; edge-cases 22/25. Reports land in `eval/reports/`
+(gitignored).
+
 ## .expected.json schema
 
 Sidecars carry only the fields visible on each image, matching run.ts's convention

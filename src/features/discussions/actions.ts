@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 
+/** Public bucket — these are social photos shown to other attendees, so they
+ *  must not live in `captures`, which is private and holds encrypted source
+ *  artefacts. See migration 0013. */
+const DISCUSSION_PHOTO_BUCKET = "discussion-photos";
+
 export async function createDiscussionPost(input: {
   eventId: string;
   body: string | null;
@@ -187,17 +192,21 @@ export async function uploadDiscussionPhoto(formData: FormData) {
   if (!ALLOWED_EXT.has(rawExt) || !ALLOWED_MIME.has(file.type))
     throw new Error("Only jpg, png, webp, and gif images are allowed.");
   const ext = rawExt;
-  const path = `discussions/${user.id}/${Date.now()}.${ext}`;
+  // The uid MUST be the first path segment: the storage policy checks
+  // `auth.uid()::text = (storage.foldername(name))[1]`. This previously wrote to
+  // `discussions/<uid>/...` in the private `captures` bucket, so the upload was
+  // denied by RLS and the returned public URL answered 400 — see migration 0013.
+  const path = `${user.id}/${Date.now()}.${ext}`;
 
   const { error } = await supabase.storage
-    .from("captures")
+    .from(DISCUSSION_PHOTO_BUCKET)
     .upload(path, file, { contentType: file.type, upsert: false });
 
   if (error) throw error;
 
   const {
     data: { publicUrl },
-  } = supabase.storage.from("captures").getPublicUrl(path);
+  } = supabase.storage.from(DISCUSSION_PHOTO_BUCKET).getPublicUrl(path);
 
   return publicUrl;
 }

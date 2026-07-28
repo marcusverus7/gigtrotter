@@ -4,6 +4,49 @@ Things I can't decide or do without you. Ranked by what blocks the most downstre
 
 > **Repo:** https://github.com/marcusverus7/gigtrotter (private). CI green on `main`.
 
+## 🔴 BLOCKING THE CORE FEATURE — Vercel `ANTHROPIC_API_KEY` is invalid
+
+Verified end-to-end against production on **2026-07-27**. Every capture a tester
+uploads is being rejected:
+
+```
+model_error: 401 {"type":"authentication_error","message":"invalid x-api-key"}
+request_id: req_011CdU7ETyKdPoDMrTYKLXqB
+```
+
+The capture row is written with `status='rejected'`, `confidence=0` and the
+placeholder title *"Couldn't read this one"* — so the app degrades gracefully,
+but **screenshot → wallet does not work in production at all.**
+
+The key in `.env.local` is valid (it just completed 72 live vision calls at 94.9%
+field accuracy). Only Vercel's copy is stale.
+
+**Fix:** Vercel → gigtrotter → Environment Variables → edit `ANTHROPIC_API_KEY`
+(currently scoped *Production and Preview*, added Jun 23) → paste the working key
+→ **redeploy**. Then re-run the E2E below to confirm.
+
+**How to re-verify** (no login needed — server-to-server via the inbound webhook):
+
+1. `POST https://gigtrotter.vercel.app/api/inbound` with header
+   `x-webhook-secret: $INBOUND_WEBHOOK_SECRET` and body
+   `{"to":"<anon_handle>@capture.gigtrotter.example","attachments":[{"name":"t.png","contentType":"image/png","content":"<base64 png>"}]}`
+   → expect `{"ok":true,"captureId":"…"}`.
+2. Read the row back with the service key:
+   `GET /rest/v1/captures?id=eq.<captureId>&select=status,confidence,error,parse_json`
+   → a healthy parse is `status='parsed'` with confidence ~0.95, not `rejected`.
+
+Handles for testing live in `profiles.anon_handle`. Note this writes a real
+capture into that user's pending queue — dismiss it afterwards.
+
+## Migration `0011_event_moderation.sql` still not applied
+
+Confirmed against production: querying `events.status` returns
+`{"code":"42703","message":"column events.status does not exist"}`. Harmless
+while Events is hidden from nav (`SHOW_UNLAUNCHED = false`), and
+`/app/admin/events` detects 42703 and shows a "run the migration" banner rather
+than erroring. Must be applied **before** revealing Events — see the Events
+section below for the SQL and why it's safe.
+
 ## Brand decisions locked in (no action needed)
 
 - **Brand mark:** original violet→cyan map-pin glyph

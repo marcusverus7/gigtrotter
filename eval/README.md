@@ -155,8 +155,10 @@ parser:
   wrote `price_total = total_gbp` (price + booking fee), but only `render_pdf`
   prints a Total line. `render_physical` shows the base price and
   `render_mobile` shows no price at all, so a correct parse was marked wrong on
-  26 of 36 samples. The generator now emits price only for the `pdf` style, and
-  the existing sidecars were corrected to match their images.
+  26 of 36 samples. The generator now emits price only for the `pdf` style.
+  **`eval/captures/` is gitignored**, so a corpus generated before 2026-07-28
+  still carries the bad labels — regenerate it (or strip `price_total` and
+  `currency` from every non-`_pdf` sidecar) before trusting a price score.
 - **A corrupted answer key made the score go UP.** `loadExpected` swallowed
   JSON.parse failures and returned `undefined`, which removes that sample's
   checks from the denominator rather than failing. A BOM written by

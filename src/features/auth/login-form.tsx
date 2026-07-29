@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
+
+import { OAuthButtons, type OAuthProvider } from "./oauth-buttons";
 
 export function LoginForm({
   searchParams,
@@ -22,7 +23,15 @@ export function LoginForm({
   const [pending, startTransition] = useTransition();
 
   searchParams.then((p) => {
-    if (p.error && !error) setError("Sign-in failed. Try again.");
+    if (p.error && !error) {
+      setError(
+        p.error === "link_invalid"
+          ? "That link has expired or was already used. Request a new one below."
+          : p.error === "no_credentials"
+            ? "That link was incomplete. Request a new one below."
+            : "Sign-in failed. Try again.",
+      );
+    }
   });
 
   async function signInWithEmail(e: React.FormEvent) {
@@ -42,7 +51,7 @@ export function LoginForm({
     });
   }
 
-  async function signInWithProvider(provider: "google" | "apple") {
+  async function signInWithProvider(provider: OAuthProvider) {
     setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -55,29 +64,7 @@ export function LoginForm({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          aria-label="Sign in with Google"
-          onClick={() => signInWithProvider("google")}
-        >
-          Google
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          aria-label="Sign in with Apple"
-          onClick={() => signInWithProvider("apple")}
-        >
-          Apple
-        </Button>
-      </div>
-      <div className="flex items-center gap-3">
-        <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground">or email</span>
-        <Separator className="flex-1" />
-      </div>
+      <OAuthButtons verb="Sign in" onSelect={signInWithProvider} />
       <form onSubmit={signInWithEmail} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>

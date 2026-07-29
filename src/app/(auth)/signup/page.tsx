@@ -33,6 +33,12 @@ export default function SignupPage() {
               Configure Supabase first — see <code>.env.example</code>.
             </p>
           )}
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/login" className="text-foreground underline">
+              Sign in
+            </Link>
+          </p>
           <p className="text-center text-xs text-muted-foreground">
             By signing up you agree to our{" "}
             <Link href="/terms" className="underline">

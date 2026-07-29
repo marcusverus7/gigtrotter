@@ -7,8 +7,9 @@ import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
+
+import { OAuthButtons, type OAuthProvider } from "./oauth-buttons";
 
 export function SignupForm() {
   const router = useRouter();
@@ -50,7 +51,7 @@ export function SignupForm() {
     });
   }
 
-  async function signUpWithProvider(provider: "google" | "apple") {
+  async function signUpWithProvider(provider: OAuthProvider) {
     setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -89,29 +90,7 @@ export function SignupForm() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          aria-label="Sign up with Google"
-          onClick={() => signUpWithProvider("google")}
-        >
-          Google
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          aria-label="Sign up with Apple"
-          onClick={() => signUpWithProvider("apple")}
-        >
-          Apple
-        </Button>
-      </div>
-      <div className="flex items-center gap-3">
-        <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground">or email</span>
-        <Separator className="flex-1" />
-      </div>
+      <OAuthButtons verb="Sign up" onSelect={signUpWithProvider} />
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="username">Username</Label>

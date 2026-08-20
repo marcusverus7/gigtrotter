@@ -66,6 +66,16 @@ export const serverEnv = {
   get forwardingDomain() {
     return process.env.FORWARDING_DOMAIN ?? "capture.gigtrotter.example";
   },
+  /**
+   * True only when a REAL inbound-email domain is configured. `.example` TLDs
+   * are reserved placeholders that can never receive mail — a tester forwarded
+   * a ticket to one and got a Gmail NXDOMAIN bounce (2026-08-20). UI surfaces
+   * must not display a copyable address until this is true.
+   */
+  get isForwardingConfigured() {
+    const d = process.env.FORWARDING_DOMAIN?.trim() ?? "";
+    return d.length > 0 && !d.endsWith(".example");
+  },
   get captureMasterKey() {
     return required("CAPTURE_MASTER_KEY", process.env.CAPTURE_MASTER_KEY);
   },

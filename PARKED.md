@@ -108,6 +108,26 @@ while Events is hidden from nav (`SHOW_UNLAUNCHED = false`), and
 than erroring. Must be applied **before** revealing Events — see the Events
 section below for the SQL and why it's safe.
 
+## Email forwarding — needs a real domain (tester-reported bounce, 2026-08-20)
+
+A tester forwarded a ticket email and got a Gmail bounce: `capture.gigtrotter.example`
+is a reserved-TLD placeholder — it has no DNS and can never receive mail. The UI
+no longer shows an address until `FORWARDING_DOMAIN` names a real domain
+(`isForwardingConfigured` in `src/lib/env.ts`); it says "coming soon" instead.
+
+To make the feature real:
+1. **Buy a domain** (e.g. gigtrotter.app). None is owned today — the site lives on
+   gigtrotter.vercel.app.
+2. **Inbound email → webhook.** Cheapest: Cloudflare Email Routing (free) → Worker
+   → `POST https://gigtrotter.vercel.app/api/inbound` with the `x-webhook-secret`
+   header. Or Resend/Postmark inbound, which POST JSON with base64 attachments in
+   exactly the shape `/api/inbound` already accepts (it handles both casings).
+3. Set `FORWARDING_DOMAIN=capture.<domain>` in Vercel + `.env.local`, redeploy —
+   the address cards light up on their own.
+
+The webhook endpoint itself is proven: it has run the full parse pipeline
+server-to-server in production repeatedly. Only the email→webhook hop is missing.
+
 ## Brand decisions locked in (no action needed)
 
 - **Brand mark:** original violet→cyan map-pin glyph

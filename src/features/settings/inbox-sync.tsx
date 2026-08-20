@@ -22,7 +22,8 @@ import {
 export function InboxSyncPanel({
   forwardingAddress,
 }: {
-  forwardingAddress: string;
+  /** Null until a real inbound-email domain exists — never show a dead address. */
+  forwardingAddress: string | null;
 }) {
   return (
     <Card>
@@ -50,20 +51,32 @@ export function InboxSyncPanel({
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Gmail restricted scopes require an independent security
-              assessment. Until that clears, use the forwarding address
-              instead — same parsing pipeline, zero permissions.
+              assessment. Until that clears, screenshot capture on the
+              Capture page does the same job — same parsing pipeline, zero
+              permissions.
             </p>
           </div>
         </div>
 
-        <div className="rounded-md border border-border bg-muted/20 p-3">
-          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            Your forwarding address
-          </p>
-          <code className="mt-1 block break-all font-mono text-sm">
-            {forwardingAddress}
-          </code>
-        </div>
+        {forwardingAddress ? (
+          <div className="rounded-md border border-border bg-muted/20 p-3">
+            <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              Your forwarding address
+            </p>
+            <code className="mt-1 block break-all font-mono text-sm">
+              {forwardingAddress}
+            </code>
+          </div>
+        ) : (
+          <div className="rounded-md border border-border bg-muted/20 p-3">
+            <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              Email forwarding
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Coming soon — your personal forwarding address will appear here.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm" disabled>

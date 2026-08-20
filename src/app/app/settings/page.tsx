@@ -24,7 +24,7 @@ import { ProfileEditor } from "@/features/profile/profile-editor";
 import { InboxSyncPanel } from "@/features/settings/inbox-sync";
 import { ProPerksPanel } from "@/features/settings/pro-perks-panel";
 import { SpotifyPanel } from "@/features/settings/spotify-panel";
-import { publicEnv } from "@/lib/env";
+import { publicEnv, serverEnv } from "@/lib/env";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -44,7 +44,9 @@ export default async function SettingsPage() {
   const anonUrl = `${publicEnv.siteUrl}/b/${profile.anon_handle}`;
   const forwardingDomain =
     process.env.FORWARDING_DOMAIN ?? "capture.gigtrotter.example";
-  const forwardingAddress = `${profile.anon_handle}@${forwardingDomain}`;
+  const forwardingAddress = serverEnv.isForwardingConfigured
+    ? `${profile.anon_handle}@${forwardingDomain}`
+    : null;
 
 
   return (

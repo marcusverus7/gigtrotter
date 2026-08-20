@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { CaptureDropzone } from "@/features/capture/dropzone";
 import { PendingCaptures } from "@/features/capture/pending-captures";
 import { createClient } from "@/lib/supabase/server";
+import { serverEnv } from "@/lib/env";
 
 export default async function CapturePage() {
   const supabase = await createClient();
@@ -29,10 +30,11 @@ export default async function CapturePage() {
     .eq("id", user.id)
     .single();
 
-  // Forwarding domain is server-only; fall back to a placeholder for the UI.
-  const forwardingDomain =
-    process.env.FORWARDING_DOMAIN ?? "capture.gigtrotter.example";
-  const forwardAddress = `${profile?.anon_handle}@${forwardingDomain}`;
+  // Only show an address when inbound email genuinely exists — the fallback
+  // domain is a reserved-TLD placeholder that bounces (NXDOMAIN).
+  const forwardAddress = serverEnv.isForwardingConfigured
+    ? `${profile?.anon_handle}@${serverEnv.forwardingDomain}`
+    : null;
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -54,7 +56,9 @@ export default async function CapturePage() {
               <Forward className="h-5 w-5" />
             </div>
             <div>
-              <CardTitle className="text-base">Your forwarding address</CardTitle>
+              <CardTitle className="text-base">
+                Email forwarding{forwardAddress ? "" : " — coming soon"}
+              </CardTitle>
               <CardDescription>
                 Forward any confirmation email. Parsed the same way.
               </CardDescription>
@@ -62,13 +66,22 @@ export default async function CapturePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <code className="block w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">
-            {forwardAddress}
-          </code>
-          <p className="text-xs text-muted-foreground">
-            Tip: add this to your contacts as &quot;GigTrotter&quot; — your
-            phone&apos;s &quot;share&quot; sheet will offer it on every email.
-          </p>
+          {forwardAddress ? (
+            <>
+              <code className="block w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">
+                {forwardAddress}
+              </code>
+              <p className="text-xs text-muted-foreground">
+                Tip: add this to your contacts as &quot;GigTrotter&quot; — your
+                phone&apos;s &quot;share&quot; sheet will offer it on every email.
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Your personal forwarding address is nearly ready. Until then,
+              screenshot the email and drop it above — same parser, same result.
+            </p>
+          )}
         </CardContent>
       </Card>
 

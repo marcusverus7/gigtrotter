@@ -4,53 +4,18 @@ Things I can't decide or do without you. Ranked by what blocks the most downstre
 
 > **Repo:** https://github.com/marcusverus7/gigtrotter (private). CI green on `main`.
 
-## 🔴 BLOCKING THE CORE FEATURE — Vercel `ANTHROPIC_API_KEY` is invalid
+## ✅ Resolved (July–Aug 2026) — kept for the record
 
-Verified end-to-end against production on **2026-07-27**. Every capture a tester
-uploads is being rejected:
-
-```
-model_error: 401 {"type":"authentication_error","message":"invalid x-api-key"}
-request_id: req_011CdU7ETyKdPoDMrTYKLXqB
-```
-
-The capture row is written with `status='rejected'`, `confidence=0` and the
-placeholder title *"Couldn't read this one"* — so the app degrades gracefully,
-but **screenshot → wallet does not work in production at all.**
-
-The key in `.env.local` is valid (it just completed 72 live vision calls at 94.9%
-field accuracy). Only Vercel's copy is stale.
-
-**Fix:** Vercel → gigtrotter → Environment Variables → edit `ANTHROPIC_API_KEY`
-(currently scoped *Production and Preview*, added Jun 23) → paste the working key
-→ **redeploy**. Then re-run the E2E below to confirm.
-
-**How to re-verify** (no login needed — server-to-server via the inbound webhook):
-
-1. `POST https://gigtrotter.vercel.app/api/inbound` with header
-   `x-webhook-secret: $INBOUND_WEBHOOK_SECRET` and body
-   `{"to":"<anon_handle>@capture.gigtrotter.example","attachments":[{"name":"t.png","contentType":"image/png","content":"<base64 png>"}]}`
-   → expect `{"ok":true,"captureId":"…"}`.
-2. Read the row back with the service key:
-   `GET /rest/v1/captures?id=eq.<captureId>&select=status,confidence,error,parse_json`
-   → a healthy parse is `status='parsed'` with confidence ~0.95, not `rejected`.
-
-Handles for testing live in `profiles.anon_handle`. Note this writes a real
-capture into that user's pending queue — dismiss it afterwards.
-
-## 🔴 Migration `0012_fingerprint_cache_privacy.sql` — apply with 0011
-
-Security fix, committed but **not applied**. `vendor_fingerprints` stores whole
-capture parses (title, venue, `details[]` like *"seat 12A"*) with no `user_id`
-and a `for select using (true)` policy — so any caller with the public anon key
-(which ships in the client bundle) can read every user's capture data. Verified
-against production: an anonymous read returned **200, not 403**.
-
-**Nothing has leaked** — the table is empty (0 rows) because captures have been
-failing on the invalid API key, so nothing was ever cached. That also means
-applying this costs no data migration. **Apply it before fixing the Anthropic
-key**, otherwise the first successful capture starts populating a
-world-readable table.
+- **Vercel `ANTHROPIC_API_KEY`** — was a *different* key from the local one (plus
+  a BOM on `ANTHROPIC_PARSE_MODEL`). Fixed 2026-07-28; production parse verified
+  at 0.95 confidence. Diagnose recurrences via the `error` column on `captures`.
+- **Migrations 0011 / 0012 / 0013 all applied to prod 2026-07-28** (event
+  moderation; fingerprint-cache privacy — applied while the table was empty, so
+  nothing leaked; discussion-photos bucket).
+- **Anthropic credits ran dry + Supabase auto-paused (2026-08-20)** — both
+  cleared same day; 42/42 corpus reproduced at 97.9%; live round-trip green.
+  `supabase-keepalive.yml` now pings twice weekly, and its failure email is the
+  outage alarm. First request after a restore can time out — retry once.
 
 ## 🔴 Marketplace launch blocker — face value is self-declared
 

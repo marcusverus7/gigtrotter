@@ -7,8 +7,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { ConfirmCard } from "@/features/capture/confirm-card";
-import type { ParsedCapture } from "@/lib/capture/schema";
 
 /**
  * The headline MVP surface (§8.1 "Smart screenshot import"). Drag-drop, click,
@@ -22,9 +20,6 @@ export function CaptureDropzone() {
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [draft, setDraft] = useState<
-    { captureId: string; parsed: ParsedCapture } | null
-  >(null);
 
   function handleFiles(files: FileList | File[] | null) {
     if (!files || files.length === 0) return;
@@ -44,11 +39,10 @@ export function CaptureDropzone() {
         setError(body.error ?? "Couldn't read this one.");
         return;
       }
-      const data = (await res.json()) as {
-        captureId: string;
-        parsed: ParsedCapture;
-      };
-      setDraft(data);
+      // Don't render an inline card here: router.refresh() re-renders
+      // <PendingCaptures/> below, which lists this capture — an inline copy
+      // produced TWO confirm cards for one capture (tester-reported).
+      await res.json().catch(() => null);
       router.refresh();
     });
   }
@@ -143,13 +137,6 @@ export function CaptureDropzone() {
         </div>
       ) : null}
 
-      {draft ? (
-        <ConfirmCard
-          captureId={draft.captureId}
-          parsed={draft.parsed}
-          onDone={() => setDraft(null)}
-        />
-      ) : null}
     </div>
   );
 }

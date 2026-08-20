@@ -17,7 +17,12 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   ios: {
-    contentInset: "always",
+    // "always" natively inset the WebView for the notch/home bar — but the CSS
+    // already handles safe areas (viewport-fit=cover + env(safe-area-inset-*)
+    // padding on the header and bottom nav), so content was inset TWICE and the
+    // page looked vertically compressed ("squeezed, ratio off" — tester
+    // feedback, build 18). "never" renders edge-to-edge and lets the CSS do it.
+    contentInset: "never",
   },
 };
 

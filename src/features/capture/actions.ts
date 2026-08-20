@@ -16,13 +16,36 @@ import type {
  * The user can edit any extracted field before confirming. This is the trust
  * surface (§6.1): every parse lands as a confirm card, never a silent write.
  */
+/**
+ * Dates arrive in whatever shape the source produced: the vision parser emits
+ * LOCAL ISO with no offset by design ("2026-08-31T19:00:00" — the prompt says
+ * drop timezones), and <input type="datetime-local"> emits "2026-08-31T19:00".
+ * The old `z.string().datetime({ offset: true })` rejected BOTH, so confirming
+ * almost any parsed capture threw — surfacing in production as the masked
+ * "Server Components render" error (tester-reported, 2026-08-20). Accept any
+ * string Date.parse understands; Postgres handles offsetless ISO fine.
+ */
+const FlexibleDate = z
+  .string()
+  .trim()
+  .refine((s) => s === "" || !Number.isNaN(Date.parse(s)), {
+    message: "Unrecognised date — use the date picker.",
+  })
+  .nullable();
+
 const ConfirmInput = z.object({
   captureId: z.string().uuid(),
   kind: z.enum(["ticket", "flight", "stay", "restaurant", "other"]),
   title: z.string().min(1).max(200),
   subtitle: z.string().max(200).optional().nullable(),
-  starts_at: z.string().datetime({ offset: true }).nullable().or(z.literal("")),
-  ends_at: z.string().datetime({ offset: true }).nullable().or(z.literal("")),
+  starts_at: FlexibleDate,
+  ends_at: FlexibleDate,
+  /** Parser extras ("Standing", "Entrance GA8", seat rows…) + printed price.
+   *  Persisted to wallet_items.meta so they survive confirmation — they used
+   *  to be shown on the card and then silently dropped (tester-reported). */
+  details: z.array(z.string().max(200)).max(30).default([]),
+  price_total_cents: z.number().int().min(0).nullable().optional(),
+  currency: z.string().length(3).nullable().optional(),
   audience: z.enum(["vault", "inner", "friends", "open"]).default("inner"),
   venue: z
     .object({
@@ -37,7 +60,13 @@ const ConfirmInput = z.object({
 export type ConfirmCaptureInput = z.infer<typeof ConfirmInput>;
 
 export async function confirmCapture(input: ConfirmCaptureInput) {
-  const parsed = ConfirmInput.parse(input);
+  const check = ConfirmInput.safeParse(input);
+  if (!check.success) {
+    // A friendly message, not a ZodError blob (which production masks anyway).
+    const first = check.error.issues[0];
+    throw new Error(`${first.path.join(".") || "input"}: ${first.message}`);
+  }
+  const parsed = check.data;
   const supabase = await createClient();
   const {
     data: { user },
@@ -97,6 +126,12 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
       subtitle: parsed.subtitle ?? null,
       starts_at: parsed.starts_at || null,
       ends_at: parsed.ends_at || null,
+      meta: {
+        ...(parsed.details.length > 0 ? { details: parsed.details } : {}),
+        ...(parsed.price_total_cents != null
+          ? { price_total_cents: parsed.price_total_cents, currency: parsed.currency ?? null }
+          : {}),
+      },
     })
     .select("id, starts_at, ends_at, kind, title, subtitle")
     .single();

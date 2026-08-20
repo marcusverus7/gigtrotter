@@ -199,6 +199,42 @@ export default async function WalletItemDetail({
             endsAt={item.ends_at ?? null}
           />
 
+          {/* Ticket extras captured at parse time (standing/seating, entrance,
+              presale type, printed price). Confirmed captures persist these in
+              meta — they used to be shown on the confirm card then silently
+              dropped, which a tester rightly flagged. */}
+          {(() => {
+            const meta = (item.meta ?? {}) as {
+              details?: string[];
+              price_total_cents?: number | null;
+              currency?: string | null;
+            };
+            const extras = Array.isArray(meta.details) ? meta.details : [];
+            const price =
+              typeof meta.price_total_cents === "number"
+                ? new Intl.NumberFormat("en-GB", {
+                    style: "currency",
+                    currency: meta.currency ?? "GBP",
+                  }).format(meta.price_total_cents / 100)
+                : null;
+            if (extras.length === 0 && !price) return null;
+            return (
+              <div className="rounded-lg border border-border bg-muted/20 p-4">
+                <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  On the ticket
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {price ? <Badge variant="outline">{price}</Badge> : null}
+                  {extras.map((d) => (
+                    <Badge key={d} variant="outline" className="font-normal">
+                      {d}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           <ItemDetailsEditor
             itemId={id}
             title={item.title}

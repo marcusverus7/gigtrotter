@@ -64,6 +64,9 @@ export function ConfirmCard({
           subtitle: city || venueName || null,
           starts_at: startsAt || null,
           ends_at: endsAt || null,
+          details: parsed.details ?? [],
+          price_total_cents: parsed.price_total_cents ?? null,
+          currency: parsed.currency ?? null,
           audience,
           venue: venueName
             ? { name: venueName, city: city || null, country: country || null }

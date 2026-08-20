@@ -1,0 +1,37 @@
+name: Supabase keep-alive
+
+# Free-tier Supabase pauses a project after ~7 days without activity, and a
+# paused project drops off DNS entirely — which has now taken production down
+# twice (2026-07-27 and again by 2026-08-20): login dead, captures dead, while
+# the Vercel shell still returns 200 and looks "up".
+#
+# A REST request counts as activity, so a periodic ping prevents the pause.
+# GitHub's `schedule` is not a precise cron (runs can be delayed or skipped),
+# but that's fine here: any successful ping within the week resets the clock.
+# The anon key is safe to use in CI — it is public by design and ships inside
+# the client bundle; RLS is the security boundary.
+#
+# While the project IS paused this workflow fails — that failure email is the
+# alarm bell, which is strictly better than discovering the outage from a
+# tester's broken login.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1,4" # twice a week, Mon + Thu
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        run: |
+          URL="https://zekwvsbxksgtofnpapmh.supabase.co"
+          ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpla3d2c2J4a3NndG9mbnBhcG1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODQwNzIsImV4cCI6MjA5Njc2MDA3Mn0.JgcG5slHEpu_Np6MGF5hTUJ6c4rc01zNFIWF0Vkwq9s"
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+            "$URL/rest/v1/venues?select=id&limit=1" \
+            -H "apikey: $ANON" -H "Authorization: Bearer $ANON")
+          echo "REST answered HTTP $code"
+          # 200 = alive. Anything else (000 = paused/DNS-gone) fails the job
+          # so the repo owner gets a workflow-failure email.
+          [ "$code" = "200" ]

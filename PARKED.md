@@ -49,30 +49,6 @@ form now say asking price can't exceed *the face value you enter*, rather than
 implying scalping is structurally impossible. Restore the stronger wording once
 one of the options above lands.
 
-## Migration `0013_discussion_photos_bucket.sql` — apply before revealing Events
-
-Discussion photo upload is broken two ways (found 2026-07-27, not yet
-user-visible because discussions sit behind `SHOW_UNLAUNCHED`):
-
-- The upload is **denied by RLS**. The `captures` policy requires the first path
-  segment to be the caller's uid, but the code wrote `discussions/<uid>/…`, so
-  the check could never pass.
-- The returned URL is **dead**. `captures` is private (correctly — encrypted
-  source artefacts), so `getPublicUrl` builds an `/object/public/…` link that
-  answers **400**.
-
-0013 adds a public `discussion-photos` bucket mirroring the `avatars` policy
-shape, and the code now leads the path with the uid. Apply alongside 0011/0012.
-
-## Migration `0011_event_moderation.sql` still not applied
-
-Confirmed against production: querying `events.status` returns
-`{"code":"42703","message":"column events.status does not exist"}`. Harmless
-while Events is hidden from nav (`SHOW_UNLAUNCHED = false`), and
-`/app/admin/events` detects 42703 and shows a "run the migration" banner rather
-than erroring. Must be applied **before** revealing Events — see the Events
-section below for the SQL and why it's safe.
-
 ## Email forwarding — needs a real domain (tester-reported bounce, 2026-08-20)
 
 A tester forwarded a ticket email and got a Gmail bounce: `capture.gigtrotter.example`

@@ -17,7 +17,13 @@ export function CountdownShare({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const cardUrl = `${publicEnv.siteUrl}/api/countdown/${walletItemId}`;
+  // Build from the live origin, never from a build-time env var: a stale or
+  // schemeless NEXT_PUBLIC_SITE_URL turned this into a relative URL that
+  // resolved under /app/... and 404'd for anyone the link was shared with.
+  const cardUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/countdown/${walletItemId}`
+      : `${publicEnv.siteUrl}/api/countdown/${walletItemId}`;
   const shareText = `${daysUntil} ${daysUntil === 1 ? "day" : "days"} until ${title}`;
 
   async function handleShare() {

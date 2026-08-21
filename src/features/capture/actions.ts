@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { geocodePlace } from "@/lib/geo/geocode";
 import type {
   Audience,
   WalletKind,
@@ -67,6 +68,16 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
     throw new Error(`${first.path.join(".") || "input"}: ${first.message}`);
   }
   const parsed = check.data;
+
+  // A gig can't end before it starts (tester-reported: the editable Ends field
+  // accepted anything). Null ends stays allowed — most tickets don't print one.
+  if (
+    parsed.starts_at &&
+    parsed.ends_at &&
+    Date.parse(parsed.ends_at) < Date.parse(parsed.starts_at)
+  ) {
+    throw new Error("End time can't be before the start time.");
+  }
   const supabase = await createClient();
   const {
     data: { user },
@@ -74,26 +85,66 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
   if (!user) throw new Error("Not authenticated");
 
   // 1) Upsert the venue if one was supplied.
+  //
+  // venues is a shared canonical table: RLS allows public READS but no client
+  // writes ("Inserts via service role / RPC only" — migration 0002). This used
+  // to insert with the session client and discard the error, so EVERY venue
+  // insert was silently denied: wallet items and experiences were created with
+  // venue_id null and the map stayed at "0 pins" forever (tester-reported,
+  // build 21). Service client + explicit error surfacing, and coordinates are
+  // geocoded at creation because a venue without lat/lng can't be a pin.
   let venueId: string | null = null;
   if (parsed.venue?.name) {
-    const { data: existing } = await supabase
+    const service = createServiceClient();
+    const { data: existing } = await service
       .from("venues")
-      .select("id")
+      .select("id, lat, lng")
       .eq("name", parsed.venue.name)
       .eq("city", parsed.venue.city ?? "")
       .maybeSingle();
     if (existing) {
       venueId = existing.id;
+      if (existing.lat == null || existing.lng == null) {
+        const geo = await geocodePlace(
+          [parsed.venue.name, parsed.venue.city, parsed.venue.country]
+            .filter(Boolean)
+            .join(", "),
+        );
+        if (geo) {
+          await service
+            .from("venues")
+            .update({ lat: geo.lat, lng: geo.lng })
+            .eq("id", existing.id);
+        }
+      }
     } else {
-      const { data: v } = await supabase
+      const [venueGeo, cityGeo] = await Promise.all([
+        geocodePlace(
+          [parsed.venue.name, parsed.venue.city, parsed.venue.country]
+            .filter(Boolean)
+            .join(", "),
+        ),
+        geocodePlace(
+          [parsed.venue.city, parsed.venue.country].filter(Boolean).join(", "),
+        ),
+      ]);
+      const { data: v, error: venueErr } = await service
         .from("venues")
         .insert({
           name: parsed.venue.name,
           city: parsed.venue.city ?? null,
           country: parsed.venue.country ?? null,
+          lat: venueGeo?.lat ?? null,
+          lng: venueGeo?.lng ?? null,
+          // City-level coords power the anonymised public board fuzzing.
+          city_lat: cityGeo?.lat ?? null,
+          city_lng: cityGeo?.lng ?? null,
         })
         .select("id")
         .single();
+      if (venueErr) {
+        console.error("[confirmCapture] venue insert failed:", venueErr.message);
+      }
       venueId = v?.id ?? null;
     }
   }

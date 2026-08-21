@@ -93,6 +93,22 @@ To make the feature real:
 The webhook endpoint itself is proven: it has run the full parse pipeline
 server-to-server in production repeatedly. Only the email→webhook hop is missing.
 
+## Tester asks from build 21 (2026-08-21) — product decisions, not bugs
+
+- **"How do we populate wishlist / search nearby gigs?"** — gig search is the
+  Events surface, hidden behind `SHOW_UNLAUNCHED` pending the events data
+  pipeline. Wishlist currently populates from manual watches only.
+- **"Can we unlock email forwarding?"** — the "coming soon" gate working as
+  designed; unlocking = buying a domain + inbound routing (see the email
+  forwarding section above).
+- **"Support the actual ticket like Apple Wallet?"** — real feature ask: PassKit
+  passes need a native capability + pass-signing certificate. Worth scoping for
+  V1; also strengthens the Guideline 4.2 native-capability story.
+- **Geocoding accuracy** — venue pins come from Mapbox forward geocoding of
+  "name, city, country"; city-level accuracy is reliable, building-level isn't
+  always (Bord Gáis Energy Theatre landed ~10km off). If testers notice, add a
+  venue-edit surface or bias queries with `types=poi`.
+
 ## Brand decisions locked in (no action needed)
 
 - **Brand mark:** original violet→cyan map-pin glyph

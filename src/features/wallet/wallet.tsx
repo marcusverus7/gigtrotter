@@ -70,21 +70,30 @@ export function Wallet({ items }: { items: Item[] }) {
       </TabsContent>
       <TabsContent value="upcoming" className="space-y-3">
         {groups.upcoming.length === 0 ? (
-          <EmptyBucket label="No upcoming items. Drop something into Capture." />
+          <EmptyBucket
+            label="Nothing upcoming. Screenshot a ticket and it lands here automatically."
+            action={{ href: "/app/capture", label: "Capture a ticket" }}
+          />
         ) : (
           groups.upcoming.map((i) => <ItemCard key={i.id} item={i} />)
         )}
       </TabsContent>
       <TabsContent value="wishlist" className="space-y-3">
         {groups.wishlist.length === 0 ? (
-          <EmptyBucket label="No wishlist items. Save artists or destinations to watch for on-sale dates." />
+          <EmptyBucket
+            label="Nothing saved yet. Add a gig you fancy but have not bought a ticket for — it waits here until you do."
+            action={{ href: "/app/capture/manual", label: "Save a gig" }}
+          />
         ) : (
           groups.wishlist.map((i) => <ItemCard key={i.id} item={i} />)
         )}
       </TabsContent>
       <TabsContent value="past" className="space-y-3">
         {groups.past.length === 0 ? (
-          <EmptyBucket label="No past items yet. Backfill scan will populate this in minutes." />
+          <EmptyBucket
+            label="No past gigs yet. Scan your camera roll and years of old tickets fill this in minutes."
+            action={{ href: "/app/capture/backfill", label: "Run backfill scan" }}
+          />
         ) : (
           groups.past.map((i) => <ItemCard key={i.id} item={i} muted />)
         )}
@@ -210,11 +219,25 @@ function Countdown({ isoTime }: { isoTime: string }) {
   );
 }
 
-function EmptyBucket({ label }: { label: string }) {
+function EmptyBucket({
+  label,
+  action,
+}: {
+  label: string;
+  action?: { href: string; label: string };
+}) {
   return (
-    <p className="rounded-md border border-dashed border-border bg-card/40 p-6 text-center text-sm text-muted-foreground">
-      {label}
-    </p>
+    <div className="rounded-md border border-dashed border-border bg-card/40 p-6 text-center">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      {action ? (
+        <Link
+          href={action.href}
+          className="mt-3 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {action.label}
+        </Link>
+      ) : null}
+    </div>
   );
 }
 

@@ -31,6 +31,7 @@ export function ManualAddForm() {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [audience, setAudience] = useState<Audience>("inner");
+  const [hasTicket, setHasTicket] = useState(true);
   const [venueQ, setVenueQ] = useState("");
   const [venues, setVenues] = useState<VenueSuggestion[]>([]);
   const [venue, setVenue] = useState<VenueSuggestion | null>(null);
@@ -88,6 +89,7 @@ export function ManualAddForm() {
           title,
           starts_at: date ? new Date(date).toISOString() : null,
           audience,
+          hasTicket,
           venue,
         });
         router.push("/app");
@@ -127,6 +129,44 @@ export function ManualAddForm() {
             </SelectContent>
           </Select>
         </Field>
+      </div>
+
+      {/* Without this a dated gig was always filed as "going", so there was no
+          way to save one you fancy but have not bought — the most common
+          question from beta testers. */}
+      <div className="rounded-lg border border-border bg-card/40 p-3">
+        <p className="text-sm font-medium">Have you got a ticket?</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setHasTicket(true)}
+            aria-pressed={hasTicket}
+            className={
+              hasTicket
+                ? "rounded-md border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-foreground"
+                : "rounded-md border border-border px-3 py-2 text-sm text-muted-foreground hover:border-primary/40"
+            }
+          >
+            Yes — I&apos;m going
+          </button>
+          <button
+            type="button"
+            onClick={() => setHasTicket(false)}
+            aria-pressed={!hasTicket}
+            className={
+              !hasTicket
+                ? "rounded-md border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-foreground"
+                : "rounded-md border border-border px-3 py-2 text-sm text-muted-foreground hover:border-primary/40"
+            }
+          >
+            Not yet — save it
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {hasTicket
+            ? "It'll sit in Upcoming, and become a pin on your map after the night."
+            : "It'll sit in your Wishlist until you get a ticket. No pin until you've been."}
+        </p>
       </div>
 
       <Field label="Title">

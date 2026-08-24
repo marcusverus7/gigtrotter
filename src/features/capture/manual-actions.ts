@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type {
   Audience,
   WalletKind,
@@ -25,6 +25,13 @@ export async function addManualWalletItem(input: {
   starts_at: string | null;
   audience: Audience;
   venue: VenueSuggestion | null;
+  /**
+   * False when the user is saving something they WANT to go to but has no
+   * ticket for. Without this a dated gig was always filed as "going", so there
+   * was no way to wishlist a specific gig — the top question from beta testers
+   * ("how do we populate the wishlist?").
+   */
+  hasTicket?: boolean;
 }) {
   const supabase = await createClient();
   const {
@@ -33,9 +40,16 @@ export async function addManualWalletItem(input: {
   if (!user) throw new Error("Not authenticated");
 
   // 1) Upsert venue if one supplied.
+  //
+  // venues allows public reads but NO client writes (service role only —
+  // migration 0002). Inserting with the session client here was silently
+  // denied, exactly as it was in confirmCapture: every manually added gig got
+  // venue_id null and could never become a map pin. Coordinates already come
+  // from the Mapbox venue picker, so no geocoding is needed on this path.
   let venueId: string | null = null;
   if (input.venue) {
-    const { data: existing } = await supabase
+    const service = createServiceClient();
+    const { data: existing } = await service
       .from("venues")
       .select("id")
       .eq("mapbox_id", input.venue.mapboxId)
@@ -43,7 +57,7 @@ export async function addManualWalletItem(input: {
     if (existing) {
       venueId = existing.id;
     } else {
-      const { data: v } = await supabase
+      const { data: v, error: venueErr } = await service
         .from("venues")
         .insert({
           name: input.venue.name,
@@ -57,6 +71,9 @@ export async function addManualWalletItem(input: {
         })
         .select("id")
         .single();
+      if (venueErr) {
+        console.error("[addManualWalletItem] venue insert failed:", venueErr.message);
+      }
       venueId = v?.id ?? null;
     }
   }
@@ -73,14 +90,18 @@ export async function addManualWalletItem(input: {
     .select("id")
     .single();
 
-  // 3) Decide status from the date.
+  // 3) Decide status from the date — unless the user said they have no ticket,
+  //    in which case it is a wishlist item however firm the date is.
   const now = Date.now();
   const startsAt = input.starts_at ? new Date(input.starts_at).getTime() : null;
-  const status: WalletStatus = !startsAt
+  const hasTicket = input.hasTicket ?? true;
+  const status: WalletStatus = !hasTicket
     ? "wishlist"
-    : startsAt < now
-      ? "attended"
-      : "going";
+    : !startsAt
+      ? "wishlist"
+      : startsAt < now
+        ? "attended"
+        : "going";
 
   // 4) wallet_item.
   const { data: wallet, error: walletErr } = await supabase

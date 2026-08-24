@@ -45,8 +45,13 @@ export function ConfirmCard({
   const [venueName, setVenueName] = useState(parsed.destination?.name ?? "");
   const [city, setCity] = useState(parsed.destination?.city ?? "");
   const [country, setCountry] = useState(parsed.destination?.country ?? "");
-  const [startsAt, setStartsAt] = useState(parsed.starts_at ?? "");
-  const [endsAt, setEndsAt] = useState(parsed.ends_at ?? "");
+  // The parser is told to drop timezones, so it emits offsetless wall-clock
+  // strings ("2026-09-14T19:30:00"). Those reach a timestamptz column and get
+  // resolved against the SERVER's zone (UTC on Vercel), which silently moves
+  // every British summer gig an hour earlier. Anchor them to the viewer's zone
+  // here, where the ticket was actually read, before anything is submitted.
+  const [startsAt, setStartsAt] = useState(anchorToLocalZone(parsed.starts_at));
+  const [endsAt, setEndsAt] = useState(anchorToLocalZone(parsed.ends_at));
   const [audience, setAudience] = useState<Audience>("inner");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -155,18 +160,14 @@ export function ConfirmCard({
             <Input
               type="datetime-local"
               value={startsAt ? toLocalDT(startsAt) : ""}
-              onChange={(e) =>
-                setStartsAt(e.target.value ? `${e.target.value}:00.000Z` : "")
-              }
+              onChange={(e) => setStartsAt(fromLocalDT(e.target.value))}
             />
           </Field>
           <Field label="Ends">
             <Input
               type="datetime-local"
               value={endsAt ? toLocalDT(endsAt) : ""}
-              onChange={(e) =>
-                setEndsAt(e.target.value ? `${e.target.value}:00.000Z` : "")
-              }
+              onChange={(e) => setEndsAt(fromLocalDT(e.target.value))}
             />
           </Field>
         </div>
@@ -243,6 +244,31 @@ function Field({
       {children}
     </div>
   );
+}
+
+/**
+ * `<input type="datetime-local">` gives back local wall-clock time. Appending
+ * "Z" to it -- which this used to do -- claims 19:30 local IS 19:30 UTC, and
+ * since the value is read back out through toLocalDT, every save shifted the
+ * time by another offset. Parsing it as local and asking for the real instant
+ * is what the other two date editors in this app already do.
+ */
+function fromLocalDT(value: string) {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
+/**
+ * Turn the parser's offsetless wall-clock string into a real instant in the
+ * viewer's timezone. Anything already carrying an offset (or absent) is left
+ * exactly as it is.
+ */
+function anchorToLocalZone(value: string | null | undefined) {
+  if (!value) return "";
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/.test(value)) return value;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toISOString();
 }
 
 // HTML datetime-local wants `YYYY-MM-DDTHH:mm`, not full ISO.

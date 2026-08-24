@@ -132,11 +132,17 @@ export async function placeMerchOrder(input: z.infer<typeof OrderInput>) {
     .single();
   if (error) throw error;
 
-  for (const li of lineItems) {
-    await supabase.from("merch_order_items").insert({
-      order_id: order.id,
-      ...li,
-    });
+  // One insert per line, no transaction available through PostgREST -- so
+  // check each. Unchecked, a failure on line two of three left a paid order
+  // holding a partial list of what was bought, and still returned success.
+  const { error: lineError } = await supabase
+    .from("merch_order_items")
+    .insert(lineItems.map((li) => ({ order_id: order.id, ...li })));
+  if (lineError) {
+    // Nothing was charged yet, so the recoverable state is no order at all
+    // rather than an order with no contents.
+    await supabase.from("merch_orders").delete().eq("id", order.id);
+    throw lineError;
   }
 
   revalidatePath("/app/merch");

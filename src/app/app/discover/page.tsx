@@ -50,7 +50,9 @@ export default async function DiscoverPage() {
   const { data: profiles } = otherIds.length
     ? await supabase
         .from("profiles")
-        .select("id, username, display_name, avatar_url, anon_handle")
+        // No anon_handle — see the note in /app/u/[username]. It was selected
+        // here and never rendered, which is the easy way to leak it later.
+        .select("id, username, display_name, avatar_url")
         .in("id", otherIds)
     : { data: [] };
 

@@ -204,11 +204,24 @@ export async function addToWalletFromEvent(
     .single();
   if (error) throw error;
 
-  await supabase.from("experiences").insert({
-    user_id: user.id,
-    wallet_item_id: item.id,
-    audience: "inner",
-  });
+  // experiences requires kind, title, starts_at and ends_at NOT NULL. This
+  // insert supplied none of them, and its result was never destructured, so it
+  // failed with 23502 on every call and said nothing: the wallet item appeared,
+  // the map pin never did. An event with no date cannot have a pin at all, so
+  // that case is skipped rather than guessed at.
+  if (event.starts_at) {
+    const { error: pinError } = await supabase.from("experiences").insert({
+      user_id: user.id,
+      wallet_item_id: item.id,
+      kind: "ticket",
+      title: event.title,
+      starts_at: event.starts_at,
+      ends_at: event.ends_at ?? event.starts_at,
+      venue_id: event.venue_id,
+      audience: "inner",
+    });
+    if (pinError) throw pinError;
+  }
 
   // Auto-enroll as "going" in event interests
   const { data: existingInterest } = await supabase

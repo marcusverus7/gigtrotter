@@ -8,10 +8,13 @@ import { publicEnv } from "@/lib/env";
 
 export function CountdownShare({
   walletItemId,
+  shareToken,
   title,
   daysUntil,
 }: {
   walletItemId: string;
+  /** Signed by the server so the card is a capability, not an open lookup. */
+  shareToken: string;
   title: string;
   daysUntil: number;
 }) {
@@ -22,8 +25,8 @@ export function CountdownShare({
   // resolved under /app/... and 404'd for anyone the link was shared with.
   const cardUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/api/countdown/${walletItemId}`
-      : `${publicEnv.siteUrl}/api/countdown/${walletItemId}`;
+      ? `${window.location.origin}/api/countdown/${walletItemId}?t=${shareToken}`
+      : `${publicEnv.siteUrl}/api/countdown/${walletItemId}?t=${shareToken}`;
   const shareText = `${daysUntil} ${daysUntil === 1 ? "day" : "days"} until ${title}`;
 
   async function handleShare() {

@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 import { AudienceSelector } from "@/features/wallet/audience-selector";
 import { CountdownShare } from "@/features/wallet/countdown-share";
+import { countdownToken } from "@/lib/share/countdown-token";
 import { WhoElseGoing } from "@/features/wallet/who-else-going";
 import { ExperienceEditor } from "@/features/wallet/experience-editor";
 import { ItemDateEditor } from "@/features/wallet/item-date-editor";
@@ -254,6 +255,7 @@ export default async function WalletItemDetail({
           {isFuture && startsAt ? (
             <CountdownShare
               walletItemId={id}
+              shareToken={countdownToken(id)}
               title={item.title}
               daysUntil={Math.ceil(
                 (startsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24),

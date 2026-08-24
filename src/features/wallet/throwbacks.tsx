@@ -26,12 +26,20 @@ export async function ThrowbacksStrip() {
     target_user: user.id,
   });
 
-  const items = (data ?? []) as Array<{
+  // on_this_day returns `setof experiences`, so `id` here is an EXPERIENCE id.
+  // Linking it to /app/item/<id> -- which looks up wallet_items -- meant every
+  // throwback 404'd. The wallet item is a separate column.
+  const items = ((data ?? []) as Array<{
     id: string;
+    wallet_item_id: string | null;
     title: string;
     starts_at: string;
     kind: string;
-  }>;
+  }>).filter(
+    // A pin outlives its wallet item (ON DELETE SET NULL), and a throwback
+    // with nowhere to go is worse than no throwback.
+    (i): i is typeof i & { wallet_item_id: string } => i.wallet_item_id !== null,
+  );
 
   if (items.length === 0) return null;
 
@@ -56,7 +64,7 @@ export async function ThrowbacksStrip() {
           {items.slice(0, 4).map((i) => (
             <li key={i.id}>
               <Link
-                href={`/app/item/${i.id}`}
+                href={`/app/item/${i.wallet_item_id}`}
                 className="group flex items-center justify-between gap-3 rounded-md p-2 transition-colors hover:bg-accent/30"
               >
                 <span className="min-w-0 truncate text-sm font-medium">

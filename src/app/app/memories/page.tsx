@@ -57,11 +57,16 @@ export default async function MemoriesPage() {
   const { data: onThisDay } = await supabase.rpc("on_this_day", {
     target_user: user.id,
   });
-  const todayList = (onThisDay ?? []) as Array<{
+  // `id` is the experience id; the wallet item it points at is a separate
+  // column, and that is what /app/item/<id> resolves.
+  const todayList = ((onThisDay ?? []) as Array<{
     id: string;
+    wallet_item_id: string | null;
     title: string;
     starts_at: string;
-  }>;
+  }>).filter(
+    (m): m is typeof m & { wallet_item_id: string } => m.wallet_item_id !== null,
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -92,7 +97,7 @@ export default async function MemoriesPage() {
                 return (
                   <li key={m.id}>
                     <Link
-                      href={`/app/item/${m.id}`}
+                      href={`/app/item/${m.wallet_item_id}`}
                       className="group flex items-center justify-between gap-3 rounded-md p-2 transition-colors hover:bg-accent/30"
                     >
                       <span className="truncate text-sm font-medium">

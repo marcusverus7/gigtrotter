@@ -84,6 +84,22 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  // 0) The capture id arrives from the client and was previously trusted on
+  //    sight -- validated as a UUID and then written into wallet_items and
+  //    experiences with no lookup. Two things follow from checking it here:
+  //    the row has to be yours, and it has to still be pending, so pressing
+  //    Confirm twice no longer produces two wallet items and two map pins.
+  const { data: capture } = await supabase
+    .from("captures")
+    .select("id, status")
+    .eq("id", parsed.captureId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!capture) throw new Error("Capture not found.");
+  if (capture.status !== "pending") {
+    throw new Error("This capture has already been dealt with.");
+  }
+
   // 1) Upsert the venue if one was supplied.
   //
   // venues is a shared canonical table: RLS allows public READS but no client
@@ -209,15 +225,22 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
     });
   }
 
-  // 5) Mark the capture confirmed.
-  await supabase
+  // 5) Mark the capture confirmed. `.eq("status", "pending")` plus the
+  //    .select() guard closes the gap between the check above and this write:
+  //    two concurrent confirms cannot both flip the row.
+  const { data: confirmed } = await supabase
     .from("captures")
     .update({
       status: "confirmed",
       confirmed_at: new Date().toISOString(),
     })
     .eq("id", parsed.captureId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("status", "pending")
+    .select("id");
+  if (!confirmed || confirmed.length === 0) {
+    console.error("[capture] confirm write did not land", parsed.captureId);
+  }
 
   revalidatePath("/app");
   revalidatePath("/app/map");

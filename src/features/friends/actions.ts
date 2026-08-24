@@ -60,6 +60,10 @@ export async function acceptFriendRequest(friendshipId: string) {
     .eq("id", friendshipId)
     .eq("state", "pending")
     .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
+    // The RLS policy is symmetric -- both sides of a friendship can update the
+    // row -- so without this the requester could accept their own request and
+    // unlock the other person's audience='friends' pins unilaterally.
+    .neq("requested_by", user.id)
     .select("id");
   if (error) throw error;
   if (!data || data.length === 0)

@@ -110,11 +110,17 @@ export async function cancelListing(id: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  await supabase
+  // .select() guard: a write blocked by RLS returns success-shaped output with
+  // no rows, so without this "denied" and "done" are indistinguishable and the
+  // UI reports the change happened.
+  const { data, error } = await supabase
     .from("listings")
     .update({ status: "cancelled" })
     .eq("id", id)
-    .eq("seller_id", user.id);
+    .eq("seller_id", user.id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Listing not found.");
   revalidatePath("/app/marketplace");
 }
 

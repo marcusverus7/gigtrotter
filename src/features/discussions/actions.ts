@@ -71,17 +71,11 @@ export async function createDiscussionReply(input: {
     throw error;
   }
 
-  // Recompute from the source of truth rather than read-then-increment: that
-  // pattern loses counts under concurrent replies and drifts if an insert was
-  // silently blocked. A direct count is race-safe and self-healing.
-  const { count } = await supabase
-    .from("discussion_replies")
-    .select("id", { count: "exact", head: true })
-    .eq("post_id", input.postId);
-  await supabase
-    .from("discussion_posts")
-    .update({ reply_count: count ?? 0 })
-    .eq("id", input.postId);
+  // reply_count is maintained by a trigger (migration 0016). It used to be
+  // written from here, which was correct in spirit -- a recount, not an
+  // increment -- but discussion_posts UPDATE is `auth.uid() = author_id`, so
+  // the write was denied for every reply to somebody else's post: silently,
+  // and in the only case that matters.
 
   revalidatePath(`/app/events/${input.eventId}/discussion`);
 }
@@ -128,11 +122,17 @@ export async function deleteDiscussionPost(postId: string, eventId: string) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  await supabase
+  // .select() guard: a write blocked by RLS returns success-shaped output with
+  // no rows, so without this "denied" and "done" are indistinguishable and the
+  // UI reports the change happened.
+  const { data, error } = await supabase
     .from("discussion_posts")
     .delete()
     .eq("id", postId)
-    .eq("author_id", user.id);
+    .eq("author_id", user.id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Post not found.");
 
   revalidatePath(`/app/events/${eventId}/discussion`);
 }

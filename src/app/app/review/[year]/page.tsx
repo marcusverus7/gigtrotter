@@ -36,7 +36,7 @@ export default async function YearInReviewPage({
   const { data: experiences } = await supabase
     .from("experiences")
     .select(
-      "id, kind, title, subtitle, starts_at, ends_at, venues(name, city, country, lat, lng)",
+      "id, wallet_item_id, kind, title, subtitle, starts_at, ends_at, venues(name, city, country, lat, lng)",
     )
     .eq("user_id", user.id)
     .gte("starts_at", start)
@@ -54,6 +54,7 @@ export default async function YearInReviewPage({
     } | null;
     return {
       id: e.id,
+      wallet_item_id: e.wallet_item_id ?? null,
       kind: e.kind as string,
       title: e.title as string,
       starts_at: e.starts_at as string,

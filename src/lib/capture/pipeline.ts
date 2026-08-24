@@ -40,6 +40,14 @@ export async function ingestCapture(opts: {
     ? createServiceClient()
     : await createClient();
 
+  // vendor_fingerprints has a SELECT policy and no client write policy at all
+  // (migrations 0002 and 0012 both say so), so writing to it with the session
+  // client is denied without raising anything the caller can see. Reads stay
+  // on `supabase` so RLS still scopes them; only the writes need the elevated
+  // client. Without this the cache was never populated on the upload path and
+  // every re-upload of a byte-identical image paid for a fresh vision call.
+  const fingerprintWriter = createServiceClient();
+
   // 1) Encrypt + upload the source artefact.
   const encrypted = await encryptBytes(opts.userId, opts.bytes);
   const key = `${opts.userId}/${crypto.randomUUID()}.enc`;
@@ -89,12 +97,19 @@ export async function ingestCapture(opts: {
       // Cache the template for next time. Use the vendor the parser claimed,
       // falling back to "unknown" so we still benefit from exact-image hits.
       const vendor = (parsed.vendor ?? "unknown").toLowerCase();
-      await supabase.from("vendor_fingerprints").insert({
-        vendor,
-        user_id: opts.userId,
-        template_hash: hash,
-        field_map: parsed as never,
-      });
+      const { error: cacheErr } = await fingerprintWriter
+        .from("vendor_fingerprints")
+        .insert({
+          vendor,
+          user_id: opts.userId,
+          template_hash: hash,
+          field_map: parsed as never,
+        });
+      // A cache miss must never fail the capture, but it should not be
+      // invisible either -- that is how this went unnoticed.
+      if (cacheErr) {
+        console.error("[capture] fingerprint cache write failed", cacheErr);
+      }
     } catch (err) {
       const reason = err instanceof ParseError ? err.reason : "model_error";
       parseError = `${reason}: ${err instanceof Error ? err.message : "unknown"}`;
@@ -151,7 +166,13 @@ export async function ingestCapture(opts: {
       parse_json: parsed as never,
       confidence,
       vendor: inferredVendor,
-      status: parseError ? "rejected" : "pending",
+      // Still 'pending', not 'rejected'. The placeholder parse above exists so
+      // the user gets a manual-review card; PendingCaptures only fetches
+      // 'pending', so writing 'rejected' here meant an unreadable upload
+      // vanished with no error and no card -- the exact silent swallow the
+      // placeholder was added to prevent. 'rejected' belongs to the user
+      // dismissing a capture, which rejectCapture() sets.
+      status: "pending",
       error: parseError,
     })
     .select("id")
@@ -164,7 +185,7 @@ export async function ingestCapture(opts: {
   if (cacheHit) {
     // Was `(cached ? 1 : 0) + 1`, which pinned every row at 2 forever — the
     // count never reflected real reuse. Increment the stored value instead.
-    await supabase
+    await fingerprintWriter
       .from("vendor_fingerprints")
       .update({
         hit_count: (cached?.hit_count ?? 0) + 1,

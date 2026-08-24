@@ -30,7 +30,10 @@ export default async function FriendBoardPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url, anon_handle")
+    // Deliberately no anon_handle: it IS the /b/<handle> URL of the anonymous
+    // board, so printing it beside someone's real username and avatar undoes
+    // the one thing that board promises. Nobody but the owner needs it.
+    .select("id, username, display_name, avatar_url")
     .eq("username", username.toLowerCase().replace(/^@/, ""))
     .maybeSingle();
 
@@ -97,7 +100,7 @@ export default async function FriendBoardPage({
             {profile.display_name ?? `@${profile.username}`}
           </h1>
           <p className="font-mono text-xs text-muted-foreground">
-            @{profile.username} · {profile.anon_handle}
+            @{profile.username}
           </p>
         </div>
       </div>

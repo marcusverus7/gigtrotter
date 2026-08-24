@@ -18,6 +18,8 @@ import "../map/pin.css";
 
 type Row = {
   id: string;
+  /** Rows come from `experiences`, so `id` above is NOT the wallet item id. */
+  wallet_item_id: string | null;
   kind: string;
   title: string;
   starts_at: string;
@@ -310,12 +312,10 @@ function Tile({ row, index }: { row: Row; index: number }) {
     month: "short",
     day: "numeric",
   }).format(new Date(row.starts_at));
-  return (
-    <li>
-      <a
-        href={`/app/item/${row.id}`}
-        className="group flex items-center gap-4 rounded-xl border border-border/60 bg-card/30 p-4 backdrop-blur transition-all hover:-translate-x-0.5 hover:border-primary/40 hover:bg-card/70"
-      >
+  // A pin can outlive its wallet item (ON DELETE SET NULL). Render the tile
+  // either way; only make it a link when there is somewhere for it to go.
+  const inner = (
+    <>
         <span className="font-mono text-xs tnum text-muted-foreground/60 w-12 shrink-0">
           #{(index + 1).toString().padStart(2, "0")}
         </span>
@@ -330,7 +330,21 @@ function Tile({ row, index }: { row: Row; index: number }) {
         <span className="font-mono text-xs tnum text-muted-foreground shrink-0" suppressHydrationWarning>
           {monthLabel}
         </span>
-      </a>
+    </>
+  );
+
+  const className =
+    "group flex items-center gap-4 rounded-xl border border-border/60 bg-card/30 p-4 backdrop-blur transition-all hover:-translate-x-0.5 hover:border-primary/40 hover:bg-card/70";
+
+  return (
+    <li>
+      {row.wallet_item_id ? (
+        <a href={`/app/item/${row.wallet_item_id}`} className={className}>
+          {inner}
+        </a>
+      ) : (
+        <div className={className}>{inner}</div>
+      )}
     </li>
   );
 }

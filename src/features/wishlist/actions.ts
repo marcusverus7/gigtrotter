@@ -40,11 +40,17 @@ export async function removeWishlistItem(id: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  await supabase
+  // .select() guard: a write blocked by RLS returns success-shaped output with
+  // no rows, so without this "denied" and "done" are indistinguishable and the
+  // UI reports the change happened.
+  const { data, error } = await supabase
     .from("wishlist")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Wishlist item not found.");
   revalidatePath("/app/wishlist");
 }
 
@@ -61,10 +67,16 @@ export async function markAlertState(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  await supabase
+  // .select() guard: a write blocked by RLS returns success-shaped output with
+  // no rows, so without this "denied" and "done" are indistinguishable and the
+  // UI reports the change happened.
+  const { data, error } = await supabase
     .from("alerts")
     .update({ state })
     .eq("id", alertId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Alert not found.");
   revalidatePath("/app/alerts");
 }

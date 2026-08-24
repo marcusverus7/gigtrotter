@@ -1,14 +1,26 @@
 import { ImageResponse } from "next/og";
 
+import { verifyCountdownToken } from "@/lib/share/countdown-token";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
+
+  // This route reads through the service client, so RLS does not apply and the
+  // wallet-item id alone must not be enough to see somebody's plans. The owner
+  // mints a signed token when they choose to share; without it there is
+  // nothing here. Same 404 either way, so the endpoint does not confirm which
+  // ids exist.
+  const token = new URL(req.url).searchParams.get("t");
+  if (!verifyCountdownToken(id, token)) {
+    return new Response("Not found", { status: 404 });
+  }
+
   const supabase = createServiceClient();
 
   const { data: item } = await supabase

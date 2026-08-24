@@ -82,10 +82,17 @@ export async function uploadAvatar(formData: FormData) {
   // Cache-bust so the new image actually appears.
   const url = `${pub.publicUrl}?v=${Date.now()}`;
 
-  await supabase
+  // Unguarded, a denied update left the uploaded object orphaned in the bucket
+  // while the UI said the avatar had changed.
+  const { data, error } = await supabase
     .from("profiles")
     .update({ avatar_url: url })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("Couldn't save the new avatar.");
+  }
 
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");

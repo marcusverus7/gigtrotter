@@ -64,27 +64,40 @@ export async function uploadExperiencePhoto(formData: FormData) {
         : "jpg";
   const key = `${user.id}/photos/${experienceId}/${crypto.randomUUID()}.${ext}`;
 
-  const { error: upErr } = await supabase.storage
-    .from("captures")
-    .upload(key, file, { contentType: file.type, upsert: false });
-  if (upErr) throw new Error(upErr.message);
-
-  // Append to the experiences.photos array.
-  const { data: existing } = await supabase
+  // Read the existing list BEFORE uploading. The other order left an orphaned
+  // object in the private bucket whenever the experience turned out not to be
+  // yours, and — worse — if this select failed while the update succeeded, the
+  // array was replaced by a single key and the previous photos were gone.
+  const { data: existing, error: readErr } = await supabase
     .from("experiences")
     .select("photos")
     .eq("id", experienceId)
     .eq("user_id", user.id)
     .single();
-  const photos = Array.isArray(existing?.photos)
+  if (readErr || !existing) throw new Error("Experience not found.");
+
+  const { error: upErr } = await supabase.storage
+    .from("captures")
+    .upload(key, file, { contentType: file.type, upsert: false });
+  if (upErr) throw new Error(upErr.message);
+
+  const photos = Array.isArray(existing.photos)
     ? (existing.photos as string[])
     : [];
   photos.push(key);
-  await supabase
+
+  const { data: saved, error: saveErr } = await supabase
     .from("experiences")
     .update({ photos })
     .eq("id", experienceId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id");
+  if (saveErr || !saved || saved.length === 0) {
+    // The object is already in the bucket; leaving it there while telling the
+    // user the photo was added is the one outcome worth avoiding.
+    await supabase.storage.from("captures").remove([key]);
+    throw new Error("Couldn't attach the photo.");
+  }
 
   revalidatePath(`/app/item`);
 }

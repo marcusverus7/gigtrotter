@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { geocodePlace } from "@/lib/geo/geocode";
+import { FlexibleDate } from "@/lib/validation/dates";
 import type {
   Audience,
   WalletKind,
@@ -17,23 +18,6 @@ import type {
  * The user can edit any extracted field before confirming. This is the trust
  * surface (§6.1): every parse lands as a confirm card, never a silent write.
  */
-/**
- * Dates arrive in whatever shape the source produced: the vision parser emits
- * LOCAL ISO with no offset by design ("2026-08-31T19:00:00" — the prompt says
- * drop timezones), and <input type="datetime-local"> emits "2026-08-31T19:00".
- * The old `z.string().datetime({ offset: true })` rejected BOTH, so confirming
- * almost any parsed capture threw — surfacing in production as the masked
- * "Server Components render" error (tester-reported, 2026-08-20). Accept any
- * string Date.parse understands; Postgres handles offsetless ISO fine.
- */
-const FlexibleDate = z
-  .string()
-  .trim()
-  .refine((s) => s === "" || !Number.isNaN(Date.parse(s)), {
-    message: "Unrecognised date — use the date picker.",
-  })
-  .nullable();
-
 const ConfirmInput = z.object({
   captureId: z.string().uuid(),
   kind: z.enum(["ticket", "flight", "stay", "restaurant", "other"]),

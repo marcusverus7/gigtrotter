@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { FlexibleDate } from "@/lib/validation/dates";
 import type {
   Audience,
   WalletKind,
@@ -19,20 +21,52 @@ export interface VenueSuggestion {
   country: string | null;
 }
 
-export async function addManualWalletItem(input: {
-  kind: WalletKind;
-  title: string;
-  starts_at: string | null;
-  audience: Audience;
-  venue: VenueSuggestion | null;
+/**
+ * This was the one server action with no validation at all: kind, title,
+ * audience, the whole venue object and an unparsed starts_at string went
+ * straight to the database on trust. Same rules as the confirm path, which is
+ * the point — two ways in should not mean two ideas of what is acceptable.
+ */
+const ManualInput = z.object({
+  kind: z.enum(["ticket", "flight", "stay", "restaurant", "other"]),
+  title: z.string().trim().min(1).max(200),
+  starts_at: FlexibleDate,
+  audience: z.enum(["vault", "inner", "friends", "open"]),
+  venue: z
+    .object({
+      mapboxId: z.string().min(1).max(200),
+      name: z.string().trim().min(1).max(200),
+      full: z.string().trim().max(400),
+      lng: z.number().min(-180).max(180),
+      lat: z.number().min(-90).max(90),
+      city: z.string().max(120).nullable(),
+      country: z.string().max(120).nullable(),
+    })
+    .nullable(),
   /**
    * False when the user is saving something they WANT to go to but has no
    * ticket for. Without this a dated gig was always filed as "going", so there
    * was no way to wishlist a specific gig — the top question from beta testers
    * ("how do we populate the wishlist?").
    */
+  hasTicket: z.boolean().optional(),
+});
+
+export async function addManualWalletItem(raw: {
+  kind: WalletKind;
+  title: string;
+  starts_at: string | null;
+  audience: Audience;
+  venue: VenueSuggestion | null;
   hasTicket?: boolean;
 }) {
+  const check = ManualInput.safeParse(raw);
+  if (!check.success) {
+    const first = check.error.issues[0];
+    throw new Error(`${first.path.join(".") || "input"}: ${first.message}`);
+  }
+  const input = check.data;
+
   const supabase = await createClient();
   const {
     data: { user },

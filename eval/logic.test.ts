@@ -15,6 +15,8 @@
 
 import { detectMimeType, stripCodeFence, parseCaptureBytes, ParseError } from "../src/lib/capture/parser";
 import { ParsedCaptureSchema, type ParsedCapture } from "../src/lib/capture/schema";
+import { anchorToLocalZone, endDisplay, fromLocalDT } from "../src/lib/dates";
+import { FlexibleDate } from "../src/lib/validation/dates";
 import { fieldEquals, getPath, scoreSample, FIELD_MAP } from "./score";
 
 let passed = 0;
@@ -252,6 +254,102 @@ check(
   pathTargets.every((p) => getPath(parsed, p) !== undefined),
   `paths=${JSON.stringify(pathTargets)}`,
 );
+
+/* ── date rules ─────────────────────────────────────────────────────────── */
+//
+// Every assertion here is timezone-independent on purpose: these ran green in
+// UTC while being an hour wrong for every British user in summer, which is the
+// whole reason they now live outside the components.
+
+// fromLocalDT must treat its input as LOCAL wall clock. The old code appended
+// "Z", which is only correct when the runner happens to sit in UTC — so assert
+// the property instead: the instant it produces, read back in local time, is
+// the wall clock we started with.
+{
+  const wall = "2026-07-14T19:30";
+  const iso = fromLocalDT(wall);
+  const back = new Date(iso);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const roundTrip = `${back.getFullYear()}-${pad(back.getMonth() + 1)}-${pad(
+    back.getDate(),
+  )}T${pad(back.getHours())}:${pad(back.getMinutes())}`;
+  check("fromLocalDT round-trips through local wall clock", roundTrip === wall, roundTrip);
+  check("fromLocalDT emits a UTC instant", iso.endsWith("Z"), iso);
+}
+
+check("fromLocalDT passes empty through", fromLocalDT("") === "");
+check("fromLocalDT rejects nonsense", fromLocalDT("not a date") === "");
+
+// anchorToLocalZone must leave anything that already states its offset alone —
+// re-anchoring an absolute instant would move it.
+check(
+  "anchorToLocalZone leaves a Z-suffixed instant untouched",
+  anchorToLocalZone("2026-07-14T18:30:00.000Z") === "2026-07-14T18:30:00.000Z",
+);
+check(
+  "anchorToLocalZone leaves a numeric offset untouched",
+  anchorToLocalZone("2026-07-14T19:30:00+01:00") === "2026-07-14T19:30:00+01:00",
+);
+check("anchorToLocalZone maps null to empty", anchorToLocalZone(null) === "");
+check(
+  "anchorToLocalZone anchors an offsetless parse to an instant",
+  anchorToLocalZone("2026-07-14T19:30:00").endsWith("Z"),
+);
+{
+  // Same wall clock in, same instant out, whichever path produced it.
+  const viaParser = anchorToLocalZone("2026-07-14T19:30:00");
+  const viaPicker = fromLocalDT("2026-07-14T19:30");
+  check(
+    "parser and picker agree on the same wall clock",
+    viaParser === viaPicker,
+    `${viaParser} vs ${viaPicker}`,
+  );
+}
+check(
+  "anchorToLocalZone returns unparseable input unchanged",
+  anchorToLocalZone("sometime next year") === "sometime next year",
+);
+
+// endDisplay: a placeholder end equal to the start is not a range.
+check(
+  "endDisplay hides an end equal to the start",
+  endDisplay("2026-07-14T19:30:00Z", "2026-07-14T19:30:00Z").show === false,
+);
+check(
+  "endDisplay hides an end before the start",
+  endDisplay("2026-07-14T19:30:00Z", "2026-07-14T18:00:00Z").show === false,
+);
+check("endDisplay hides a missing end", endDisplay("2026-07-14T19:30:00Z", null).show === false);
+check("endDisplay hides a missing start", endDisplay(null, "2026-07-14T19:30:00Z").show === false);
+check(
+  "endDisplay hides an unparseable end",
+  endDisplay("2026-07-14T19:30:00Z", "later on").show === false,
+);
+{
+  // Compare against local calendar days, since that is what the rule uses.
+  const start = new Date("2026-07-14T12:00:00Z");
+  const laterSameDay = new Date(start.getTime() + 3 * 3600_000);
+  const nextDay = new Date(start.getTime() + 36 * 3600_000);
+  const a = endDisplay(start.toISOString(), laterSameDay.toISOString());
+  const b = endDisplay(start.toISOString(), nextDay.toISOString());
+  check(
+    "endDisplay shows a same-day end as time only",
+    a.show === true && a.sameDay === (laterSameDay.toDateString() === start.toDateString()),
+  );
+  check("endDisplay shows a multi-day end", b.show === true && b.sameDay === false);
+}
+
+/* ── FlexibleDate ───────────────────────────────────────────────────────── */
+//
+// The confirm path and the manual-add path share this schema. When they had
+// one each, a value could be accepted by one and rejected by the other.
+
+check("FlexibleDate accepts offsetless parser output", FlexibleDate.safeParse("2026-08-31T19:00:00").success);
+check("FlexibleDate accepts datetime-local", FlexibleDate.safeParse("2026-08-31T19:00").success);
+check("FlexibleDate accepts a full instant", FlexibleDate.safeParse("2026-08-31T18:00:00.000Z").success);
+check("FlexibleDate accepts null", FlexibleDate.safeParse(null).success);
+check("FlexibleDate accepts empty (the cleared field)", FlexibleDate.safeParse("").success);
+check("FlexibleDate rejects prose", !FlexibleDate.safeParse("next Tuesday-ish").success);
 
 /* ── report ─────────────────────────────────────────────────────────────── */
 

@@ -23,6 +23,8 @@ import {
 import type { Audience } from "@/lib/supabase/types";
 import type { ParsedCapture, CaptureKind } from "@/lib/capture/schema";
 
+import { anchorToLocalZone, fromLocalDT } from "@/lib/dates";
+
 import { confirmCapture, rejectCapture } from "./actions";
 
 /**
@@ -244,31 +246,6 @@ function Field({
       {children}
     </div>
   );
-}
-
-/**
- * `<input type="datetime-local">` gives back local wall-clock time. Appending
- * "Z" to it -- which this used to do -- claims 19:30 local IS 19:30 UTC, and
- * since the value is read back out through toLocalDT, every save shifted the
- * time by another offset. Parsing it as local and asking for the real instant
- * is what the other two date editors in this app already do.
- */
-function fromLocalDT(value: string) {
-  if (!value) return "";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
-}
-
-/**
- * Turn the parser's offsetless wall-clock string into a real instant in the
- * viewer's timezone. Anything already carrying an offset (or absent) is left
- * exactly as it is.
- */
-function anchorToLocalZone(value: string | null | undefined) {
-  if (!value) return "";
-  if (/(?:Z|[+-]\d{2}:?\d{2})$/.test(value)) return value;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toISOString();
 }
 
 // HTML datetime-local wants `YYYY-MM-DDTHH:mm`, not full ISO.

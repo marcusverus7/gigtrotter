@@ -32,6 +32,19 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Catches writes to service-role-only tables made with the session
+      # client. RLS denies those silently — no error, no row — and the bug
+      # shipped three times (every confirmed gig had venue_id null, so the
+      # map stayed empty) before it was noticed.
+      - name: Guard service-role-only writes
+        run: pnpm check:rls
+
+      # Deterministic capture-pipeline tests: MIME sniffing, fail-closed PDF
+      # handling, the parse schema contract and the eval scorer. No API key
+      # needed, so this runs on every push unlike the full corpus eval.
+      - name: Capture logic tests
+        run: pnpm test:logic
+
       - name: Build
         run: pnpm build
         env:

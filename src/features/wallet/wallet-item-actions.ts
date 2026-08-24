@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { geocodePlace } from "@/lib/geo/geocode";
 
 export async function updateWalletItemDates(
   itemId: string,
@@ -93,10 +94,16 @@ export async function updateWalletItemDetails(
   if (!data || data.length === 0)
     throw new Error("Could not update — item not found or not yours.");
 
-  // Upsert venue: mirror confirmCapture's lookup-then-insert pattern.
+  // Upsert venue. Mirrors confirmCapture — including, until now, its bug: this
+  // wrote with the session client, which the venues RLS silently denies (public
+  // reads, service-role writes only). Correcting a venue by hand therefore left
+  // venue_id null and the item still absent from the map. Service client, error
+  // surfaced, and geocoded so a corrected venue actually lands in the right
+  // place rather than nowhere.
   const trimmedName = venueName?.trim() ?? "";
   if (trimmedName) {
-    const { data: existing } = await supabase
+    const service = createServiceClient();
+    const { data: existing } = await service
       .from("venues")
       .select("id")
       .eq("name", trimmedName)
@@ -107,15 +114,26 @@ export async function updateWalletItemDetails(
     if (existing) {
       venueId = existing.id;
     } else {
-      const { data: v } = await supabase
+      const [venueGeo, cityGeo] = await Promise.all([
+        geocodePlace([trimmedName, city, country].filter(Boolean).join(", ")),
+        geocodePlace([city, country].filter(Boolean).join(", ")),
+      ]);
+      const { data: v, error: venueErr } = await service
         .from("venues")
         .insert({
           name: trimmedName,
           city: city ?? null,
           country: country ?? null,
+          lat: venueGeo?.lat ?? null,
+          lng: venueGeo?.lng ?? null,
+          city_lat: cityGeo?.lat ?? null,
+          city_lng: cityGeo?.lng ?? null,
         })
         .select("id")
         .single();
+      if (venueErr) {
+        console.error("[updateItemDetails] venue insert failed:", venueErr.message);
+      }
       venueId = v?.id ?? null;
     }
 

@@ -45,6 +45,17 @@ export default async function VenueDetailPage({
 
   if (!venue) notFound();
 
+  // Community attendance — aggregate only (two integers, never rows), past
+  // events only, so it never discloses who is going where. Degrades silently
+  // when migration 0014 has not been applied yet: the page simply omits the
+  // line rather than erroring.
+  const { data: statsRows } = await supabase.rpc("venue_attendance_stats", {
+    target_venue: id,
+  });
+  const stats = Array.isArray(statsRows)
+    ? (statsRows[0] as { attendees: number; gigs_logged: number } | undefined)
+    : undefined;
+
   // Upcoming events at this venue
   const { data: events } = await supabase
     .from("events")
@@ -93,6 +104,33 @@ export default async function VenueDetailPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
+          {stats && stats.gigs_logged > 0 ? (
+            <div className="flex flex-wrap gap-6">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  Regulars
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums">
+                  {stats.attendees}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {stats.attendees === 1 ? "person has" : "people have"} logged a
+                  night here
+                </p>
+              </div>
+              <div>
+                <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  Nights logged
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums">
+                  {stats.gigs_logged}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  across all GigTrotter users
+                </p>
+              </div>
+            </div>
+          ) : null}
           {venue.lat && venue.lng ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Globe2 className="h-3 w-3" />

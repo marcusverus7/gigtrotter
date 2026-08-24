@@ -56,6 +56,7 @@ Future events are visible **only** to inner-circle members, regardless of the pi
 | `bump_anon_view(handle text)` | anon / auth | Increments view counter. |
 | `are_friends(u1, u2)` | RLS internals | Helper used by experiences SELECT policy. |
 | `in_inner_circle(owner, member)` | RLS internals | Helper used by the time-shift branch. |
+| `venue_attendance_stats(target_venue uuid)` | authenticated | Two integers — distinct attendees and nights logged — for one venue, past events only. SECURITY DEFINER so it can count across users; returns aggregates only, never rows, so it discloses nothing the time-shift rule protects. Not granted to `anon`. |
 
 ## Storage buckets
 

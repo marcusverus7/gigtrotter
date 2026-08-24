@@ -20,7 +20,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getAdminUser } from "@/lib/auth/admin";
+import { createServiceClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Admin — Click Metrics" };
 
@@ -33,17 +34,11 @@ function _money(cents: number, currency: string) {
 }
 
 export default async function AdminMetricsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  // Admin gate: only allow specific user emails (hardcoded for now)
-  const ADMIN_EMAILS = ["markloughran7@gmail.com"];
-  if (!ADMIN_EMAILS.includes(user.email ?? "")) {
-    redirect("/app");
-  }
+  // Shared allowlist rather than a second hardcoded copy — when two admin
+  // pages each roll their own gate, they drift, and one of them ends up
+  // failing open.
+  const user = await getAdminUser();
+  if (!user) redirect("/app");
 
   // Use service client to bypass RLS on click analytics
   const service = createServiceClient();

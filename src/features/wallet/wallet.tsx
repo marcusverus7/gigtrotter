@@ -191,6 +191,20 @@ function DateLine({
     hour: "2-digit",
     minute: "2-digit",
   });
+  const timeOnly = new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // An end time is worth showing when it says something the start does not: a
+  // finish time for a gig, or a second date for a stay or an overnight flight.
+  // Parsers routinely emit ends_at === starts_at as a placeholder, so anything
+  // that is not actually later gets dropped rather than rendered as a range
+  // from a time to itself.
+  const end = endsAt ? new Date(endsAt) : null;
+  const showEnd = end && !Number.isNaN(end.getTime()) && end > start;
+  const sameDay = showEnd && end.toDateString() === start.toDateString();
+
   return (
     <span
       className={cn(
@@ -200,6 +214,7 @@ function DateLine({
       suppressHydrationWarning
     >
       {fmt.format(start)}
+      {showEnd ? ` – ${sameDay ? timeOnly.format(end) : fmt.format(end)}` : null}
     </span>
   );
 }

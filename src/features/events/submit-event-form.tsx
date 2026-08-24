@@ -134,6 +134,12 @@ export function SubmitEventForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
+      {promoterName ? (
+        <p className="text-xs text-muted-foreground">
+          Submitting as <span className="font-medium text-foreground">{promoterName}</span>.
+          Events go live immediately and are attributed to your account.
+        </p>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="ev-title">Event title *</Label>

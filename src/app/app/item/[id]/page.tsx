@@ -179,7 +179,7 @@ export default async function WalletItemDetail({
                   minute: "2-digit",
                 }).format(startsAt)}
               </Stat>
-              {endsAt ? (
+              {endsAt && startsAt && endsAt > startsAt ? (
                 <Stat label="Ends">
                   {new Intl.DateTimeFormat(undefined, {
                     weekday: "short",

@@ -332,6 +332,28 @@ export function OrderForm({
                 required
               />
             </div>
+            {/* Country had no input at all: the field was fixed at GB and sent
+                to the server regardless of where the buyer actually lives,
+                which is a strange default for an app about going to gigs
+                abroad. */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="ship-country">Country</Label>
+              <Input
+                id="ship-country"
+                value={shippingCountry}
+                onChange={(e) =>
+                  setShippingCountry(e.target.value.toUpperCase().slice(0, 2))
+                }
+                placeholder="GB"
+                maxLength={2}
+                autoComplete="country"
+                className="uppercase"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Two-letter country code — GB, IE, DE, and so on.
+              </p>
+            </div>
           </div>
         </div>
       ) : (

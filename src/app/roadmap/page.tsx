@@ -154,6 +154,11 @@ export default function RoadmapPage() {
           />
           <Row
             status="live"
+            title="Save a gig you have no ticket for"
+            body="Add a gig to your wishlist before tickets are in your hand. It sits in the wallet as something you are watching, and becomes a real entry the moment you capture the ticket."
+          />
+          <Row
+            status="live"
             title="Trips, memories and year in review"
             body="Flights, stays and gigs in the same window cluster into trips automatically. Every year with pins gets a shareable review."
           />
@@ -166,8 +171,8 @@ export default function RoadmapPage() {
         >
           <Row
             status="building"
-            title="Wishlist a gig you have no ticket for"
-            body="Follow an artist or a venue and hear when they announce or go on sale. Today the wallet only knows about gigs you have already bought."
+            title="Venue pages"
+            body="Every venue gets a page: what is on there, your own history, and how many GigTrotter regulars have been. Useful to you, and the beginning of something useful to venues."
           />
           <Row
             status="building"
@@ -176,8 +181,8 @@ export default function RoadmapPage() {
           />
           <Row
             status="next"
-            title="Venue pages"
-            body="Every venue gets a page: what is on, and how many GigTrotter regulars have been. Useful to you, and the beginning of something useful to venues."
+            title="Follow an artist or a venue"
+            body="Hear when someone you follow announces a date or goes on sale, instead of finding out when it has sold out."
           />
           <Row
             status="next"

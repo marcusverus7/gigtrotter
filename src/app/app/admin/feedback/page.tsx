@@ -4,7 +4,8 @@ import { MessageSquare, Bug, Lightbulb, Paintbrush, Globe } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getAdminUser } from "@/lib/auth/admin";
+import { createServiceClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Admin — Feedback" };
 
@@ -16,19 +17,13 @@ const CATEGORY_META: Record<string, { label: string; icon: React.ComponentType<{
 };
 
 export default async function FeedbackAdminPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  // Only the account owner (you) should see all feedback.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("id", user.id)
-    .single();
-
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (adminEmail && user.email !== adminEmail) redirect("/app");
+  // Every feedback message, with the user_id attached — owner only. This gate
+  // used to be `if (adminEmail && user.email !== adminEmail)`, so an unset
+  // ADMIN_EMAIL opened the page to every signed-in user: exactly the wrong way
+  // round for a missing secret. Use the shared allowlist, which never fails
+  // open, rather than a third hand-rolled check.
+  const user = await getAdminUser();
+  if (!user) redirect("/app");
 
   type FeedbackRow = {
     id: string;

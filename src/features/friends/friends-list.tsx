@@ -50,7 +50,6 @@ export function FriendsList({
             {pendingIncoming.map((f) => (
               <FriendRow
                 key={f.id}
-                friendship={f}
                 profile={other(f)}
                 actions={<IncomingActions friendshipId={f.id} />}
               />
@@ -74,7 +73,6 @@ export function FriendsList({
             accepted.map((f) => (
               <FriendRow
                 key={f.id}
-                friendship={f}
                 profile={other(f)}
                 actions={<AcceptedActions profile={other(f)} friendshipId={f.id} />}
               />
@@ -92,7 +90,6 @@ export function FriendsList({
             {pendingOutgoing.map((f) => (
               <FriendRow
                 key={f.id}
-                friendship={f}
                 profile={other(f)}
                 actions={
                   <Badge variant="outline" className="text-xs">
@@ -109,17 +106,18 @@ export function FriendsList({
 }
 
 function FriendRow({
-  friendship,
   profile,
   actions,
 }: {
-  friendship: Friendship;
   profile?: Profile;
   actions: React.ReactNode;
 }) {
   const initials = (profile?.display_name ?? profile?.username ?? "?")
     .slice(0, 2)
     .toUpperCase();
+  // A row can arrive before its profile does. Without this the name line read
+  // "@undefined" on both lines rather than degrading to something sensible.
+  const handle = profile?.username ? `@${profile.username}` : null;
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card/40 p-3">
       <div className="flex items-center gap-3">
@@ -129,11 +127,11 @@ function FriendRow({
         </Avatar>
         <div>
           <p className="text-sm font-medium">
-            {profile?.display_name ?? `@${profile?.username}`}
+            {profile?.display_name ?? handle ?? "Unknown"}
           </p>
-          <p className="font-mono text-xs text-muted-foreground">
-            @{profile?.username}
-          </p>
+          {handle ? (
+            <p className="font-mono text-xs text-muted-foreground">{handle}</p>
+          ) : null}
         </div>
       </div>
       <div className="flex items-center gap-2">{actions}</div>

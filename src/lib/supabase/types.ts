@@ -161,9 +161,6 @@ export interface ExperienceRow {
 
 // ── Database wrapper ──────────────────────────────────────────────────────
 
-type Insert<T> = Partial<T> & Pick<T, Extract<keyof T, "id">>;
-type Update<T> = Partial<T>;
-
 export interface Database {
   public: {
     Tables: {
@@ -271,6 +268,10 @@ export interface Database {
       in_inner_circle: {
         Args: { owner: string; member: string };
         Returns: boolean;
+      };
+      venue_attendance_stats: {
+        Args: { target_venue: string };
+        Returns: Array<{ attendees: number; gigs_logged: number }>;
       };
     };
     Enums: {

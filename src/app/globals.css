@@ -79,11 +79,39 @@
   html {
     color-scheme: dark;
     overscroll-behavior: none;
+    /* WKWebView inflates text when iOS "Larger Text" is on and this is left at
+       `auto`. That both oversized headings and pushed layout past the 430pt
+       viewport — reported as "doesn't fit screen" / "page seems squeezed"
+       (build 18 and 21). Pin to 100% so our own responsive type is the only
+       thing deciding size. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Belt-and-braces: nothing may scroll the page sideways. A single
+       overflowing child used to shift the whole app left, clipping the Add
+       button, the last nav tab and the feedback button off-screen. */
+    overflow-x: hidden;
+    max-width: 100%;
   }
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
     overscroll-behavior: none;
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+  /* Native shell only (data-native set by <NativeShellFlag/>). In the Capacitor
+     WebView the status bar is composited OVER the page, so if
+     env(safe-area-inset-top) resolves to 0 the header lands underneath it. A
+     floor of 2.75rem clears the status bar on every current iPhone; when env()
+     does report a real inset we use that plus the normal 1rem instead. Scoped
+     to native so mobile web — where the browser chrome sits above the page and
+     no inset is needed — is untouched. */
+  html[data-native="true"] .safe-top {
+    padding-top: max(2.75rem, calc(env(safe-area-inset-top, 0px) + 1rem));
+  }
+  html[data-native="true"] .safe-bottom {
+    padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
   }
   /* Tabular figures for the stats surfaces — Geist Mono */
   .tnum {

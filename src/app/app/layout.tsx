@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
 import { SidebarNav, BottomNav } from "@/components/app-nav";
+import { NativeShellFlag } from "@/components/native-shell-flag";
 import { CommandPalette } from "@/features/search/command-palette";
 import { PageTransition } from "@/components/page-transition";
 import { SidebarSearchTrigger } from "@/features/search/sidebar-search-trigger";
@@ -59,6 +60,7 @@ export default async function AppLayout({
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background md:flex-row">
+      <NativeShellFlag />
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-[-10%] top-[-10%] h-[60vh] w-[60vh] rounded-full bg-primary/10 blur-[120px]" />
         <div className="absolute right-[-10%] bottom-[20%] h-[50vh] w-[50vh] rounded-full bg-secondary/8 blur-[120px]" />
@@ -96,7 +98,7 @@ export default async function AppLayout({
 
       <div className="flex flex-1 flex-col overflow-x-hidden">
         {/* Top bar — mobile only */}
-        <header className="flex items-center justify-between border-b border-border/40 bg-card/30 px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] backdrop-blur-xl md:hidden">
+        <header className="safe-top flex items-center justify-between border-b border-border/40 bg-card/30 px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] backdrop-blur-xl md:hidden">
           <Link href="/app">
             <GigTrotterMark />
           </Link>

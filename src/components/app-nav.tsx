@@ -167,7 +167,7 @@ export function BottomNav({ alertBadge }: { alertBadge?: number }) {
   ).flatMap((g) => g.items);
 
   return (
-    <nav className="sticky bottom-0 z-40 flex justify-around border-t border-border/40 bg-card/80 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl md:hidden">
+    <nav className="safe-bottom sticky bottom-0 z-40 flex justify-around border-t border-border/40 bg-card/80 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl md:hidden">
       {items.map((n) => {
         const active =
           n.href === "/app"

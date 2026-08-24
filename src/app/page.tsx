@@ -113,6 +113,9 @@ export default function LandingPage() {
         <GigTrotterMark />
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <Link href="/roadmap">Roadmap</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
             <Link href="/design">Design</Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
@@ -301,6 +304,7 @@ export default function LandingPage() {
             <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
             <Link href="/terms" className="hover:text-foreground">Terms</Link>
             <Link href="/support" className="hover:text-foreground">Support</Link>
+            <Link href="/roadmap" className="hover:text-foreground">Roadmap</Link>
             <Link href="/design" className="hover:text-foreground">Design</Link>
           </div>
         </div>

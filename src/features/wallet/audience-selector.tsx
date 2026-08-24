@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { Lock, Globe, Users, Heart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,

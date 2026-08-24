@@ -10,9 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { publicEnv, isMapboxConfigured } from "@/lib/env";
 import { cn } from "@/lib/utils";

@@ -6,7 +6,6 @@ import {
   ExternalLink,
   Megaphone,
   Pin,
-  Plus,
   Send,
 } from "lucide-react";
 

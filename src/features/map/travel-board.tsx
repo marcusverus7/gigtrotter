@@ -5,7 +5,6 @@ import mapboxgl from "mapbox-gl";
 import type { Map as MapboxMap, Marker, Popup } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-import { Badge } from "@/components/ui/badge";
 import type { Audience, WalletKind } from "@/lib/supabase/types";
 import { publicEnv } from "@/lib/env";
 import { cn } from "@/lib/utils";

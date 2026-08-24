@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // There is a stray package-lock.json in the parent directory (C:/Users/44785),
+  // so Next inferred THAT as the workspace root and warned on every build. Pin
+  // it to this project so file tracing collects the right files — otherwise a
+  // standalone build can miss dependencies or bundle the whole home directory.
+  outputFileTracingRoot: import.meta.dirname,
   images: {
     remotePatterns: [
       // Supabase Storage public/signed URLs

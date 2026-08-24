@@ -1,5 +1,4 @@
 import {
-  Cloud,
   Mail,
   Music2,
   Radar,

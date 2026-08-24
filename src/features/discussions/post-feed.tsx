@@ -5,9 +5,7 @@ import { toast } from "sonner";
 import {
   Camera,
   Flame,
-  Heart,
   MessageCircle,
-  MoreHorizontal,
   Shield,
   Trash2,
 } from "lucide-react";

@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { Calendar, MapPin, ShieldCheck } from "lucide-react";
+import { Calendar, MapPin, ShieldCheck, UserPen } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ type Listing = {
   id: string;
   asking_price_cents: number;
   face_value_cents: number;
+  /** Whether the face value was checked against the seller's own ticket. */
+  face_value_source?: "ticket" | "declared" | null;
   currency: string;
   fee_bps: number;
   notes: string | null;
@@ -68,15 +70,28 @@ export function ListingCard({
   const isOwn = listing.seller_id === viewerId;
   const fee = Math.round((listing.asking_price_cents * listing.fee_bps) / 10_000);
   const total = listing.asking_price_cents + fee;
+  const checked = listing.face_value_source === "ticket";
 
   return (
     <Card className="overflow-hidden transition-colors hover:border-primary/40">
       <CardHeader className="bg-gradient-to-br from-primary/10 via-card to-secondary/5 pb-3">
         <div className="flex items-center gap-2">
-          <Badge variant="verified" className="text-[10px]">
-            <ShieldCheck className="mr-1 h-3 w-3" />
-            Verified seller
-          </Badge>
+          {/* This used to read "Verified seller" on every listing without
+              exception, which meant nothing. The badge now reports something
+              that is actually true of THIS listing: whether the face value was
+              checked against the price on the seller's own ticket, or is a
+              number they typed. */}
+          {checked ? (
+            <Badge variant="verified" className="text-[10px]">
+              <ShieldCheck className="mr-1 h-3 w-3" />
+              Face value checked
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px]">
+              <UserPen className="mr-1 h-3 w-3" />
+              Seller-declared
+            </Badge>
+          )}
           {listing.asking_price_cents < listing.face_value_cents ? (
             <Badge variant="open" className="text-[10px]">
               Below face
@@ -112,6 +127,11 @@ export function ListingCard({
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
               Face: {money(listing.face_value_cents, listing.currency)} · Fee:{" "}
               {money(fee, listing.currency)}
+            </p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground/80">
+              {checked
+                ? "Checked against the price on the seller's ticket."
+                : "No price was readable on the ticket, so this is the seller's own figure."}
             </p>
           </div>
           <div className="text-right">

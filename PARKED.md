@@ -4,6 +4,17 @@ Things I can't decide or do without you. Ranked by what blocks the most downstre
 
 > **Repo:** https://github.com/marcusverus7/gigtrotter (private). CI green on `main`.
 
+## 🔴 Do this first — five migrations are waiting
+
+`supabase/pending/APPLY-ME.sql` holds migrations 0014–0018. Paste it into the
+Supabase SQL editor and run it once; `supabase/pending/README.md` explains each
+and gives you queries to verify it landed.
+
+**0015 closes authorisation holes that are open in production right now** — the
+worst lets any signed-in user read any other user's entire pin history, vault
+pins and future plans included, by passing a different id to one RPC. See the
+README for the detail. Nothing in the pack drops a table, a column or a row.
+
 ## ✅ Resolved (July–Aug 2026) — kept for the record
 
 - **Vercel `ANTHROPIC_API_KEY`** — was a *different* key from the local one (plus
@@ -17,37 +28,44 @@ Things I can't decide or do without you. Ranked by what blocks the most downstre
   `supabase-keepalive.yml` now pings twice weekly, and its failure email is the
   outage alarm. First request after a restore can time out — retry once.
 
-## 🔴 Marketplace launch blocker — face value is self-declared
+## 🟠 Marketplace — face value is now cross-checked, with two gaps left
 
-The anti-scalper rule is a real DB constraint
-(`check (asking_price_cents <= face_value_cents)`, migration 0006 line 112), but
-**`face_value_cents` comes straight from the client**. `createListing` verifies
-the seller owns the wallet item, that it's a ticket, and that it's still
-`going` — it never consults what the ticket actually cost.
+**Status changed.** Option 1 below has shipped: the parser extracts
+`price_total_cents` / `currency` from the artefact, and `createListing`
+compares the seller's DECLARED face value against the price on the ticket they
+actually hold, rejecting anything above it. The anti-scalper rule is no longer
+purely cosmetic.
 
-So the cap is satisfied by declaring a higher face value. A £50 ticket listed as
-*face value £500, asking £500* passes the constraint, under a banner promising
-scalping is impossible. **The marketplace's entire differentiator is currently
-cosmetic.**
+Two gaps remain, and both are now *visible* rather than hidden — migration 0018
+records `face_value_source` (`ticket` or `declared`) on every listing, and the
+listing card says which it is. The badge used to read "Verified seller" on
+every listing without exception, which meant nothing; it now reports something
+true of that particular listing.
 
-Not exploitable today: the marketplace is behind `SHOW_UNLAUNCHED` and Stripe
-Connect isn't wired, so no money can move. But this must be fixed **before** any
-launch.
+1. **No evidence means no check.** A manually added gig, or a ticket with no
+   printed price, has nothing to compare against — the seller's number stands.
+   Those listings are labelled "Seller-declared" rather than quietly treated as
+   verified.
+2. **`price_total_cents` is the ORDER total, not the per-ticket price.** Four
+   tickets bought for £200 currently permit one of them to be listed at £200.
+   Closing this means teaching the parser to extract a ticket count, which is a
+   prompt change and therefore needs an eval run (`pnpm eval`, 42 images, costs
+   Anthropic credits) to confirm no regression on everything else. **Your call
+   whether to spend that** — I have not run it unprompted.
 
-Options, roughly in order of strength:
+Still not exploitable: the marketplace is behind `SHOW_UNLAUNCHED` and Stripe
+Connect isn't wired, so no money can move.
 
-1. **Derive face value from the capture.** The ticket image usually shows the
-   price. The parser doesn't extract it today (`price_total`/`currency` are
-   listed as unscored-by-design in `eval/README.md`) — adding them to
-   `ParsedCaptureSchema` and the prompt would let the listing cross-check the
-   declared value against the artefact it came from.
-2. **Cap against a per-event ceiling** sourced from the events pipeline.
-3. **Manual review** of listings above a threshold.
+Remaining options if you want the rule tighter still:
 
-Copy was overclaiming and has been corrected: the marketplace page and listing
-form now say asking price can't exceed *the face value you enter*, rather than
-implying scalping is structurally impossible. Restore the stronger wording once
-one of the options above lands.
+- **Cap against a per-event ceiling** sourced from the events pipeline (blocked
+  on having an events feed at all).
+- **Manual review** of listings above a threshold.
+
+Copy: the page and form still say asking price can't exceed *the face value you
+enter*, which is accurate for declared listings and understated for checked
+ones. Worth revisiting once gap 2 is closed — the stronger wording can then be
+earned by the checked listings specifically.
 
 ## Email forwarding — needs a real domain (tester-reported bounce, 2026-08-20)
 

@@ -95,6 +95,12 @@ export async function createListing(input: z.infer<typeof ListInput>) {
       currency: parsed.currency ?? "GBP",
       notes: parsed.notes ?? null,
       status: "live",
+      // Record whether the number above was checked against anything. A
+      // listing with no evidence is not a worse listing, but a buyer is
+      // entitled to know which kind they are looking at — and without this
+      // the two are indistinguishable, which makes the guarantee a claim.
+      face_value_source: evidenceCents !== null ? "ticket" : "declared",
+      face_value_evidence_cents: evidenceCents,
     })
     .select("id");
   if (error) throw error;

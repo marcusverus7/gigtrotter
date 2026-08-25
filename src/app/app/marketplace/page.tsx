@@ -36,7 +36,7 @@ export default async function MarketplacePage() {
   const { data: listings } = await supabase
     .from("listings")
     .select(
-      "id, asking_price_cents, face_value_cents, currency, fee_bps, notes, created_at, seller_id, wallet_items(id, title, subtitle, starts_at, venues(name, city, country))",
+      "id, asking_price_cents, face_value_cents, face_value_source, currency, fee_bps, notes, created_at, seller_id, wallet_items(id, title, subtitle, starts_at, venues(name, city, country))",
     )
     .eq("status", "live")
     .order("created_at", { ascending: false })
@@ -47,12 +47,14 @@ export default async function MarketplacePage() {
       <header>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <ShieldCheck className="h-4 w-4 text-secondary" />
-          Face value only · verified sellers
+          Face value only
         </div>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">Marketplace</h1>
         <p className="text-sm text-muted-foreground">
           A local exchange for sold-out tickets. Asking price can never exceed
-          the listed face value — a database constraint, not a UI check.
+          the listed face value — a database constraint, not a UI check. Where
+          we could read a price off the seller&apos;s own ticket, the face
+          value is checked against it; every listing says which kind it is.
         </p>
       </header>
 

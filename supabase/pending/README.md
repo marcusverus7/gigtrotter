@@ -1,7 +1,7 @@
 # Migrations waiting to be applied
 
-Three migrations are committed but **not yet applied to production**: 0014, 0015
-and 0016. `APPLY-ME.sql` in this folder is all three concatenated in order —
+Four migrations are committed but **not yet applied to production**: 0014
+through 0017. `APPLY-ME.sql` in this folder is all four concatenated in order —
 paste it into the Supabase SQL editor and run it once.
 
 Nothing here drops a table, a column or a row. 0016 rewrites three counter
@@ -32,6 +32,7 @@ columns that are currently wrong.
 | `0014_venue_attendance_stats` | Adds an aggregate-only RPC so a venue page can show how many regulars have been. Returns two integers, past events only. | None. Purely additive. The venue page already degrades gracefully without it. |
 | `0015_rpc_auth_guards` | The four fixes above. | Replaces the `events` promoter policy with four narrower ones. If event submission misbehaves afterwards, that is where to look. |
 | `0016_counter_triggers` | Triggers for `discussion_posts.reply_count` and the merch `sold_count` / `total_sold` columns, which nothing has ever written. Backfills all three. | Low. Recomputes counters from their source tables. |
+| `0017_alert_generation` | Adds the `doors_tonight` alert kind, a `dedupe_key` so alert generation is idempotent, and a scan timestamp on `profiles`. Until this is applied the Alerts page stays empty — the generator skips quietly rather than erroring. | None. Purely additive. |
 
 ## Checking it worked
 

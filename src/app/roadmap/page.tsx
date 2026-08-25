@@ -159,6 +159,11 @@ export default function RoadmapPage() {
           />
           <Row
             status="live"
+            title="Doors tonight, and who else is going"
+            body="The day of a gig, it says so. And when someone in your inner circle turns out to have the same night in their wallet, you hear about it — without either of you having to announce anything."
+          />
+          <Row
+            status="live"
             title="Trips, memories and year in review"
             body="Flights, stays and gigs in the same window cluster into trips automatically. Every year with pins gets a shareable review."
           />
@@ -176,8 +181,8 @@ export default function RoadmapPage() {
           />
           <Row
             status="building"
-            title="Reminders that actually land"
-            body="Doors tonight, on-sale alerts, and a nudge when something you are watching is announced nearby."
+            title="Reminders on your lock screen"
+            body="Alerts appear when you open the app today. Getting them to arrive while it is closed is push, which needs a new build of the iOS and Android apps rather than a website deploy."
           />
           <Row
             status="next"

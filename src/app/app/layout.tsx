@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GigTrotterMark } from "@/components/brand";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { generateAlerts } from "@/lib/alerts/generate";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
@@ -54,6 +55,13 @@ export default async function AppLayout({
     (profile?.display_name ?? profile?.username ?? user.email ?? "?")
       .slice(0, 2)
       .toUpperCase();
+
+  // Mint any alerts the user has earned since their last visit, before the
+  // badge is counted. Self-throttling (once an hour) and idempotent, so this
+  // is cheap on every navigation but does not need a scheduler — GitHub
+  // Actions `schedule` is not reliable cron, and an alert that only appears
+  // when a cron happens to fire is worse than one that appears on open.
+  await generateAlerts(supabase, user.id);
 
   const { data: unreadCount } = await supabase.rpc("unread_alert_count", { target_user: user.id });
   const alertBadge = typeof unreadCount === "number" && unreadCount > 0 ? unreadCount : undefined;

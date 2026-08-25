@@ -44,6 +44,8 @@ export interface ProfileRow {
   anon_revoked: boolean;
   anon_views: number;
   plan: "free" | "plus";
+  /** When alert generation last scanned this user's wallet (migration 0017). */
+  last_alert_scan_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -159,6 +161,43 @@ export interface ExperienceRow {
   updated_at: string;
 }
 
+export type WishlistKind = "artist" | "destination" | "venue" | "hotel";
+export type AlertKind =
+  | "on_sale"
+  | "price_drop"
+  | "tour_announce"
+  | "friend_going"
+  /** Added in migration 0017 — the only kind we can raise without a feed. */
+  | "doors_tonight";
+export type AlertState = "unread" | "read" | "dismissed";
+
+export interface WishlistRow {
+  id: string;
+  user_id: string;
+  kind: WishlistKind;
+  name: string;
+  subtitle: string | null;
+  external_id: string | null;
+  meta: Json;
+  created_at: string;
+}
+
+export interface AlertRow {
+  id: string;
+  user_id: string;
+  wishlist_id: string | null;
+  kind: AlertKind;
+  title: string;
+  body: string | null;
+  partner: string | null;
+  url: string | null;
+  event_at: string | null;
+  state: AlertState;
+  /** Identifies the thing alerted about, so generation is idempotent (0017). */
+  dedupe_key: string | null;
+  created_at: string;
+}
+
 // ── Database wrapper ──────────────────────────────────────────────────────
 
 export interface Database {
@@ -246,6 +285,24 @@ export interface Database {
         };
         Update: Partial<ExperienceRow>;
       };
+      wishlist: {
+        Row: WishlistRow;
+        Insert: Partial<WishlistRow> & {
+          user_id: string;
+          kind: WishlistKind;
+          name: string;
+        };
+        Update: Partial<WishlistRow>;
+      };
+      alerts: {
+        Row: AlertRow;
+        Insert: Partial<AlertRow> & {
+          user_id: string;
+          kind: AlertKind;
+          title: string;
+        };
+        Update: Partial<AlertRow>;
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -275,6 +332,9 @@ export interface Database {
       };
     };
     Enums: {
+      alert_kind: AlertKind;
+      alert_state: AlertState;
+      wishlist_kind: WishlistKind;
       audience: Audience;
       circle_kind: CircleKind;
       friendship_state: FriendshipState;

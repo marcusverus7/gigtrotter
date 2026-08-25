@@ -15,6 +15,13 @@
 
 import { detectMimeType, stripCodeFence, parseCaptureBytes, ParseError } from "../src/lib/capture/parser";
 import { ParsedCaptureSchema, type ParsedCapture } from "../src/lib/capture/schema";
+import {
+  describeFriends,
+  friendDedupeKey,
+  friendLabel,
+  groupOverlapsByGig,
+  type Overlap,
+} from "../src/lib/alerts/phrasing";
 import { anchorToLocalZone, endDisplay, fromLocalDT } from "../src/lib/dates";
 import { FlexibleDate } from "../src/lib/validation/dates";
 import { fieldEquals, getPath, scoreSample, FIELD_MAP } from "./score";
@@ -350,6 +357,68 @@ check("FlexibleDate accepts a full instant", FlexibleDate.safeParse("2026-08-31T
 check("FlexibleDate accepts null", FlexibleDate.safeParse(null).success);
 check("FlexibleDate accepts empty (the cleared field)", FlexibleDate.safeParse("").success);
 check("FlexibleDate rejects prose", !FlexibleDate.safeParse("next Tuesday-ish").success);
+
+/* ── alert grouping and wording ─────────────────────────────────────────── */
+
+const overlap = (
+  gig: string,
+  username: string,
+  display: string | null = null,
+): Overlap => ({
+  wallet_item_id: gig,
+  title: `Gig ${gig}`,
+  starts_at: "2026-09-14T19:30:00.000Z",
+  friend_username: username,
+  friend_display_name: display,
+});
+
+{
+  // who_else_going returns one row per (gig, friend). Three friends at one gig
+  // must be one alert, not three.
+  const grouped = groupOverlapsByGig([
+    overlap("a", "ana"),
+    overlap("b", "bo"),
+    overlap("a", "cal"),
+  ]);
+  check("groupOverlapsByGig collapses per gig", grouped.size === 2, `${grouped.size}`);
+  check("groupOverlapsByGig keeps every friend", grouped.get("a")?.length === 2);
+  check("groupOverlapsByGig handles no overlaps", groupOverlapsByGig([]).size === 0);
+}
+
+check("friendLabel prefers a display name", friendLabel(overlap("a", "ana", "Ana")) === "Ana");
+check("friendLabel falls back to the handle", friendLabel(overlap("a", "ana")) === "@ana");
+check(
+  "friendLabel treats a blank display name as absent",
+  friendLabel(overlap("a", "ana", "   ")) === "@ana",
+);
+
+check("describeFriends: one", describeFriends(["Ana"]) === "Ana is going too.");
+check("describeFriends: two", describeFriends(["Ana", "Bo"]) === "Ana and Bo are going too.");
+check(
+  "describeFriends: three says '1 other', not '1 others'",
+  describeFriends(["Ana", "Bo", "Cal"]) === "Ana, Bo and 1 other are going too.",
+  describeFriends(["Ana", "Bo", "Cal"]),
+);
+check(
+  "describeFriends: four pluralises",
+  describeFriends(["Ana", "Bo", "Cal", "Dee"]) === "Ana, Bo and 2 others are going too.",
+);
+check("describeFriends: none is empty", describeFriends([]) === "");
+
+// The dedupe key is what stops a re-scan duplicating alerts and what lets a
+// new friend raise a fresh one. Both halves matter.
+check(
+  "friendDedupeKey is stable for the same group",
+  friendDedupeKey("gig-1", 2) === friendDedupeKey("gig-1", 2),
+);
+check(
+  "friendDedupeKey changes when another friend joins",
+  friendDedupeKey("gig-1", 2) !== friendDedupeKey("gig-1", 3),
+);
+check(
+  "friendDedupeKey separates gigs",
+  friendDedupeKey("gig-1", 2) !== friendDedupeKey("gig-2", 2),
+);
 
 /* ── report ─────────────────────────────────────────────────────────────── */
 

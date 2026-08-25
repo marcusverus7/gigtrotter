@@ -18,20 +18,22 @@ import { createClient } from "@/lib/supabase/server";
 import { AlertDismisser } from "@/features/wishlist/alert-dismisser";
 
 const KIND_LABEL: Record<string, string> = {
+  doors_tonight: "Tonight",
+  friend_going: "Friend going",
   on_sale: "On sale",
   price_drop: "Price drop",
   tour_announce: "Tour announced",
-  friend_going: "Friend going",
 };
 
 const KIND_VARIANT: Record<
   string,
   "inner" | "friends" | "open" | "verified" | "outline"
 > = {
+  doors_tonight: "inner",
+  friend_going: "friends",
   on_sale: "open",
   price_drop: "verified",
   tour_announce: "inner",
-  friend_going: "friends",
 };
 
 export default async function AlertsPage() {
@@ -53,7 +55,7 @@ export default async function AlertsPage() {
       <header>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Bell className="h-4 w-4 text-primary" />
-          When things you&apos;re watching change.
+          Doors tonight, and who else is going.
         </div>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">Alerts</h1>
       </header>
@@ -63,12 +65,13 @@ export default async function AlertsPage() {
           <CardHeader>
             <CardTitle className="text-base">All caught up</CardTitle>
             <CardDescription>
-              We&apos;ll surface tour announcements, on-sale dates and price
-              drops for everything on your{" "}
-              <Link href="/app/wishlist" className="text-primary underline">
-                wishlist
-              </Link>
-              .
+              You&apos;ll hear from us the day of a gig, and when someone in
+              your inner circle turns out to be going to the same thing. Add a
+              gig to your{" "}
+              <Link href="/app" className="text-primary underline">
+                wallet
+              </Link>{" "}
+              and this fills itself in.
             </CardDescription>
           </CardHeader>
         </Card>

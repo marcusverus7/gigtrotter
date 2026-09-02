@@ -11,7 +11,7 @@ the UI.
 
 ## Gate 0 — before anything else
 
-- [ ] **Run `supabase/pending/APPLY-ME.sql`** (migrations 0014–0018) in the
+- [ ] **Run `supabase/pending/APPLY-ME.sql`** (migrations 0014–0019) in the
       Supabase SQL editor. `supabase/pending/README.md` explains each one.
 - [ ] Run the three verification queries in that README as an authenticated
       user (not the service key). Expected: `on_this_day` with a foreign id

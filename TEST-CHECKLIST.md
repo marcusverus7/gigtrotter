@@ -92,6 +92,24 @@ the UI.
 - [ ] Merch order form has a country field; an order's line items all save or the order errors
 - [ ] Marketplace listing card shows "Face value checked" vs "Seller-declared" correctly
 
+## H — Added 2026-09-02 (improvement pass: security, mobile, performance)
+
+Gate: migrations **0014–0019** (the pack now includes 0019's indexes).
+
+| # | Check | Expected |
+|---|---|---|
+| H1 | Tap the avatar in the mobile header | menu opens: Alerts, Wishlist, Trips, People, Settings… and **Sign out** — none of these were reachable on a phone before |
+| H2 | Scroll any long page on a phone | bottom tab bar stays pinned (it used to scroll away) |
+| H3 | Open a wallet item | the "When" time matches the ticket — server used to print UTC, so 19:30 showed as 06:30 PM |
+| H4 | Focus any input on iPhone | page does **not** zoom in and stay zoomed |
+| H5 | Submit feedback in airplane mode | an error shows — it used to vanish silently |
+| H6 | Friends list → "Map" button | opens the friend's profile (used to 404) |
+| H7 | Open Alerts, navigate away and back | bell badge cleared (viewing now marks read) |
+| H8 | Upload the same ticket image twice | second confirm appears fast (cache) and storage holds ONE blob for it |
+| H9 | 🔒 Script >100 captures in a day | 101st returns 429 "Daily capture limit reached" |
+| H10 | 🔒 `curl -sI https://gigtrotter.vercel.app` | shows X-Frame-Options: DENY, nosniff, Referrer-Policy |
+| H11 | Navigate between app pages on a phone | noticeably snappier — the layout no longer runs four sequential round trips per navigation |
+
 ## Known-not-ready (don't file these as bugs)
 
 - Push to lock screen — alerts appear on app open only; push needs a native build

@@ -14,14 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { CaptureDropzone } from "@/features/capture/dropzone";
 import { PendingCaptures } from "@/features/capture/pending-captures";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env";
 
 export default async function CapturePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: profile } = await supabase

@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * "On this day" — a quiet header strip on the wallet home when the user
@@ -17,9 +17,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function ThrowbacksStrip() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data } = await supabase.rpc("on_this_day", {

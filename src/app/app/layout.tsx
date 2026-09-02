@@ -6,7 +6,7 @@ import { GigTrotterMark } from "@/components/brand";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { generateAlerts } from "@/lib/alerts/generate";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
 import { MobileMoreMenu } from "@/components/mobile-more-menu";
@@ -42,30 +42,31 @@ export default async function AppLayout({
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, display_name, avatar_url, anon_handle")
-    .eq("id", user.id)
-    .single();
+  // One parallel batch, not a chain. This layout gates the paint of EVERY
+  // navigation, and these three round trips used to run one after another on
+  // top of the auth call — 120-300ms of pure serialized latency per page
+  // change in the shells. generateAlerts self-throttles to an hourly no-op
+  // and stays idempotent, so it does not need to finish before the badge is
+  // counted; on the one navigation per hour where it mints something, the
+  // badge catches up on the next.
+  const [{ data: profile }, , { data: unreadCount }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("username, display_name, avatar_url, anon_handle")
+      .eq("id", user.id)
+      .single(),
+    generateAlerts(supabase, user.id),
+    supabase.rpc("unread_alert_count", { target_user: user.id }),
+  ]);
 
   const initials =
     (profile?.display_name ?? profile?.username ?? user.email ?? "?")
       .slice(0, 2)
       .toUpperCase();
 
-  // Mint any alerts the user has earned since their last visit, before the
-  // badge is counted. Self-throttling (once an hour) and idempotent, so this
-  // is cheap on every navigation but does not need a scheduler — GitHub
-  // Actions `schedule` is not reliable cron, and an alert that only appears
-  // when a cron happens to fire is worse than one that appears on open.
-  await generateAlerts(supabase, user.id);
-
-  const { data: unreadCount } = await supabase.rpc("unread_alert_count", { target_user: user.id });
   const alertBadge = typeof unreadCount === "number" && unreadCount > 0 ? unreadCount : undefined;
 
   return (

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/server";
 
 /**
  * Admin allowlist for internal surfaces (/app/admin/*).
@@ -19,10 +19,7 @@ export function adminEmails(): string[] {
 
 /** Returns the signed-in user if they're an admin, otherwise null. */
 export async function getAdminUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
   return adminEmails().includes(user.email ?? "") ? user : null;
 }

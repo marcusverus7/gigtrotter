@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PendingButton } from "@/components/pending-button";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { DeleteAccountButton } from "@/features/auth/delete-account-button";
 import {
   regenerateAnonHandle,
@@ -34,9 +34,7 @@ export default async function SettingsPage({
 }) {
   const { e: actionError } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase

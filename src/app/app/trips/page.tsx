@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { assembleTrips } from "@/features/trips/actions";
 
 /**
@@ -21,9 +21,7 @@ import { assembleTrips } from "@/features/trips/actions";
  */
 export default async function TripsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: trips } = await supabase

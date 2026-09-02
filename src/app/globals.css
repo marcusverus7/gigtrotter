@@ -126,3 +126,24 @@
     radial-gradient(50% 40% at 90% 10%, hsl(189 94% 43% / 0.1), transparent 70%),
     hsl(var(--background));
 }
+
+/* Page-entry fade — replaces framer-motion's opacity/y tween so the library
+   can leave the client bundle. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-page-in {
+  animation: page-in 0.25s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-in {
+    animation: none;
+  }
+}

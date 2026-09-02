@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { IMPORT_SOURCES, type ImportSource } from "@/features/imports/sources";
 
 /**
@@ -30,9 +30,7 @@ import { IMPORT_SOURCES, type ImportSource } from "@/features/imports/sources";
  */
 export default async function ImportHubPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const [{ data: integrations }, { data: jobs }] = await Promise.all([

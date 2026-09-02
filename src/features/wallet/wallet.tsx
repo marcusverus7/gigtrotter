@@ -26,7 +26,13 @@ import type {
 import { endDisplay } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
-type Item = Database["public"]["Tables"]["wallet_items"]["Row"] & {
+// Exactly the columns the wallet renders — the home query selects these and
+// nothing else. It used to be the full Row, and the full Row includes `meta`
+// (jsonb) and the encrypted barcode payload, for every item, on every load.
+export type WalletListItem = Pick<
+  Database["public"]["Tables"]["wallet_items"]["Row"],
+  "id" | "kind" | "status" | "title" | "subtitle" | "starts_at" | "ends_at"
+> & {
   venues: { name: string | null; city: string | null; country: string | null } | null;
 };
 
@@ -42,7 +48,7 @@ const ICON: Record<WalletKind, LucideIcon> = {
  * The wallet — partitioned into Tonight / Upcoming / Wishlist / Attended.
  * Tonight first because that's the necessity that earns the home screen.
  */
-export function Wallet({ items }: { items: Item[] }) {
+export function Wallet({ items }: { items: WalletListItem[] }) {
   const groups = useMemo(() => groupItems(items), [items]);
 
   return (
@@ -111,7 +117,7 @@ function ItemCard({
   hero,
   muted,
 }: {
-  item: Item;
+  item: WalletListItem;
   hero?: boolean;
   muted?: boolean;
 }) {
@@ -255,14 +261,14 @@ function EmptyBucket({
   );
 }
 
-function groupItems(items: Item[]) {
+function groupItems(items: WalletListItem[]) {
   const now = Date.now();
   const twelveHours = 12 * 3600_000;
   const groups = {
-    tonight: [] as Item[],
-    upcoming: [] as Item[],
-    wishlist: [] as Item[],
-    past: [] as Item[],
+    tonight: [] as WalletListItem[],
+    upcoming: [] as WalletListItem[],
+    wishlist: [] as WalletListItem[],
+    past: [] as WalletListItem[],
   };
   for (const item of items) {
     const start = item.starts_at ? new Date(item.starts_at).getTime() : null;

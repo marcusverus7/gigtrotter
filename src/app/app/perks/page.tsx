@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * /app/perks — live partner perks catalogue.
@@ -24,9 +24,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export default async function PerksPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const [{ data: profile }, { data: perks }] = await Promise.all([

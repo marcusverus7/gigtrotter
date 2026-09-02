@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { WishlistAdder } from "@/features/wishlist/wishlist-adder";
 import { WishlistDeleter } from "@/features/wishlist/wishlist-deleter";
 
@@ -27,9 +27,7 @@ const KIND_META: Record<
 
 export default async function WishlistPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { data: items } = await supabase

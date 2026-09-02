@@ -19,7 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { AudienceSelector } from "@/features/wallet/audience-selector";
 import { CountdownShare } from "@/features/wallet/countdown-share";
 import { countdownToken } from "@/lib/share/countdown-token";
@@ -46,9 +46,7 @@ export default async function WalletItemDetail({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   // Three independent queries, one round trip of latency instead of three —

@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { ListingCard } from "@/features/marketplace/listing-card";
 import { ListMyTicketsAdmin } from "@/features/marketplace/list-my-tickets-admin";
 
@@ -28,9 +28,7 @@ import { ListMyTicketsAdmin } from "@/features/marketplace/list-my-tickets-admin
  */
 export default async function MarketplacePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { data: listings } = await supabase

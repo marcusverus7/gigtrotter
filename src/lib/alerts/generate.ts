@@ -93,22 +93,23 @@ export async function generateAlerts(
     await markScanned(supabase, userId);
     if (candidates.length === 0) return 0;
 
-    // Insert one at a time. A batch insert is rejected wholesale when any row
-    // collides with the dedupe index, and a collision is the normal case here
-    // — it means the alert already exists.
-    let inserted = 0;
-    for (const alert of candidates) {
-      const { error } = await supabase.from("alerts").insert(alert as never);
-      if (!error) {
-        inserted += 1;
-      } else if (error.code !== "23505") {
-        // 23505 is the dedupe index doing its job. Anything else is worth
-        // seeing — a missing column means migration 0017 has not been applied.
-        console.error("[alerts] insert failed", error.code, error.message);
-        return inserted;
-      }
+    // One upsert, one round trip. ignoreDuplicates compiles to
+    // ON CONFLICT DO NOTHING against the dedupe index, which is exactly the
+    // semantics the old row-at-a-time loop existed to get — and this runs on
+    // the layout's critical path on the navigations where it fires.
+    const { data, error } = await supabase
+      .from("alerts")
+      .upsert(candidates as never, {
+        onConflict: "user_id,dedupe_key",
+        ignoreDuplicates: true,
+      })
+      .select("id");
+    if (error) {
+      // A missing column/kind means migration 0017 has not been applied.
+      console.error("[alerts] upsert failed", error.code, error.message);
+      return 0;
     }
-    return inserted;
+    return data?.length ?? 0;
   } catch (err) {
     console.error("[alerts] generation failed", err);
     return 0;

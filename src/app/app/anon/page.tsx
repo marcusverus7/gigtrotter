@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
   regenerateAnonHandle,
   toggleAnonRevoked,
@@ -24,9 +24,7 @@ import { LifetimeStats } from "@/features/stats/lifetime-stats";
 
 export default async function AnonBoardSettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: profile } = await supabase

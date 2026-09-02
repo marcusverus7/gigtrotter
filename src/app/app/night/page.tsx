@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { NightCard } from "@/features/wallet/night-card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * /app/night — Night Mode (§8.2).
@@ -25,9 +25,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export default async function NightModePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   // "Tonight" = anything starting in the next 12h or live now.

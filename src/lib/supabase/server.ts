@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -29,6 +31,28 @@ export async function createClient() {
     },
   );
 }
+
+/**
+ * The signed-in user for the current request, resolved AT MOST ONCE.
+ *
+ * `supabase.auth.getUser()` is not a cookie read — it is an HTTPS call to
+ * Supabase Auth that verifies the JWT server-side. There are ~90 call sites
+ * across the server components, and one wallet-page navigation was paying for
+ * SIX of them (middleware, layout, page, and three widgets), each serializing
+ * its own round trip before its own query could start. React's `cache()`
+ * dedupes per request: everyone who asks after the first gets the same
+ * promise for free.
+ *
+ * Use this in preference to calling supabase.auth.getUser() directly in any
+ * server component or page.
+ */
+export const getSessionUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});
 
 /**
  * Service-role client. Bypasses RLS — use ONLY in trusted server contexts

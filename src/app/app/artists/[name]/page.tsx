@@ -20,7 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { EventCard } from "@/features/events/event-card";
 
 export const metadata: Metadata = { title: "Artist" };
@@ -33,9 +33,7 @@ export default async function ArtistPage({
   const { name } = await params;
   const artistName = decodeURIComponent(name).replace(/[^a-zA-Z0-9 '\-]/g, "").slice(0, 200);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const pattern = `%${artistName}%`;

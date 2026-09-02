@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * Spotify integration — V1 scaffold.
@@ -22,9 +22,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function SpotifyPanel() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: integ } = await supabase

@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { InterestButtons } from "@/features/events/interest-buttons";
 import { TicketLinks } from "@/features/events/ticket-links";
 import { AddToWalletButton } from "@/features/events/add-to-wallet-button";
@@ -76,9 +76,7 @@ export default async function EventDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { data: event } = await supabase

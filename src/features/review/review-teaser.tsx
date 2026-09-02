@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * Surface a Year-in-Review teaser on the wallet home when the user has at
@@ -18,9 +18,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function YearReviewTeaser() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const lastYear = new Date().getFullYear() - 1;

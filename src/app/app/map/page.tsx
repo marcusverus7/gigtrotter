@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { TravelBoard } from "@/features/map/travel-board";
 import { isMapboxConfigured } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * /app/map — the Travel Board. The hero surface and the most-screenshotted
@@ -24,9 +24,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export default async function MapPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: experiences } = await supabase

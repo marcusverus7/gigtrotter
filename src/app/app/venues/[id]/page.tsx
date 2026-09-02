@@ -20,7 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { EventCard } from "@/features/events/event-card";
 
 export const metadata: Metadata = { title: "Venue" };
@@ -32,9 +32,7 @@ export default async function VenueDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { data: venue } = await supabase
@@ -45,44 +43,46 @@ export default async function VenueDetailPage({
 
   if (!venue) notFound();
 
-  // Community attendance — aggregate only (two integers, never rows), past
-  // events only, so it never discloses who is going where. Degrades silently
-  // when migration 0014 has not been applied yet: the page simply omits the
-  // line rather than erroring.
-  const { data: statsRows } = await supabase.rpc("venue_attendance_stats", {
-    target_venue: id,
-  });
+  // Four independent reads, one round trip of latency. They only need `id`
+  // and the session, so there is no reason for stats, events, history and
+  // merch to queue behind each other.
+  //
+  // Stats are aggregate-only (two integers, never rows), past events only, so
+  // nothing discloses who is going where — and the page degrades silently if
+  // migration 0014 has not been applied yet.
+  const [
+    { data: statsRows },
+    { data: events },
+    { data: pastItems },
+    { data: merchItems },
+  ] = await Promise.all([
+    supabase.rpc("venue_attendance_stats", { target_venue: id }),
+    supabase
+      .from("events")
+      .select(
+        "id, title, headliner, artist_names, category, venue_name, venue_city, venue_country, starts_at, image_url, min_price_cents, currency, is_sold_out, tags",
+      )
+      .eq("venue_id", id)
+      .gte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(20),
+    supabase
+      .from("wallet_items")
+      .select("id, title, starts_at, kind")
+      .eq("venue_id", id)
+      .eq("user_id", user.id)
+      .order("starts_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("merch_items")
+      .select("id, title, images, price_cents, currency, artist_name")
+      .eq("venue_id", id)
+      .eq("published", true)
+      .limit(6),
+  ]);
   const stats = Array.isArray(statsRows)
     ? (statsRows[0] as { attendees: number; gigs_logged: number } | undefined)
     : undefined;
-
-  // Upcoming events at this venue
-  const { data: events } = await supabase
-    .from("events")
-    .select(
-      "id, title, headliner, artist_names, category, venue_name, venue_city, venue_country, starts_at, image_url, min_price_cents, currency, is_sold_out, tags",
-    )
-    .eq("venue_id", id)
-    .gte("starts_at", new Date().toISOString())
-    .order("starts_at", { ascending: true })
-    .limit(20);
-
-  // Past events / wallet items at this venue
-  const { data: pastItems } = await supabase
-    .from("wallet_items")
-    .select("id, title, starts_at, kind")
-    .eq("venue_id", id)
-    .eq("user_id", user.id)
-    .order("starts_at", { ascending: false })
-    .limit(10);
-
-  // Merch available at this venue
-  const { data: merchItems } = await supabase
-    .from("merch_items")
-    .select("id, title, images, price_cents, currency, artist_name")
-    .eq("venue_id", id)
-    .eq("published", true)
-    .limit(6);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

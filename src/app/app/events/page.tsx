@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { EventSearch } from "@/features/events/event-search";
 import { EventCard, type EventSummary } from "@/features/events/event-card";
 
@@ -19,9 +19,7 @@ export const metadata: Metadata = { title: "Events — Social Hub" };
 
 export default async function EventsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   // Upcoming events

@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * /app/discover — friends. Bilateral by exact username (§8.1, MVP scope).
@@ -22,9 +22,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export default async function DiscoverPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   // Pull all friendships the user is in.

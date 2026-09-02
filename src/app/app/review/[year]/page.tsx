@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Share2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { YearInReview } from "@/features/review/year-in-review";
 
 /**
@@ -25,9 +25,7 @@ export default async function YearInReviewPage({
   if (!Number.isFinite(y) || y < 2000 || y > currentYear) notFound();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const start = `${y}-01-01T00:00:00.000Z`;

@@ -2,7 +2,7 @@ import { Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * Surfaced on the wallet item detail page. Shows accepted friends whose
@@ -13,9 +13,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function WhoElseGoing({ walletItemId }: { walletItemId: string }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data } = await supabase.rpc("who_else_going", {

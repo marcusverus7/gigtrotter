@@ -20,7 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { PostFeed, type DiscussionPost } from "@/features/discussions/post-feed";
 import { PostComposer } from "@/features/discussions/post-composer";
 import {
@@ -37,9 +37,7 @@ export default async function EventDiscussionPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   // Load event

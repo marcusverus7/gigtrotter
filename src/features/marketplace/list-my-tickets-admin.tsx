@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { ListMyTicketsForm } from "./list-my-tickets-form";
 
 /**
@@ -10,9 +10,7 @@ import { ListMyTicketsForm } from "./list-my-tickets-form";
  */
 export async function ListMyTicketsAdmin() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: items } = await supabase

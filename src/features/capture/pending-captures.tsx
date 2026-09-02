@@ -1,15 +1,13 @@
 import { Clock } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { ParsedCaptureSchema } from "@/lib/capture/schema";
 
 import { ConfirmCard } from "./confirm-card";
 
 export async function PendingCaptures() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: captures } = await supabase

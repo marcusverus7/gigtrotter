@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ACHIEVEMENTS } from "@/features/achievements/achievements";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 const TIER_STYLE: Record<
@@ -28,9 +28,7 @@ const TIER_STYLE: Record<
 
 export default async function AchievementsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const [{ data: counts }, { data: profile }] = await Promise.all([

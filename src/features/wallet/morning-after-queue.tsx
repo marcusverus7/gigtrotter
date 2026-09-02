@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 import { MorningAfterPrompt } from "./morning-after";
 
@@ -9,9 +9,7 @@ import { MorningAfterPrompt } from "./morning-after";
  */
 export async function MorningAfterQueue() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   // Items that ended in the last 36h.

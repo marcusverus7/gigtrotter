@@ -6,12 +6,12 @@ import { Plus } from "lucide-react";
 export const metadata: Metadata = { title: "Wallet" };
 
 import { Button } from "@/components/ui/button";
-import { Wallet } from "@/features/wallet/wallet";
+import { Wallet, type WalletListItem } from "@/features/wallet/wallet";
 import { MorningAfterQueue } from "@/features/wallet/morning-after-queue";
 import { ThrowbacksStrip } from "@/features/wallet/throwbacks";
 import { YearReviewTeaser } from "@/features/review/review-teaser";
 import { EmptyWalletCta } from "@/features/wallet/empty-wallet-cta";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
  * /app — the Wallet. The utility surface that earns the home screen.
@@ -19,16 +19,17 @@ import { createClient } from "@/lib/supabase/server";
  */
 export default async function WalletPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: items } = await supabase
     .from("wallet_items")
-    .select("*, venues(name, city, country)")
+    .select(
+      "id, kind, status, title, subtitle, starts_at, ends_at, venues(name, city, country)",
+    )
     .eq("user_id", user.id)
-    .order("starts_at", { ascending: true, nullsFirst: false });
+    .order("starts_at", { ascending: true, nullsFirst: false })
+    .limit(500);
 
   if (!items || items.length === 0) {
     const { data: profile } = await supabase
@@ -59,7 +60,19 @@ export default async function WalletPage() {
       <YearReviewTeaser />
       <ThrowbacksStrip />
 
-      <Wallet items={items ?? []} />
+      <Wallet
+        items={((items ?? []) as unknown[]).map((raw) => {
+          // The query builder types the venues embed as an array even though
+          // a to-one FK returns an object; normalise either shape once here.
+          const it = raw as Omit<WalletListItem, "venues"> & {
+            venues: WalletListItem["venues"] | WalletListItem["venues"][];
+          };
+          return {
+            ...it,
+            venues: Array.isArray(it.venues) ? (it.venues[0] ?? null) : it.venues,
+          };
+        })}
+      />
 
       {(!items || items.length === 0) && <EmptyWalletCta />}
     </div>

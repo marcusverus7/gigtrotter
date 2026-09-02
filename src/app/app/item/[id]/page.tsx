@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AudienceSelector } from "@/features/wallet/audience-selector";
 import { CountdownShare } from "@/features/wallet/countdown-share";
 import { countdownToken } from "@/lib/share/countdown-token";
+import { LocalDateTime } from "@/components/local-datetime";
 import { WhoElseGoing } from "@/features/wallet/who-else-going";
 import { ExperienceEditor } from "@/features/wallet/experience-editor";
 import { ItemDateEditor } from "@/features/wallet/item-date-editor";
@@ -50,26 +51,31 @@ export default async function WalletItemDetail({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: item } = await supabase
-    .from("wallet_items")
-    .select("*, venues(name, city, country, lat, lng), captures(parse_json, vendor)")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Three independent queries, one round trip of latency instead of three —
+  // this page is one tap from every wallet card, usually over mobile data.
+  // The captures(parse_json) embed is gone: nothing in this file ever read
+  // it, and parse_json is the full AI parse blob, fetched on every view.
+  const [{ data: item }, { data: experience }, { data: merchLinks }] =
+    await Promise.all([
+      supabase
+        .from("wallet_items")
+        .select("*, venues(name, city, country, lat, lng)")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("experiences")
+        .select("id, audience, verified_by, rating, review, photos")
+        .eq("wallet_item_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("merch_gig_links")
+        .select("merch_item_id, merch_items(id, title, images, artist_name, price_cents, currency, fulfilment, merch_drops(title, status, total_stock, total_sold))")
+        .eq("wallet_item_id", id),
+    ]);
 
   if (!item) notFound();
-
-  const { data: experience } = await supabase
-    .from("experiences")
-    .select("id, audience, verified_by, rating, review, photos")
-    .eq("wallet_item_id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: merchLinks } = await supabase
-    .from("merch_gig_links")
-    .select("merch_item_id, merch_items(id, title, images, artist_name, price_cents, currency, fulfilment, merch_drops(title, status, total_stock, total_sold))")
-    .eq("wallet_item_id", id);
 
   const gigMerch = (merchLinks ?? [])
     .filter((l: any) => l.merch_items)
@@ -171,24 +177,34 @@ export default async function WalletItemDetail({
           {startsAt ? (
             <div className="grid grid-cols-2 gap-4">
               <Stat label="When">
-                {new Intl.DateTimeFormat(undefined, {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }).format(startsAt)}
+                {/* Client-rendered: this is a server component, and formatting
+                    a time here uses the SERVER's zone — UTC on Vercel — so a
+                    19:30 BST gig read "06:30 PM", permanently, on the page
+                    every wallet card leads to. */}
+                <LocalDateTime
+                  iso={item.starts_at!}
+                  options={{
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }}
+                />
               </Stat>
               {endsAt && startsAt && endsAt > startsAt ? (
                 <Stat label="Ends">
-                  {new Intl.DateTimeFormat(undefined, {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }).format(endsAt)}
+                  <LocalDateTime
+                    iso={item.ends_at!}
+                    options={{
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }}
+                  />
                 </Stat>
               ) : null}
             </div>

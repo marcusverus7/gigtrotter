@@ -19,7 +19,7 @@ const CONCURRENT = 3;
 export function BackfillScan() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
-  const [progress, setProgress] = useState<Map<string, "pending" | "done" | "error">>(
+  const [progress, setProgress] = useState<Map<number, "pending" | "done" | "error">>(
     new Map(),
   );
   const [pending, startTransition] = useTransition();
@@ -34,17 +34,29 @@ export function BackfillScan() {
       .filter((f) => f.type.startsWith("image/"))
       .slice(0, BATCH_LIMIT);
     setFiles(arr);
-    setProgress(new Map(arr.map((f) => [f.name, "pending"] as const)));
+    // Keyed by INDEX, not name — camera-roll exports reuse names like
+    // IMG_0001.jpg, and name collisions merged progress entries so the batch
+    // could never read as finished (and React keys duplicated).
+    setProgress(new Map(arr.map((_, i) => [i, "pending"] as const)));
   }
 
-  async function uploadOne(file: File) {
+  async function uploadOne(file: File, index: number) {
     const form = new FormData();
     form.append("file", file);
     form.append("source", "screenshot");
-    const res = await fetch("/api/captures", { method: "POST", body: form });
+    let ok = false;
+    try {
+      const res = await fetch("/api/captures", { method: "POST", body: form });
+      ok = res.ok;
+    } catch {
+      // One dropped request must not kill the batch: before this, a single
+      // fetch rejection blew up Promise.all and every remaining file spun as
+      // "pending" forever.
+      ok = false;
+    }
     setProgress((p) => {
       const next = new Map(p);
-      next.set(file.name, res.ok ? "done" : "error");
+      next.set(index, ok ? "done" : "error");
       return next;
     });
   }
@@ -53,13 +65,13 @@ export function BackfillScan() {
     if (files.length === 0) return;
     startTransition(async () => {
       // Sliding window of `CONCURRENT` uploads.
-      const queue = [...files];
+      const queue = files.map((f, i) => [f, i] as const);
       const workers: Promise<void>[] = [];
       const worker = async () => {
         while (queue.length) {
-          const file = queue.shift();
-          if (!file) return;
-          await uploadOne(file);
+          const entry = queue.shift();
+          if (!entry) return;
+          await uploadOne(entry[0], entry[1]);
         }
       };
       for (let i = 0; i < CONCURRENT; i++) workers.push(worker());
@@ -102,10 +114,10 @@ export function BackfillScan() {
       {files.length > 0 ? (
         <div className="max-h-72 overflow-auto rounded-md border border-border bg-muted/20 p-3">
           <ul className="space-y-1.5 text-sm">
-            {files.map((f) => {
-              const state = progress.get(f.name) ?? "pending";
+            {files.map((f, i) => {
+              const state = progress.get(i) ?? "pending";
               return (
-                <li key={f.name} className="flex items-center justify-between gap-3">
+                <li key={i} className="flex items-center justify-between gap-3">
                   <span className="truncate font-mono text-xs text-muted-foreground">
                     {f.name}
                   </span>

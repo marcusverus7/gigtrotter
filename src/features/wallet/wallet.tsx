@@ -47,7 +47,10 @@ export function Wallet({ items }: { items: Item[] }) {
 
   return (
     <Tabs defaultValue="tonight">
-      <TabsList>
+      {/* Scrollable: four labelled tabs with counts overflow a 375px phone,
+          and the ancestor clips rather than scrolls — the Past tab was
+          unreachable on small screens. */}
+      <TabsList className="w-full justify-start overflow-x-auto">
         <TabsTrigger value="tonight">
           Tonight {groups.tonight.length > 0 ? `· ${groups.tonight.length}` : ""}
         </TabsTrigger>
@@ -224,7 +227,7 @@ function Countdown({ isoTime }: { isoTime: string }) {
   const hours = Math.floor(diff / 3600_000);
   const mins = Math.floor((diff % 3600_000) / 60_000);
   return (
-    <span className="font-mono text-sm tnum text-primary">
+    <span className="font-mono text-sm tnum text-primary" suppressHydrationWarning>
       {hours}h {mins}m
     </span>
   );

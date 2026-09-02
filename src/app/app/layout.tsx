@@ -9,6 +9,8 @@ import { generateAlerts } from "@/lib/alerts/generate";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
+import { MobileMoreMenu } from "@/components/mobile-more-menu";
+import { mobileOverflowItems } from "@/components/app-nav";
 import { SidebarNav, BottomNav } from "@/components/app-nav";
 import { NativeShellFlag } from "@/components/native-shell-flag";
 import { CommandPalette } from "@/features/search/command-palette";
@@ -104,16 +106,23 @@ export default async function AppLayout({
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col overflow-x-hidden">
+      {/* min-w-0, not overflow-x-hidden: an overflow value other than
+          visible makes this div the containing scroll box for the sticky
+          bottom nav, and since the BODY is what scrolls, the nav ended up
+          scrolling away with the page instead of staying pinned. */}
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar — mobile only */}
         <header className="safe-top flex items-center justify-between border-b border-border/40 bg-card/30 px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] backdrop-blur-xl md:hidden">
           <Link href="/app">
             <GigTrotterMark />
           </Link>
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={profile?.avatar_url ?? undefined} alt="" />
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
+          <MobileMoreMenu
+            items={mobileOverflowItems}
+            avatarUrl={profile?.avatar_url ?? null}
+            initials={initials}
+            alertBadge={alertBadge}
+            signOutAction={signOut}
+          />
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 md:py-12">

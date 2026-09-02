@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+
 import { useState, useTransition } from "react";
 import { Check, X, AlertTriangle } from "lucide-react";
 
@@ -88,8 +90,14 @@ export function ConfirmCard({
 
   function onReject() {
     startTransition(async () => {
-      await rejectCapture(captureId);
-      onDone?.();
+      try {
+        await rejectCapture(captureId);
+        onDone?.();
+      } catch (err) {
+        // Same surface the confirm path uses — a silent failed Discard leaves
+        // the card stuck in the queue with no explanation.
+        setError(err instanceof Error ? err.message : "Could not discard.");
+      }
     });
   }
 
@@ -238,12 +246,16 @@ function Field({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: React.ReactElement<{ id?: string }>;
 }) {
+  // Associate the label with the control it names — these were bare <Label>s,
+  // so every input on the capture forms was unlabelled to a screen reader and
+  // tapping the label focused nothing.
+  const id = React.useId();
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      {children}
+      <Label htmlFor={id}>{label}</Label>
+      {React.cloneElement(children, { id })}
     </div>
   );
 }

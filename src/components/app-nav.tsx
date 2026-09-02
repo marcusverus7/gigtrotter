@@ -151,6 +151,15 @@ export function SidebarNav({ alertBadge }: { alertBadge?: number }) {
   );
 }
 
+/**
+ * Everything the sidebar offers that the bottom tab bar does not — the mobile
+ * "More" menu renders exactly this list, so a new sidebar destination shows up
+ * on phones without anyone remembering to add it twice.
+ */
+export const mobileOverflowItems: NavItem[] = navGroups
+  .flatMap((g) => g.items)
+  .filter((n) => !["/app", "/app/night", "/app/capture", "/app/map", "/app/memories"].includes(n.href));
+
 const bottomNavItems: NavItem[] = [
   { href: "/app", label: "Wallet", icon: Ticket },
   { href: "/app/night", label: "Tonight", icon: Moon },

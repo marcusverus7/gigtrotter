@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { PendingButton } from "@/components/pending-button";
 import { createClient } from "@/lib/supabase/server";
 import { DeleteAccountButton } from "@/features/auth/delete-account-button";
 import {
@@ -26,7 +27,12 @@ import { ProPerksPanel } from "@/features/settings/pro-perks-panel";
 import { SpotifyPanel } from "@/features/settings/spotify-panel";
 import { publicEnv, serverEnv } from "@/lib/env";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ e?: string }>;
+}) {
+  const { e: actionError } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -121,20 +127,26 @@ export default async function SettingsPage() {
           <Separator />
           <div className="flex flex-wrap gap-2">
             <form action={regenerateAnonHandle}>
-              <Button type="submit" variant="outline" size="sm">
+              <PendingButton variant="outline" size="sm" pendingLabel="Regenerating…">
                 Regenerate handle
-              </Button>
+              </PendingButton>
             </form>
             <form action={toggleAnonRevoked}>
-              <Button
-                type="submit"
+              <PendingButton
                 variant={profile.anon_revoked ? "default" : "destructive"}
                 size="sm"
               >
                 {profile.anon_revoked ? "Re-activate board" : "Revoke board"}
-              </Button>
+              </PendingButton>
             </form>
           </div>
+          {actionError === "regen" || actionError === "toggle" ? (
+            <p role="alert" className="text-xs text-destructive">
+              {actionError === "regen"
+                ? "Couldn't regenerate the handle — try again."
+                : "Couldn't update the board — try again."}
+            </p>
+          ) : null}
           <p className="text-xs text-muted-foreground">
             Regenerating creates a new hash — old links break instantly.
           </p>

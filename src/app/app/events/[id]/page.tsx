@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -225,16 +226,19 @@ export default async function EventDetailPage({
                     }).format(startsAt)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Intl.DateTimeFormat(undefined, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }).format(startsAt)}
-                    {event.doors_at
-                      ? ` · Doors ${new Intl.DateTimeFormat(undefined, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(event.doors_at))}`
-                      : ""}
+                    <LocalDateTime
+                      iso={event.starts_at}
+                      options={{ hour: "2-digit", minute: "2-digit" }}
+                    />
+                    {event.doors_at ? (
+                      <>
+                        {" · Doors "}
+                        <LocalDateTime
+                          iso={event.doors_at}
+                          options={{ hour: "2-digit", minute: "2-digit" }}
+                        />
+                      </>
+                    ) : null}
                   </p>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useRef, useState, useTransition } from "react";
 import { Camera, Star, X } from "lucide-react";
 
@@ -84,7 +85,11 @@ export function ExperienceEditor({
 
   function removePhoto(key: string) {
     startUpload(async () => {
-      await removeExperiencePhoto(experienceId, key);
+      try {
+        await removeExperiencePhoto(experienceId, key);
+      } catch {
+        toast.error("Couldn't remove that photo — try again.");
+      }
     });
   }
 
@@ -184,7 +189,7 @@ export function ExperienceEditor({
                 <button
                   type="button"
                   onClick={() => removePhoto(key)}
-                  className="absolute right-1 top-1 rounded-full bg-background/70 p-1 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100"
+                  className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-background/70 backdrop-blur transition-opacity md:opacity-0 md:group-hover:opacity-100"
                   aria-label="Remove photo"
                 >
                   <X className="h-3 w-3" />

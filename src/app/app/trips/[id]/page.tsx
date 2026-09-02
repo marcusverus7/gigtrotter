@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -167,12 +168,14 @@ export default async function TripDetailPage({
                     const place = [it.venues?.name, it.venues?.city]
                       .filter(Boolean)
                       .join(" · ");
-                    const time = it.starts_at
-                      ? new Intl.DateTimeFormat(undefined, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(it.starts_at))
-                      : "—";
+                    const time = it.starts_at ? (
+                      <LocalDateTime
+                        iso={it.starts_at}
+                        options={{ hour: "2-digit", minute: "2-digit" }}
+                      />
+                    ) : (
+                      "—"
+                    );
                     return (
                       <Link
                         key={it.id}

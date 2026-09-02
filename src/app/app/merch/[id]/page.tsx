@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -178,12 +179,15 @@ export default async function MerchDetailPage({
                   {liveDrop.closes_at ? (
                     <p className="text-xs text-muted-foreground">
                       Ends{" "}
-                      {new Intl.DateTimeFormat(undefined, {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }).format(new Date(liveDrop.closes_at))}
+                      <LocalDateTime
+                        iso={liveDrop.closes_at}
+                        options={{
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }}
+                      />
                     </p>
                   ) : null}
                 </div>
@@ -201,13 +205,16 @@ export default async function MerchDetailPage({
                       <p className="text-sm font-medium">{d.title}</p>
                       <p className="text-xs text-muted-foreground">
                         Opens{" "}
-                        {new Intl.DateTimeFormat(undefined, {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(d.opens_at))}
+                        <LocalDateTime
+                          iso={d.opens_at}
+                          options={{
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }}
+                        />
                       </p>
                     </div>
                   </CardContent>

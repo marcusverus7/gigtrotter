@@ -79,12 +79,9 @@ export function InboxSyncPanel({
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm" disabled>
-            <span>Connect Gmail (V1)</span>
-          </Button>
-          <Button asChild variant="outline" size="sm" disabled>
-            <span>Connect Outlook (V1)</span>
-          </Button>
+          <span className="inline-flex h-9 items-center rounded-md border border-border/60 px-3 text-sm text-muted-foreground opacity-60">
+            Gmail &amp; Outlook sync — coming in V1
+          </span>
           <Button asChild variant="ghost" size="sm">
             <Link href="/privacy">
               <ExternalLink /> Privacy promise

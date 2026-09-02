@@ -33,7 +33,16 @@ export function CaptureDropzone() {
     form.append("file", file);
     form.append("source", "screenshot");
     startTransition(async () => {
-      const res = await fetch("/api/captures", { method: "POST", body: form });
+      let res: Response;
+      try {
+        res = await fetch("/api/captures", { method: "POST", body: form });
+      } catch {
+        // fetch itself rejecting means the request never arrived — on a phone
+        // that is usually just signal. Without this catch the spinner ended
+        // and the page said nothing.
+        setError("Couldn't reach the server — check your connection and try again.");
+        return;
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setError(body.error ?? "Couldn't read this one.");

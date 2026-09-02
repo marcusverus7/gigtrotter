@@ -16,6 +16,7 @@ export function FeedbackButton() {
   const [category, setCategory] = useState<string>("General");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit() {
@@ -26,15 +27,25 @@ export function FeedbackButton() {
     fd.set("category", category.toLowerCase());
 
     startTransition(async () => {
-      const res = await submitFeedback(fd);
-      if (res.success) {
-        setSent(true);
-        setTimeout(() => {
-          setOpen(false);
-          setSent(false);
-          setMessage("");
-          setCategory("General");
-        }, 1500);
+      // This is the control testers use most. It used to check only
+      // res.success, so a failed submission reset the button to "Send" and
+      // said nothing -- the tester assumed it sent, and the feedback was gone.
+      try {
+        const res = await submitFeedback(fd);
+        if (res.success) {
+          setError(null);
+          setSent(true);
+          setTimeout(() => {
+            setOpen(false);
+            setSent(false);
+            setMessage("");
+            setCategory("General");
+          }, 1500);
+        } else {
+          setError(res.error ?? "Couldn't send that — try again.");
+        }
+      } catch {
+        setError("Couldn't send that — check your connection and try again.");
       }
     });
   }
@@ -60,7 +71,8 @@ export function FeedbackButton() {
           <div className="relative w-full max-w-sm animate-in slide-in-from-bottom-4 fade-in duration-200 rounded-2xl border border-border bg-card p-5 shadow-2xl">
             <button
               onClick={() => setOpen(false)}
-              className="absolute right-3 top-3 rounded-full p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Close feedback"
+              className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
@@ -107,6 +119,11 @@ export function FeedbackButton() {
                   autoFocus
                 />
 
+                {error ? (
+                  <p role="alert" className="mb-2 text-xs text-destructive">
+                    {error}
+                  </p>
+                ) : null}
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground">
                     Page: {pathname}

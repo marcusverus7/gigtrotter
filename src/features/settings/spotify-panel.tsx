@@ -59,9 +59,9 @@ export async function SpotifyPanel() {
           live?&quot; swipe session that turns scrobble history into pins.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" disabled>
-            <span>Connect Spotify (V1)</span>
-          </Button>
+          <span className="inline-flex h-9 items-center rounded-md border border-border/60 px-3 text-sm text-muted-foreground opacity-60">
+            Connect Spotify — coming in V1
+          </span>
           <Button asChild size="sm" variant="ghost">
             <Link href="/app/import">All imports</Link>
           </Button>

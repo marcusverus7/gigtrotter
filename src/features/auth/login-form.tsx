@@ -20,6 +20,7 @@ export function LoginForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   searchParams.then((p) => {
@@ -95,6 +96,11 @@ export function LoginForm({
             {error}
           </p>
         ) : null}
+        {notice ? (
+          <p className="text-sm text-emerald-400" role="status">
+            {notice}
+          </p>
+        ) : null}
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Signing in…" : "Sign in"}
         </Button>
@@ -106,12 +112,16 @@ export function LoginForm({
               return;
             }
             setError(null);
+            setNotice(null);
             startTransition(async () => {
               const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
               });
               if (error) setError(error.message);
-              else setError("Check your inbox for a password reset link.");
+              // Success used to go through setError too, so "check your
+              // inbox" rendered red with role="alert" — testers read it as a
+              // failure.
+              else setNotice("Check your inbox for a password reset link.");
             });
           }}
           className="w-full text-center text-sm text-muted-foreground hover:text-foreground"

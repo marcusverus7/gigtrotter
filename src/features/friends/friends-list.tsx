@@ -174,7 +174,7 @@ function AcceptedActions({
     <>
       {profile?.username ? (
         <Button size="sm" variant="outline" asChild>
-          <Link href={`/u/${profile.username}`}>
+          <Link href={`/app/u/${profile.username}`}>
             <Eye /> Map
           </Link>
         </Button>

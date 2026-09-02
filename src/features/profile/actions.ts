@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -115,7 +116,10 @@ export async function regenerateAnonHandle() {
       return;
     }
   }
-  throw new Error("Could not regenerate handle; try again.");
+  // Redirect, not throw: these run from bare <form action> submits, and a
+  // thrown error replaces the entire settings page with the route error
+  // boundary — a page-sized crash for a button-sized failure.
+  redirect("/app/settings?e=regen");
 }
 
 export async function toggleAnonRevoked() {
@@ -140,9 +144,8 @@ export async function toggleAnonRevoked() {
     .eq("id", user.id)
     .select("anon_revoked");
 
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    throw new Error("Update was blocked (no row affected).");
+  if (error || !data || data.length === 0) {
+    redirect("/app/settings?e=toggle");
   }
   revalidatePath("/app/settings");
 }

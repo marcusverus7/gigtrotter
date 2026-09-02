@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { Star, X } from "lucide-react";
 
@@ -42,20 +43,28 @@ export function MorningAfterPrompt({
   function submit() {
     if (!rating) return;
     startTransition(async () => {
-      await rateAttended({
-        walletItemId,
-        experienceId,
-        rating,
-        review: review.trim() || null,
-      });
-      setDone(true);
+      try {
+        await rateAttended({
+          walletItemId,
+          experienceId,
+          rating,
+          review: review.trim() || null,
+        });
+        setDone(true);
+      } catch {
+        toast.error("Couldn't save that rating — try again.");
+      }
     });
   }
 
   function dismiss() {
     startTransition(async () => {
-      await dismissMorningAfter(walletItemId);
-      setDone(true);
+      try {
+        await dismissMorningAfter(walletItemId);
+        setDone(true);
+      } catch {
+        toast.error("Couldn't dismiss — try again.");
+      }
     });
   }
 

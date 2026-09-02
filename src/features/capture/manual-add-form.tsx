@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -242,12 +244,16 @@ function Field({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: React.ReactElement<{ id?: string }>;
 }) {
+  // Associate the label with the control it names — these were bare <Label>s,
+  // so every input on the capture forms was unlabelled to a screen reader and
+  // tapping the label focused nothing.
+  const id = React.useId();
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      {children}
+      <Label htmlFor={id}>{label}</Label>
+      {React.cloneElement(children, { id })}
     </div>
   );
 }

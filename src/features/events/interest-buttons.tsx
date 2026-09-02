@@ -20,11 +20,18 @@ export function InterestButtons({
 
   function toggle(type: "interested" | "going") {
     startTransition(async () => {
-      await toggleEventInterest(eventId, type);
-      if (currentInterest === type) {
-        toast.success("Removed.");
-      } else {
-        toast.success(type === "going" ? "Marked as going!" : "Marked as interested.");
+      try {
+        await toggleEventInterest(eventId, type);
+        // currentInterest is the prop from BEFORE the toggle, so it describes
+        // what just changed correctly — but only if the action succeeded,
+        // which is why the toast lives inside the try.
+        if (currentInterest === type) {
+          toast.success("Removed.");
+        } else {
+          toast.success(type === "going" ? "Marked as going!" : "Marked as interested.");
+        }
+      } catch {
+        toast.error("That didn't save — try again.");
       }
     });
   }

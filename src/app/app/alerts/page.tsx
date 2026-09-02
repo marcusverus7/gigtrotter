@@ -48,7 +48,19 @@ export default async function AlertsPage() {
     .select("*")
     .eq("user_id", user.id)
     .neq("state", "dismissed")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  // Opening this page IS reading your alerts. Nothing else ever marked them
+  // read, so the bell badge was permanent nagware — the only way to clear it
+  // was dismissing every alert one X at a time. The rows fetched above still
+  // carry state='unread', so this visit renders them highlighted; the badge
+  // clears from the next navigation.
+  await supabase
+    .from("alerts")
+    .update({ state: "read" })
+    .eq("user_id", user.id)
+    .eq("state", "unread");
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

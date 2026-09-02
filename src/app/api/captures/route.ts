@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
-import { ingestCapture } from "@/lib/capture/pipeline";
+import { CaptureQuotaError, ingestCapture } from "@/lib/capture/pipeline";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -50,8 +50,16 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ captureId, parsed });
   } catch (err) {
+    if (err instanceof CaptureQuotaError) {
+      return NextResponse.json({ error: err.message }, { status: 429 });
+    }
+    // The raw message here is verbatim Supabase/Anthropic error text —
+    // including things like "credit balance is too low", which tells an
+    // attacker the billing state and confirms a cost attack is landing.
+    // Log the detail, hand the client a fixed string.
+    console.error("[captures] ingest failed:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "ingest_failed" },
+      { error: "Couldn't save that image — try again in a minute." },
       { status: 422 },
     );
   }

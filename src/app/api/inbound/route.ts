@@ -1,9 +1,11 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { serverEnv } from "@/lib/env";
 import { createServiceClient } from "@/lib/supabase/server";
-import { ingestCapture } from "@/lib/capture/pipeline";
+import { CaptureQuotaError, ingestCapture } from "@/lib/capture/pipeline";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -48,9 +50,25 @@ function extractLocalPart(to: string | string[]): string | null {
   return m?.[1]?.toLowerCase() ?? null;
 }
 
+/**
+ * Permanent-failure response. Deliberately identical for "no such handle",
+ * "sender not recognised" and "nothing parseable": a 404 for unknown handles
+ * was an oracle that confirmed which anon handles exist to anyone holding the
+ * shared secret, and non-2xx statuses make email providers retry what will
+ * never succeed. The reason is logged server-side instead.
+ */
+function skipped(reason: string) {
+  console.warn(`[inbound] skipped: ${reason}`);
+  return NextResponse.json({ ok: false });
+}
+
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-webhook-secret");
-  if (!secret || secret !== serverEnv.inboundWebhookSecret) {
+  // Constant-time compare — a variable-time !== leaks the secret byte by byte
+  // to anyone who can measure response times. Same pattern as countdown-token.
+  const expected = Buffer.from(serverEnv.inboundWebhookSecret);
+  const given = Buffer.from(secret ?? "");
+  if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -76,7 +94,20 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (!profile) {
-    return NextResponse.json({ error: "unknown_recipient" }, { status: 404 });
+    return skipped(`unknown handle ${handle}`);
+  }
+
+  // The shared secret authenticates the EMAIL PROVIDER, not the email SENDER.
+  // Without this check, anyone who learns a forwarding handle can email
+  // unlimited images to it — each one a vision call and a service-role
+  // storage write charged to us. Require the sender to be the account's own
+  // email address; if a real tester needs to forward from a second address,
+  // that becomes a per-user allowlist, not an open door.
+  const { data: authUser } = await supabase.auth.admin.getUserById(profile.id);
+  const accountEmail = authUser?.user?.email?.toLowerCase();
+  const senderEmail = body.from?.match(/<([^>]+)>/)?.[1] ?? body.from;
+  if (!accountEmail || senderEmail?.trim().toLowerCase() !== accountEmail) {
+    return skipped(`sender ${senderEmail ?? "(none)"} does not match account for ${handle}`);
   }
 
   // Pick the first image attachment that looks like a ticket/itinerary.
@@ -92,10 +123,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (!bytes) {
-    return NextResponse.json(
-      { error: "no_parseable_content" },
-      { status: 422 },
-    );
+    return skipped("no parseable attachment");
+  }
+  // Mirror the 8MB cap the upload route enforces — this path must not be the
+  // way around it.
+  if (bytes.byteLength > 8 * 1024 * 1024) {
+    return skipped("attachment over 8MB");
   }
 
   try {
@@ -107,9 +140,13 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ ok: true, captureId: result.captureId });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "ingest_failed" },
-      { status: 422 },
-    );
+    if (err instanceof CaptureQuotaError) {
+      // Permanent for today — do not invite provider retries.
+      return skipped(`quota reached for ${handle}`);
+    }
+    // Fixed string out, detail in the logs — raw provider/DB error text has
+    // no business in a response body.
+    console.error("[inbound] ingest failed:", err);
+    return NextResponse.json({ error: "ingest_failed" }, { status: 422 });
   }
 }

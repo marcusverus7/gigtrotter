@@ -18,6 +18,27 @@ import {
 const STORAGE_BUCKET = "captures";
 
 /**
+ * Per-user daily ceiling on captures. Every capture is real money — a vision
+ * call plus an encrypted storage write — signup is open, and the Anthropic
+ * account has run dry once already. The fingerprint cache only suppresses
+ * byte-identical re-uploads, so without a count-based ceiling a script
+ * flipping one pixel per request has an open-ended tap on the bill.
+ *
+ * Enforced HERE, not in the routes, because both /api/captures and the
+ * inbound-email webhook funnel through this function — one quota covers every
+ * way bytes can arrive, including ones added later. 100/day is far above any
+ * honest use (a big backfill session) while capping the worst day at pennies.
+ */
+const DAILY_CAPTURE_LIMIT = 100;
+
+export class CaptureQuotaError extends Error {
+  constructor() {
+    super("Daily capture limit reached — try again tomorrow.");
+    this.name = "CaptureQuotaError";
+  }
+}
+
+/**
  * Inserts a capture row, stores the encrypted source, parses it (Claude
  * vision or fingerprint cache), and returns the capture id. Status flips
  * to 'confirmed' only after the user accepts the confirm card in the UI.
@@ -48,16 +69,40 @@ export async function ingestCapture(opts: {
   // every re-upload of a byte-identical image paid for a fresh vision call.
   const fingerprintWriter = createServiceClient();
 
-  // 1) Encrypt + upload the source artefact.
+  // 0) Quota, before a single byte is stored or sent anywhere. Counting rows
+  //    is one indexed query and needs no new infrastructure; the row is
+  //    written before the vision call, so even a request that later fails
+  //    still counts against the day.
+  const { count: recentCount } = await supabase
+    .from("captures")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", opts.userId)
+    .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  if ((recentCount ?? 0) >= DAILY_CAPTURE_LIMIT) {
+    throw new CaptureQuotaError();
+  }
+
+  // 1) Fingerprint first, then store. The hash used to be computed AFTER the
+  //    upload, so a cache-hit duplicate skipped the vision call but still
+  //    wrote a fresh blob under a new UUID every time. Deriving the storage
+  //    key from the content hash makes duplicate storage structurally
+  //    impossible: the same bytes land on the same key, and a second upload
+  //    is refused by the store and treated as already-done.
+  const hash = await templateHash(opts.bytes);
+
   const encrypted = await encryptBytes(opts.userId, opts.bytes);
-  const key = `${opts.userId}/${crypto.randomUUID()}.enc`;
+  const key = `${opts.userId}/${hash}.enc`;
   const { error: upErr } = await supabase.storage
     .from(STORAGE_BUCKET)
     .upload(key, encrypted, {
       contentType: "application/octet-stream",
       upsert: false,
     });
-  if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+  // "Duplicate" means this exact artefact is already stored for this user —
+  // the key is content-addressed, so reusing it is correct, not a collision.
+  if (upErr && !/already exists|duplicate/i.test(upErr.message)) {
+    throw new Error(`Upload failed: ${upErr.message}`);
+  }
 
   // 2) Fingerprint cache lookup (skip the LLM if we've parsed this exact
   //    artefact for this user before). Scoped per user: field_map holds the
@@ -65,7 +110,6 @@ export async function ingestCapture(opts: {
   //    cache would replay one user's capture into another's — see migration
   //    0012. templateHash is a SHA-256 of the bytes, so this only ever hits on
   //    a genuinely identical re-upload.
-  const hash = await templateHash(opts.bytes);
   const { data: cached } = await supabase
     .from("vendor_fingerprints")
     .select("vendor, field_map, hit_count")

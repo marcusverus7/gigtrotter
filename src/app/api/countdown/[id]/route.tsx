@@ -67,6 +67,8 @@ export async function GET(
   };
   const accent = kindColors[item.kind] ?? "#a78bfa";
 
+  // The card only changes when the day count does; without this every view of
+  // a shared link is a fresh service-role read plus a CPU-bound render.
   return new ImageResponse(
     (
       <div

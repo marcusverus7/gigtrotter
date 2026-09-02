@@ -12,8 +12,9 @@ const CONCURRENT = 3;
 
 /**
  * Multi-file backfill. We send images to /api/captures in batches of three
- * to keep individual users from melting their LLM quota. Per §11.5 the cost
- * ceiling lives in the parser; here we just surface progress.
+ * to keep the UI responsive. The actual cost ceiling is the per-user daily
+ * quota enforced inside ingestCapture — for a long time this comment claimed
+ * the parser enforced one, and it never did.
  */
 export function BackfillScan() {
   const inputRef = useRef<HTMLInputElement>(null);

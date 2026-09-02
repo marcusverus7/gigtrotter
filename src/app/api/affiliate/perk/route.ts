@@ -68,12 +68,25 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Log the claim.
-  const { data: claim } = await supabase
+  // Log the claim — but reuse an existing one. Every claim id is a synthetic
+  // affiliate clickid sent to a partner; a user looping this URL was minting
+  // unlimited fresh clickids, which is exactly the click-fraud pattern that
+  // gets partner accounts terminated.
+  const { data: existingClaim } = await supabase
     .from("pro_perk_claims")
-    .insert({ perk_id: perkId, user_id: user.id })
     .select("id")
-    .single();
+    .eq("perk_id", perkId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const claim =
+    existingClaim ??
+    (
+      await supabase
+        .from("pro_perk_claims")
+        .insert({ perk_id: perkId, user_id: user.id })
+        .select("id")
+        .single()
+    ).data;
 
   return NextResponse.redirect(
     tagUrl(perk.partner, perk.cta_url, claim?.id ?? "anon"),

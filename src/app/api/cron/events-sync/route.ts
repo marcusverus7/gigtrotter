@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { serverEnv } from "@/lib/env";
+import { syncBandsintown } from "@/lib/events/sync-bandsintown";
 import { syncTicketmaster } from "@/lib/events/sync-ticketmaster";
 
 export const runtime = "nodejs";
@@ -23,6 +24,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "forbidden" }, { status: 401 });
   }
 
-  const result = await syncTicketmaster();
-  return NextResponse.json({ ok: result.errors === 0 || result.upserted > 0, ...result });
+  // Sequential on purpose: Bandsintown's dedupe looks for Ticketmaster twins,
+  // so the sweep has to land first. Each run writes its own feed_sync_runs row.
+  const ticketmaster = await syncTicketmaster();
+  const bandsintown = await syncBandsintown();
+  const ok =
+    ticketmaster.upserted > 0 ||
+    (ticketmaster.errors === 0 && bandsintown.errors === 0);
+  return NextResponse.json({ ok, ticketmaster, bandsintown });
 }

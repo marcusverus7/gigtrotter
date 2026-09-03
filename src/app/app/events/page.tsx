@@ -17,20 +17,80 @@ import { EventCard, type EventSummary } from "@/features/events/event-card";
 
 export const metadata: Metadata = { title: "Events — Social Hub" };
 
-export default async function EventsPage() {
+const EVENT_COLS =
+  "id, title, headliner, artist_names, category, venue_name, venue_city, venue_country, starts_at, image_url, min_price_cents, currency, is_sold_out, tags";
+
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ city?: string }>;
+}) {
   const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  const { city } = await searchParams;
 
-  // Upcoming events
-  const { data: upcoming } = await supabase
+  const nowIso = new Date().toISOString();
+
+  // Upcoming events (optionally narrowed to one city), the city list for the
+  // filter chips, and what the user follows — all independent, one round trip.
+  let upcomingQuery = supabase
     .from("events")
-    .select(
-      "id, title, headliner, artist_names, category, venue_name, venue_city, venue_country, starts_at, image_url, min_price_cents, currency, is_sold_out, tags",
-    )
-    .gte("starts_at", new Date().toISOString())
+    .select(EVENT_COLS)
+    .gte("starts_at", nowIso)
     .order("starts_at", { ascending: true })
     .limit(30);
+  if (city) upcomingQuery = upcomingQuery.ilike("venue_city", city);
+
+  const [{ data: upcoming }, { data: cityRows }, { data: follows }] =
+    await Promise.all([
+      upcomingQuery,
+      supabase
+        .from("events")
+        .select("venue_city")
+        .gte("starts_at", nowIso)
+        .not("venue_city", "is", null)
+        .limit(400),
+      supabase.from("follows").select("kind, name").eq("user_id", user.id).limit(200),
+    ]);
+
+  const cities = [...new Set((cityRows ?? []).map((r) => r.venue_city).filter((c): c is string => !!c))]
+    .sort((a, b) => a.localeCompare(b))
+    .slice(0, 12);
+
+  // "For you": upcoming events for artists/venues the user follows.
+  const followedArtists = (follows ?? []).filter((f) => f.kind === "artist").map((f) => f.name);
+  const followedVenues = (follows ?? []).filter((f) => f.kind === "venue").map((f) => f.name);
+  let forYou: EventSummary[] = [];
+  if (followedArtists.length > 0 || followedVenues.length > 0) {
+    const [byArtist, byVenue] = await Promise.all([
+      followedArtists.length > 0
+        ? supabase
+            .from("events")
+            .select(EVENT_COLS)
+            .overlaps("artist_names", followedArtists)
+            .gte("starts_at", nowIso)
+            .order("starts_at", { ascending: true })
+            .limit(6)
+        : Promise.resolve({ data: [] as EventSummary[] }),
+      followedVenues.length > 0
+        ? supabase
+            .from("events")
+            .select(EVENT_COLS)
+            .in("venue_name", followedVenues)
+            .gte("starts_at", nowIso)
+            .order("starts_at", { ascending: true })
+            .limit(6)
+        : Promise.resolve({ data: [] as EventSummary[] }),
+    ]);
+    const merged = new Map<string, EventSummary>();
+    for (const e of [...(byArtist.data ?? []), ...(byVenue.data ?? [])] as EventSummary[]) {
+      merged.set(e.id, e);
+    }
+    forYou = [...merged.values()]
+      .sort((a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? ""))
+      .slice(0, 6);
+  }
 
   // Events where friends are going
   const { data: friendIds } = await supabase.rpc("accepted_friend_ids");
@@ -112,6 +172,23 @@ export default async function EventsPage() {
         </div>
       </header>
 
+      {/* For you — artists and venues the user follows */}
+      {forYou.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Music className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              For you
+            </h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {forYou.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {/* Friends going section */}
       {friendEvents.length > 0 ? (
         <section className="space-y-3">
@@ -140,6 +217,27 @@ export default async function EventsPage() {
             {upcoming?.length ?? 0} upcoming
           </Badge>
         </div>
+
+        {/* City chips — plain links so the filter works with zero client JS,
+            inside the WebView shells included. */}
+        {cities.length > 1 ? (
+          <div className="flex flex-wrap gap-2">
+            <Button asChild size="sm" variant={!city ? "default" : "outline"} className="h-8">
+              <Link href="/app/events">All</Link>
+            </Button>
+            {cities.map((c) => (
+              <Button
+                key={c}
+                asChild
+                size="sm"
+                variant={city?.toLowerCase() === c.toLowerCase() ? "default" : "outline"}
+                className="h-8"
+              >
+                <Link href={`/app/events?city=${encodeURIComponent(c)}`}>{c}</Link>
+              </Button>
+            ))}
+          </div>
+        ) : null}
 
         {!upcoming || upcoming.length === 0 ? (
           <Card className="border-dashed">

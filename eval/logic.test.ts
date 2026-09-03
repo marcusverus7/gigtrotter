@@ -23,6 +23,7 @@ import {
   type Overlap,
 } from "../src/lib/alerts/phrasing";
 import { anchorToLocalZone, endDisplay, fromLocalDT } from "../src/lib/dates";
+import { mapBitEvent, sameLocalDate, type BitEvent } from "../src/lib/events/bandsintown/map";
 import {
   mapTmPage,
   toMinorUnits,
@@ -465,6 +466,37 @@ check("tz: summer London wall clock", zonedWallClockToUtc("2026-07-15", "19:00",
 check("tz: unknown zone -> null", zonedWallClockToUtc("2026-07-15", "19:00", "Not/AZone") === null);
 check("units: 45.5 -> 4550", toMinorUnits(45.5) === 4550);
 check("units: undefined -> null", toMinorUnits(undefined) === null);
+
+/* ── Bandsintown mapper + cross-provider dedupe ─────────────────────────── */
+{
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fixture = require("./fixtures/bandsintown-sample.json") as BitEvent[];
+  const events = fixture
+    .map((e) => mapBitEvent("Just Mustard", e))
+    .filter((e): e is NonNullable<typeof e> => e !== null);
+
+  check("bit: undated event dropped", events.length === 2, `${events.length}`);
+  const gig = events.find((e) => e.externalId === "bit-1");
+  // 2026-11-20 in London is GMT: 20:00 local = 20:00Z.
+  check("bit: local wall clock anchored to venue zone (winter)", gig?.startsAt === "2026-11-20T20:00:00.000Z", gig?.startsAt ?? "null");
+  check("bit: empty title falls back to artist", gig?.title === "Just Mustard live");
+  check("bit: ticket offer becomes a link", gig?.ticketLinks[0]?.provider === "bandsintown");
+
+  const dublin = events.find((e) => e.externalId === "bit-2");
+  // 2027-06-05 in Dublin is IST (UTC+1): 19:00 local = 18:00Z.
+  check("bit: summer Dublin wall clock", dublin?.startsAt === "2027-06-05T18:00:00.000Z", dublin?.startsAt ?? "null");
+  check("bit: on-sale converted in venue zone", dublin?.onSaleAt === "2026-09-12T09:00:00.000Z", dublin?.onSaleAt ?? "null");
+  check("bit: sold_out carried", dublin?.isSoldOut === true);
+}
+
+// The dedupe predicate: a 20:00 London gig and TM's 19:30 listing are the
+// same night; a 00:30 club night is NOT the previous night's gig.
+check("dedupe: same London evening matches", sameLocalDate("2026-11-20T19:30:00Z", "2026-11-20T20:00:00.000Z", "Europe/London"));
+check(
+  "dedupe: past-midnight local date differs",
+  !sameLocalDate("2026-07-10T22:00:00Z", "2026-07-10T23:30:00Z", "Europe/London"),
+);
+check("dedupe: null zone falls back sanely", sameLocalDate("2026-11-20T10:00:00Z", "2026-11-20T22:00:00Z", null));
 
 /* ── report ─────────────────────────────────────────────────────────────── */
 

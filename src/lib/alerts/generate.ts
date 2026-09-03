@@ -3,9 +3,12 @@ import "server-only";
 import {
   describeFriends,
   doorsDedupeKey,
+  eventPlaceLine,
   friendDedupeKey,
   friendLabel,
   groupOverlapsByGig,
+  onSaleDedupeKey,
+  tourDedupeKey,
   type Overlap,
 } from "@/lib/alerts/phrasing";
 import type { createClient } from "@/lib/supabase/server";
@@ -64,9 +67,10 @@ const DOORS_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 type NewAlert = {
   user_id: string;
-  kind: "doors_tonight" | "friend_going";
+  kind: "doors_tonight" | "friend_going" | "tour_announce" | "on_sale";
   title: string;
   body: string | null;
+  url?: string | null;
   event_at: string | null;
   dedupe_key: string;
 };
@@ -88,6 +92,7 @@ export async function generateAlerts(
     const candidates = [
       ...(await doorsTonight(supabase, userId)),
       ...(await friendsGoing(supabase, userId)),
+      ...(await feedAlerts(supabase, userId)),
     ];
 
     await markScanned(supabase, userId);
@@ -200,4 +205,116 @@ async function friendsGoing(
     event_at: group[0].starts_at,
     dedupe_key: friendDedupeKey(walletItemId, group.length),
   }));
+}
+
+/**
+ * tour_announce and on_sale — the two kinds that waited on the events feed.
+ *
+ * Runs as the user: events is public-read for approved rows, and follows /
+ * wishlist are owner-scoped, so nothing here needs elevation. The queries are
+ * driven by what the user follows or wishlists; a user following nothing
+ * costs two indexed selects that return empty.
+ *
+ * event_at carries the meaningful instant (gig date, or the on-sale moment)
+ * and the Alerts page renders it client-side, so no time-of-day is ever baked
+ * into body text in the server's timezone.
+ */
+async function feedAlerts(supabase: Client, userId: string): Promise<NewAlert[]> {
+  const [{ data: follows }, { data: wishes }] = await Promise.all([
+    supabase.from("follows").select("kind, name").eq("user_id", userId).limit(500),
+    supabase.from("wishlist").select("kind, name").eq("user_id", userId).limit(500),
+  ]);
+  const artistNames = [
+    ...new Set(
+      [...(follows ?? []), ...(wishes ?? [])]
+        .filter((f) => f.kind === "artist")
+        .map((f) => f.name.trim())
+        .filter(Boolean),
+    ),
+  ];
+  const venueNames = [
+    ...new Set(
+      [...(follows ?? []), ...(wishes ?? [])]
+        .filter((f) => f.kind === "venue")
+        .map((f) => f.name.trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (artistNames.length === 0 && venueNames.length === 0) return [];
+
+  const nowIso = new Date().toISOString();
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const weekAhead = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+  const out: NewAlert[] = [];
+  const seen = new Set<string>();
+
+  type FeedEventRow = {
+    id: string;
+    title: string;
+    headliner: string | null;
+    venue_name: string | null;
+    venue_city: string | null;
+    starts_at: string | null;
+    on_sale_at: string | null;
+    external_url: string | null;
+  };
+  const cols = "id, title, headliner, venue_name, venue_city, starts_at, on_sale_at, external_url";
+
+  // tour_announce: a followed artist has a NEW future date (first seen within
+  // the last week — created_at approximates "announced").
+  if (artistNames.length > 0) {
+    const { data } = await supabase
+      .from("events")
+      .select(cols)
+      .overlaps("artist_names", artistNames)
+      .gt("created_at", weekAgo)
+      .gt("starts_at", nowIso)
+      .limit(20);
+    for (const ev of (data ?? []) as FeedEventRow[]) {
+      if (seen.has(ev.id)) continue;
+      seen.add(ev.id);
+      const place = eventPlaceLine(ev.venue_name, ev.venue_city);
+      out.push({
+        user_id: userId,
+        kind: "tour_announce",
+        title: ev.title,
+        body: place ? `New date announced — ${place}.` : "New date announced.",
+        url: ev.external_url,
+        event_at: ev.starts_at,
+        dedupe_key: tourDedupeKey(ev.id),
+      });
+    }
+  }
+
+  // on_sale: tickets for a followed artist or venue go on sale within a week.
+  const onSaleFilters: { column: "artist_names" | "venue_name"; values: string[] }[] = [];
+  if (artistNames.length > 0) onSaleFilters.push({ column: "artist_names", values: artistNames });
+  if (venueNames.length > 0) onSaleFilters.push({ column: "venue_name", values: venueNames });
+  for (const f of onSaleFilters) {
+    let q = supabase
+      .from("events")
+      .select(cols)
+      .gte("on_sale_at", nowIso)
+      .lte("on_sale_at", weekAhead)
+      .limit(20);
+    q = f.column === "artist_names" ? q.overlaps("artist_names", f.values) : q.in("venue_name", f.values);
+    const { data } = await q;
+    for (const ev of (data ?? []) as FeedEventRow[]) {
+      const key = onSaleDedupeKey(ev.id);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const place = eventPlaceLine(ev.venue_name, ev.venue_city);
+      out.push({
+        user_id: userId,
+        kind: "on_sale",
+        title: ev.title,
+        body: place ? `Tickets go on sale soon — ${place}.` : "Tickets go on sale soon.",
+        url: ev.external_url,
+        event_at: ev.on_sale_at,
+        dedupe_key: key,
+      });
+    }
+  }
+
+  return out;
 }

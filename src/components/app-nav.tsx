@@ -25,8 +25,16 @@ import {
 
 import { cn } from "@/lib/utils";
 
-// Flip to true when these surfaces have real data/payments wired.
+// Flip to true to preview every flagged surface at once (dev convenience).
 const SHOW_UNLAUNCHED = false;
+
+/**
+ * Flagged routes that have graduated: real data behind them, shown to
+ * everyone. Launching a surface is adding its href here — the mobile menu
+ * derives from the same list, so phones get it in the same deploy.
+ * Marketplace and Merch stay hidden until payment rails are real.
+ */
+const LAUNCHED_FLAGGED = new Set(["/app/events"]);
 
 export type NavItem = {
   href: string;
@@ -87,7 +95,7 @@ const rawNavGroups: NavGroup[] = [
 const navGroups: NavGroup[] = rawNavGroups
   .map((g) => ({
     ...g,
-    items: g.items.filter((n) => SHOW_UNLAUNCHED || !n.flag),
+    items: g.items.filter((n) => SHOW_UNLAUNCHED || !n.flag || LAUNCHED_FLAGGED.has(n.href)),
   }))
   .filter((g) => g.items.length > 0);
 

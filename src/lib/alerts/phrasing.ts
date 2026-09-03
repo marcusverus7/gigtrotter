@@ -65,3 +65,26 @@ export function friendDedupeKey(walletItemId: string, count: number): string {
 export function doorsDedupeKey(walletItemId: string): string {
   return `doors:${walletItemId}`;
 }
+
+// ── feed-driven alerts (tour_announce / on_sale) ────────────────────────────
+
+export function tourDedupeKey(eventId: string): string {
+  return `tour:${eventId}`;
+}
+
+/**
+ * Keyed on the event alone: an on-sale date that gets postponed should not
+ * re-alert — the event is still the thing the user was told about.
+ */
+export function onSaleDedupeKey(eventId: string): string {
+  return `onsale:${eventId}`;
+}
+
+/** "The Deaf Institute, Manchester" / "Manchester" / null when we know nothing. */
+export function eventPlaceLine(
+  venueName: string | null,
+  city: string | null,
+): string | null {
+  const parts = [venueName, city].filter((p): p is string => !!p && p.trim() !== "");
+  return parts.length ? parts.join(", ") : null;
+}

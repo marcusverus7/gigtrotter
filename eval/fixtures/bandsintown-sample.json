@@ -1,0 +1,38 @@
+[
+  {
+    "id": "bit-1",
+    "url": "https://www.bandsintown.com/e/1",
+    "datetime": "2026-11-20T20:00:00",
+    "title": "",
+    "artist": { "name": "Just Mustard", "image_url": "https://img.bit/jm.jpg" },
+    "venue": {
+      "name": "The Deaf Institute",
+      "city": "Manchester",
+      "country": "United Kingdom",
+      "latitude": "53.4735",
+      "longitude": "-2.2374",
+      "timezone": "Europe/London"
+    },
+    "offers": [{ "type": "Tickets", "url": "https://tix.example/1", "status": "available" }]
+  },
+  {
+    "id": "bit-2",
+    "url": "https://www.bandsintown.com/e/2",
+    "datetime": "2027-06-05T19:00:00",
+    "on_sale_datetime": "2026-09-12T10:00:00",
+    "artist": { "name": "Just Mustard" },
+    "venue": {
+      "name": "Vicar Street",
+      "city": "Dublin",
+      "country": "Ireland",
+      "timezone": "Europe/Dublin"
+    },
+    "offers": [],
+    "sold_out": true
+  },
+  {
+    "id": "bit-3",
+    "artist": { "name": "Just Mustard" },
+    "venue": { "name": "Mystery Venue", "city": "Nowhere", "timezone": "Europe/London" }
+  }
+]

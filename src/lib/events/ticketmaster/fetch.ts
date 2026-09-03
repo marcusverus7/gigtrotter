@@ -8,15 +8,16 @@ import { mapTmPage, type TmPage } from "@/lib/events/ticketmaster/map";
  * Paged, rate-limited fetch of the UK+IE sweep from Ticketmaster Discovery.
  *
  * Budget: free tier allows 5,000 calls/day at 5/sec. The sweep is ~43 cities
- * x <=3 pages with a 250ms gap and a hard cap of 400 calls per run, so a
- * double-fired cron still cannot approach the quota. Any city failing does
- * not stop the run — it is counted and the sweep continues.
+ * x <=2 pages with a 210ms gap and a hard cap of 400 calls per run — sized so
+ * the WHOLE function (sweep + batched upserts + Bandsintown) fits Vercel's
+ * 300s ceiling, which the first full run exceeded. Any city failing does not
+ * stop the run — it is counted and the sweep continues.
  */
 
 const PAGE_SIZE = 200;
-const MAX_PAGES_PER_CITY = 3;
+const MAX_PAGES_PER_CITY = 2;
 const MAX_CALLS_PER_RUN = 400;
-const CALL_GAP_MS = 250;
+const CALL_GAP_MS = 210;
 const REQUEST_TIMEOUT_MS = 15_000;
 const RADIUS_KM = 40;
 const WINDOW_DAYS = 90;

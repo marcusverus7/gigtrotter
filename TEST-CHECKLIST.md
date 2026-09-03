@@ -106,12 +106,27 @@ Gate: none — migrations applied.
 | H10 | 🔒 `curl -sI https://gigtrotter.vercel.app` | shows X-Frame-Options: DENY, nosniff, Referrer-Policy |
 | H11 | Navigate between app pages on a phone | noticeably snappier — the layout no longer runs four sequential round trips per navigation |
 
+## I — Events feed (added 2026-09-02; migrations 0021-0022 applied)
+
+| # | Check | Expected |
+|---|---|---|
+| I1 | Nav (desktop sidebar + phone avatar menu) | **Events** now appears; Marketplace/Merch still hidden |
+| I2 | /app/events | real Ticketmaster listings across UK+IE, soonest first |
+| I3 | City chips | tapping Manchester shows only Manchester; All resets |
+| I4 | Follow an artist (artist page), revisit /app/events | a "For you" rail appears with their dates |
+| I5 | Event page → "Get tickets" | opens the Ticketmaster listing |
+| I6 | Add to wallet from a feed event | wallet item + map pin created |
+| I7 | Follow an artist with a date announced in the last 7 days, reopen app | one tour-announce alert, no duplicate on re-open |
+| I8 | Follow an artist/venue whose tickets go on sale this week | one on-sale alert; time renders in YOUR timezone |
+| I9 | 🔒 `select * from feed_sync_runs order by started_at desc limit 3` | nightly rows, errors=0, upserted>0 |
+| I10 | 🔒 curl the cron route without the bearer token | 401 |
+
 ## Known-not-ready (don't file these as bugs)
 
 - Push to lock screen — alerts appear on app open only; push needs a native build
 - Email forwarding — no domain yet; UI says "coming soon"
 - Marketplace payments — Stripe not wired; surface hidden
-- On-sale / tour-announce alerts — need an events feed
+- Bandsintown "For you" dates only appear for artists someone follows — follow-driven by design
 
 ## Results
 

@@ -1,6 +1,6 @@
 # Migration pack — APPLIED 2026-09-02
 
-Migrations **0014 through 0021 are applied to production** and verified
+Migrations **0014 through 0022 are applied to production** and verified
 against the catalogue. This folder is kept as the record of what was run and
 how it was checked; `APPLY-ME.sql` is the exact text that was executed
 (0020 was run separately afterwards — see below).

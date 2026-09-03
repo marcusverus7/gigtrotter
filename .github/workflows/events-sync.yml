@@ -1,0 +1,16 @@
+# Manual backup trigger for the events-feed sync. Deliberately NO `schedule:`
+# -- GitHub Actions cron is unreliable and the primary schedule is Vercel
+# Cron. This exists for "run it now" moments and for when Vercel's cron quota
+# is in question. Needs the CRON_SECRET repo secret (same value as Vercel's).
+name: events-sync
+on:
+  workflow_dispatch:
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the sync endpoint
+        run: |
+          curl -fsS --max-time 300 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://gigtrotter.vercel.app/api/cron/events-sync

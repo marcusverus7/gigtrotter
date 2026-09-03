@@ -79,4 +79,14 @@ export const serverEnv = {
   get captureMasterKey() {
     return required("CAPTURE_MASTER_KEY", process.env.CAPTURE_MASTER_KEY);
   },
+  // ── events feed ───────────────────────────────────────────────────────────
+  get ticketmasterApiKey() {
+    return required("TICKETMASTER_API_KEY", process.env.TICKETMASTER_API_KEY);
+  },
+  get bandsintownAppId() {
+    return required("BANDSINTOWN_APP_ID", process.env.BANDSINTOWN_APP_ID);
+  },
+  get cronSecret() {
+    return required("CRON_SECRET", process.env.CRON_SECRET);
+  },
 };

@@ -23,6 +23,12 @@ import {
   type Overlap,
 } from "../src/lib/alerts/phrasing";
 import { anchorToLocalZone, endDisplay, fromLocalDT } from "../src/lib/dates";
+import {
+  mapTmPage,
+  toMinorUnits,
+  zonedWallClockToUtc,
+  type TmPage,
+} from "../src/lib/events/ticketmaster/map";
 import { FlexibleDate } from "../src/lib/validation/dates";
 import { fieldEquals, getPath, scoreSample, FIELD_MAP } from "./score";
 
@@ -419,6 +425,46 @@ check(
   "friendDedupeKey separates gigs",
   friendDedupeKey("gig-1", 2) !== friendDedupeKey("gig-2", 2),
 );
+
+/* ── Ticketmaster feed mapper ───────────────────────────────────────────── */
+//
+// Fixture note: hand-built to the Discovery v2 documented schema (a real
+// recorded response needs an API key this environment does not hold). When a
+// live capture lands, replace the file — the tests only get stricter.
+{
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fixture = require("./fixtures/ticketmaster-sample.json") as TmPage;
+  const events = mapTmPage(fixture);
+
+  check("tm: cancelled events are dropped", events.length === 3, `${events.length}`);
+  const gig = events.find((e) => e.externalId === "tm-evt-1");
+  check("tm: title and headliner", gig?.title === "Fontaines D.C." && gig?.headliner === "Fontaines D.C.");
+  check("tm: support act captured", gig?.artistNames.length === 2);
+  check("tm: starts_at passes through as UTC", gig?.startsAt === "2026-11-14T19:30:00Z");
+  check("tm: on-sale date captured", gig?.onSaleAt === "2026-09-05T09:00:00Z");
+  check("tm: prices to minor units", gig?.minPriceCents === 4550 && gig?.maxPriceCents === 6500);
+  check("tm: largest 16:9 image wins", gig?.imageUrl === "https://img.tm/wide-big.jpg");
+  check("tm: venue mapped with coords", gig?.venue?.name === "O2 Apollo Manchester" && gig?.venue?.lat === 53.4646);
+  check("tm: one ticket link", gig?.ticketLinks.length === 1 && gig?.ticketLinks[0].provider === "ticketmaster");
+  check("tm: genre tags lowercased", !!gig && gig.tags.includes("rock") && gig.tags.includes("indie rock"));
+
+  const fest = events.find((e) => e.externalId === "tm-evt-3");
+  check("tm: festival categorised", fest?.category === "festival");
+  check("tm: TBA time tagged", !!fest && fest.tags.includes("time_tba"));
+  // 2027-07-10 in Dublin is IST (UTC+1): 19:00 local = 18:00Z.
+  check("tm: TBA date anchored in venue zone", fest?.startsAt === "2027-07-10T18:00:00.000Z", fest?.startsAt ?? "null");
+  check("tm: no priceRanges -> null prices", fest?.minPriceCents === null && fest?.maxPriceCents === null);
+  check("tm: no url -> no ticket links", events.find((e) => e.externalId === "tm-evt-4")?.ticketLinks.length === 0);
+  check("tm: comedy categorised", events.find((e) => e.externalId === "tm-evt-4")?.category === "comedy");
+}
+
+// The zone helper is the same trap the confirm card fell into once — assert
+// the property in both halves of the year, in a non-UTC runner too.
+check("tz: winter London wall clock", zonedWallClockToUtc("2026-01-15", "19:00", "Europe/London") === "2026-01-15T19:00:00.000Z");
+check("tz: summer London wall clock", zonedWallClockToUtc("2026-07-15", "19:00", "Europe/London") === "2026-07-15T18:00:00.000Z");
+check("tz: unknown zone -> null", zonedWallClockToUtc("2026-07-15", "19:00", "Not/AZone") === null);
+check("units: 45.5 -> 4550", toMinorUnits(45.5) === 4550);
+check("units: undefined -> null", toMinorUnits(undefined) === null);
 
 /* ── report ─────────────────────────────────────────────────────────────── */
 

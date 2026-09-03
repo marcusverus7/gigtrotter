@@ -161,6 +161,79 @@ export interface ExperienceRow {
   updated_at: string;
 }
 
+export type EventCategory =
+  | "concert"
+  | "festival"
+  | "club_night"
+  | "theatre"
+  | "comedy"
+  | "sport"
+  | "other";
+export type EventStatus = "pending" | "approved" | "rejected";
+
+export interface EventRow {
+  id: string;
+  title: string;
+  description: string | null;
+  category: EventCategory;
+  artist_names: string[];
+  headliner: string | null;
+  venue_id: string | null;
+  venue_name: string | null;
+  venue_city: string | null;
+  venue_country: string | null;
+  lat: number | null;
+  lng: number | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  doors_at: string | null;
+  image_url: string | null;
+  min_price_cents: number | null;
+  max_price_cents: number | null;
+  currency: string;
+  is_sold_out: boolean;
+  source: string | null;
+  external_id: string | null;
+  external_url: string | null;
+  promoter_id: string | null;
+  promoter_name: string | null;
+  tags: string[];
+  status: EventStatus;
+  /** Added in migration 0021 — feed columns. */
+  on_sale_at: string | null;
+  last_seen_at: string | null;
+  timezone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventTicketLinkRow {
+  id: string;
+  event_id: string;
+  provider: string;
+  provider_label: string;
+  url: string;
+  min_price_cents: number | null;
+  max_price_cents: number | null;
+  currency: string;
+  is_sold_out: boolean;
+  is_affiliate: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface FeedSyncRunRow {
+  id: string;
+  source: string;
+  started_at: string;
+  finished_at: string | null;
+  api_calls: number;
+  upserted: number;
+  skipped: number;
+  errors: number;
+  notes: string | null;
+}
+
 export type WishlistKind = "artist" | "destination" | "venue" | "hotel";
 export type AlertKind =
   | "on_sale"
@@ -303,6 +376,26 @@ export interface Database {
         };
         Update: Partial<AlertRow>;
       };
+      events: {
+        Row: EventRow;
+        Insert: Partial<EventRow> & { title: string };
+        Update: Partial<EventRow>;
+      };
+      event_ticket_links: {
+        Row: EventTicketLinkRow;
+        Insert: Partial<EventTicketLinkRow> & {
+          event_id: string;
+          provider: string;
+          provider_label: string;
+          url: string;
+        };
+        Update: Partial<EventTicketLinkRow>;
+      };
+      feed_sync_runs: {
+        Row: FeedSyncRunRow;
+        Insert: Partial<FeedSyncRunRow> & { source: string };
+        Update: Partial<FeedSyncRunRow>;
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -332,6 +425,7 @@ export interface Database {
       };
     };
     Enums: {
+      event_category: EventCategory;
       alert_kind: AlertKind;
       alert_state: AlertState;
       wishlist_kind: WishlistKind;

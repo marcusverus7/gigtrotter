@@ -6,8 +6,17 @@
     {
       "source": "/appstore/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/events-sync",
+      "schedule": "0 4 * * *"
     }
   ]
 }

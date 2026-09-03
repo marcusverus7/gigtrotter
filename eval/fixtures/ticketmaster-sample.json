@@ -1,0 +1,84 @@
+{
+  "_embedded": {
+    "events": [
+      {
+        "id": "tm-evt-1",
+        "name": "Fontaines D.C.",
+        "url": "https://www.ticketmaster.co.uk/fontaines-dc-tickets/1",
+        "dates": {
+          "start": { "dateTime": "2026-11-14T19:30:00Z", "localDate": "2026-11-14" },
+          "timezone": "Europe/London",
+          "status": { "code": "onsale" }
+        },
+        "sales": { "public": { "startDateTime": "2026-09-05T09:00:00Z" } },
+        "priceRanges": [{ "min": 45.5, "max": 65, "currency": "GBP" }],
+        "images": [
+          { "url": "https://img.tm/small.jpg", "ratio": "4_3", "width": 305 },
+          { "url": "https://img.tm/wide-big.jpg", "ratio": "16_9", "width": 2048 },
+          { "url": "https://img.tm/wide-small.jpg", "ratio": "16_9", "width": 640 }
+        ],
+        "classifications": [
+          { "segment": { "name": "Music" }, "genre": { "name": "Rock" }, "subGenre": { "name": "Indie Rock" } }
+        ],
+        "_embedded": {
+          "venues": [
+            {
+              "name": "O2 Apollo Manchester",
+              "city": { "name": "Manchester" },
+              "country": { "countryCode": "GB" },
+              "location": { "latitude": "53.4646", "longitude": "-2.2233" },
+              "timezone": "Europe/London"
+            }
+          ],
+          "attractions": [{ "name": "Fontaines D.C." }, { "name": "Been Stellar" }]
+        }
+      },
+      {
+        "id": "tm-evt-2",
+        "name": "Cancelled Show",
+        "url": "https://www.ticketmaster.co.uk/cancelled/2",
+        "dates": {
+          "start": { "dateTime": "2026-10-01T19:00:00Z" },
+          "timezone": "Europe/London",
+          "status": { "code": "cancelled" }
+        }
+      },
+      {
+        "id": "tm-evt-3",
+        "name": "Summer Festival Day Ticket",
+        "url": "https://www.ticketmaster.ie/summer-festival/3",
+        "dates": {
+          "start": { "localDate": "2027-07-10", "timeTBA": true },
+          "timezone": "Europe/Dublin",
+          "status": { "code": "onsale" }
+        },
+        "classifications": [
+          { "segment": { "name": "Music" }, "genre": { "name": "Festival" } }
+        ],
+        "_embedded": {
+          "venues": [
+            {
+              "name": "Marlay Park",
+              "city": { "name": "Dublin" },
+              "country": { "countryCode": "IE" },
+              "timezone": "Europe/Dublin"
+            }
+          ]
+        }
+      },
+      {
+        "id": "tm-evt-4",
+        "name": "Stand-up Night",
+        "dates": {
+          "start": { "dateTime": "2026-12-02T20:00:00Z" },
+          "timezone": "Europe/London",
+          "status": { "code": "onsale" }
+        },
+        "classifications": [
+          { "segment": { "name": "Arts & Theatre" }, "genre": { "name": "Comedy" } }
+        ]
+      }
+    ]
+  },
+  "page": { "totalPages": 1, "number": 0 }
+}

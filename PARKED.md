@@ -4,18 +4,17 @@ Things I can't decide or do without you. Ranked by what blocks the most downstre
 
 > **Repo:** https://github.com/marcusverus7/gigtrotter (private). CI green on `main`.
 
-## 🔴 Do this first — five migrations are waiting
+## ✅ Resolved (July–Sep 2026) — kept for the record
 
-`supabase/pending/APPLY-ME.sql` holds migrations 0014–0018. Paste it into the
-Supabase SQL editor and run it once; `supabase/pending/README.md` explains each
-and gives you queries to verify it landed.
-
-**0015 closes authorisation holes that are open in production right now** — the
-worst lets any signed-in user read any other user's entire pin history, vault
-pins and future plans included, by passing a different id to one RPC. See the
-README for the detail. Nothing in the pack drops a table, a column or a row.
-
-## ✅ Resolved (July–Aug 2026) — kept for the record
+- **Migrations 0014–0020 APPLIED to prod 2026-09-02** via the SQL editor, and
+  verified against the catalogue afterwards: all three RPC guards present,
+  `plan` and `status` no longer writable by `authenticated`/`anon`, new
+  columns, enum value, five indexes and two triggers all present.
+  Lesson from 0020: 0015's `revoke update (plan)` was a silent no-op, because
+  Supabase grants table-level UPDATE and PostgreSQL will not carve a column
+  exception out of a table-wide grant. The fix is revoke-table + grant-columns.
+  Verify grants by reading `information_schema.column_privileges`, never by
+  the statement succeeding.
 
 - **Vercel `ANTHROPIC_API_KEY`** — was a *different* key from the local one (plus
   a BOM on `ANTHROPIC_PARSE_MODEL`). Fixed 2026-07-28; production parse verified

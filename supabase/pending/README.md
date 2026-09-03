@@ -1,12 +1,20 @@
-# Migrations waiting to be applied
+# Migration pack — APPLIED 2026-09-02
 
-Six migrations are committed but **not yet applied to production**: 0014
-through 0019. `APPLY-ME.sql` in this folder is all six concatenated in order —
-paste it into the Supabase SQL editor and run it once.
+Migrations **0014 through 0020 are applied to production** and verified
+against the catalogue. This folder is kept as the record of what was run and
+how it was checked; `APPLY-ME.sql` is the exact text that was executed
+(0020 was run separately afterwards — see below).
 
-Nothing here drops a table, a column or a row. 0016 rewrites three counter
-columns that are currently wrong.
+**0020 exists because 0015's column revokes did nothing.** Supabase grants
+`authenticated`/`anon` table-level UPDATE on every public table, and PostgreSQL
+does not let a column-level REVOKE carve an exception out of a table-wide
+grant — the statement succeeds and changes nothing. 0020 revokes the table
+grant and re-grants every column except the protected one. Check grants by
+reading `information_schema.column_privileges`; a migration "succeeding" is not
+evidence.
 
+For any future pack: add new files here, and verify with a catalogue query,
+not with "Success. No rows returned."
 ## Do 0015 first
 
 `0015_rpc_auth_guards.sql` closes authorisation holes that are open right now:

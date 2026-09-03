@@ -11,15 +11,11 @@ the UI.
 
 ## Gate 0 — before anything else
 
-- [ ] **Run `supabase/pending/APPLY-ME.sql`** (migrations 0014–0019) in the
-      Supabase SQL editor. `supabase/pending/README.md` explains each one.
-- [ ] Run the three verification queries in that README as an authenticated
-      user (not the service key). Expected: `on_this_day` with a foreign id
-      raises `forbidden`; self-update of `plan` is denied;
-      `venue_attendance_stats` returns two integers.
-- [ ] Confirm the latest deploy is live: production `/roadmap` should show
-      **"Doors tonight, and who else is going"** under Today. If it doesn't,
-      check the Vercel dashboard before testing anything.
+- [x] **Migrations 0014–0020 applied to production 2026-09-02** and verified
+      against the catalogue (RPC guards, column grants, indexes, triggers).
+- [x] Latest deploy confirmed live: production `/roadmap` shows
+      **"Doors tonight, and who else is going"**, and the security headers
+      are present on the live origin.
 
 ## A — Security fixes (needs 0015 applied) 🔒
 
@@ -94,7 +90,7 @@ the UI.
 
 ## H — Added 2026-09-02 (improvement pass: security, mobile, performance)
 
-Gate: migrations **0014–0019** (the pack now includes 0019's indexes).
+Gate: none — migrations applied.
 
 | # | Check | Expected |
 |---|---|---|

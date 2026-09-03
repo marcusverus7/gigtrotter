@@ -202,9 +202,9 @@ export default function RoadmapPage() {
           blurb="Built, but deliberately switched off until each one is genuinely ready. Better to ship five things that work than ten that half-work."
         >
           <Row
-            status="next"
+            status="live"
             title="Gig discovery"
-            body="What is on across the UK and Ireland, plus dates for artists you follow. The events feed behind it is planned and keyed; it ships when the data is real, not before."
+            body="Nearly five thousand upcoming shows across the UK and Ireland, refreshed nightly, with a city filter and a For-you rail built from the artists and venues you follow. Independent venues can list directly — the feed covers the big rooms, the submit flow covers everyone else."
           />
           <Row
             status="later"

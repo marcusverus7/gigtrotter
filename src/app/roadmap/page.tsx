@@ -159,6 +159,11 @@ export default function RoadmapPage() {
           />
           <Row
             status="live"
+            title="Venue pages"
+            body="Every venue gets a page: what is on there, your own history, and how many GigTrotter regulars have been. Useful to you, and the beginning of something useful to venues."
+          />
+          <Row
+            status="live"
             title="Doors tonight, and who else is going"
             body="The day of a gig, it says so. And when someone in your inner circle turns out to have the same night in their wallet, you hear about it — without either of you having to announce anything."
           />
@@ -174,11 +179,6 @@ export default function RoadmapPage() {
           title="What we are building now"
           blurb="All aimed at the same thing — making the app worth opening between gigs, not only on the night."
         >
-          <Row
-            status="building"
-            title="Venue pages"
-            body="Every venue gets a page: what is on there, your own history, and how many GigTrotter regulars have been. Useful to you, and the beginning of something useful to venues."
-          />
           <Row
             status="building"
             title="Reminders on your lock screen"
@@ -202,9 +202,9 @@ export default function RoadmapPage() {
           blurb="Built, but deliberately switched off until each one is genuinely ready. Better to ship five things that work than ten that half-work."
         >
           <Row
-            status="later"
+            status="next"
             title="Gig discovery"
-            body="Find what is on near you and see which friends are going. Needs a live events feed before it is worth showing to anyone."
+            body="What is on across the UK and Ireland, plus dates for artists you follow. The events feed behind it is planned and keyed; it ships when the data is real, not before."
           />
           <Row
             status="later"

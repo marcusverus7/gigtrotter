@@ -39,6 +39,31 @@ export async function syncTicketmaster() {
     skipped = result.skipped;
     errors += result.errors;
     notes ??= result.firstError;
+
+    // Retire what the provider stopped listing. A cancelled show usually
+    // disappears from Discovery rather than arriving with a status, so
+    // last_seen_at is the only signal. Only after a HEALTHY sweep (every
+    // city answered, cap not hit) and only for the next 30 days — the soonest
+    // events are always inside the two pages a city gets, whereas a London
+    // date ten weeks out can legitimately fall off the second page.
+    if (sweep.cityErrors === 0 && !sweep.hitCallCap && result.upserted >= 1000) {
+      const nowMs = Date.now();
+      const { data: retired, error: retireErr } = await service
+        .from("events")
+        .update({ status: "rejected" } as never)
+        .eq("source", "ticketmaster")
+        .eq("status", "approved")
+        .lt("last_seen_at", new Date(nowMs - 3 * 86_400_000).toISOString())
+        .gte("starts_at", new Date(nowMs).toISOString())
+        .lte("starts_at", new Date(nowMs + 30 * 86_400_000).toISOString())
+        .select("id");
+      if (retireErr) {
+        errors += 1;
+        notes ??= `retire: ${retireErr.message}`;
+      } else if (retired && retired.length > 0) {
+        notes = `${notes ? notes + "; " : ""}retired ${retired.length} unseen for 3 days`;
+      }
+    }
   } catch (err) {
     errors += 1;
     notes = err instanceof Error ? err.message : String(err);

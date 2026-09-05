@@ -40,7 +40,7 @@
         "dates": {
           "start": { "dateTime": "2026-10-01T19:00:00Z" },
           "timezone": "Europe/London",
-          "status": { "code": "cancelled" }
+          "status": { "code": "canceled" }
         }
       },
       {

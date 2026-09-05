@@ -28,9 +28,19 @@ import {
   type Overlap,
 } from "../src/lib/alerts/phrasing";
 import { pgTextArray } from "../src/lib/supabase/filters";
+import {
+  bandsintownArtistPath,
+  cityCentroid,
+  countryName,
+  dedupeNames,
+  normalizeName,
+  sameCity,
+  toCountryCode,
+} from "../src/lib/events/normalize";
 import { anchorToLocalZone, endDisplay, fromLocalDT } from "../src/lib/dates";
 import { mapBitEvent, sameLocalDate, type BitEvent } from "../src/lib/events/bandsintown/map";
 import {
+  mapTmEvent,
   mapTmPage,
   toMinorUnits,
   zonedWallClockToUtc,
@@ -541,6 +551,30 @@ check(
 check("pgTextArray escapes a backslash", pgTextArray(["a\\b"]) === '{"a\\\\b"}');
 check("pgTextArray empty list is an empty literal", pgTextArray([]) === "{}");
 
+/* ── feed normalisers ───────────────────────────────────────────────────── */
+
+check("normalizeName collapses punctuation and case", normalizeName("Fontaines D.C.") === normalizeName("fontaines dc"));
+check("normalizeName keeps distinct acts apart", normalizeName("IDLES") !== normalizeName("Idlewild"));
+check("normalizeName strips accents", normalizeName("Sigur Rós") === "sigurros");
+check("sameCity: Newcastle upon Tyne is Newcastle", sameCity("Newcastle upon Tyne", "Newcastle"));
+check("sameCity: two cities differ", !sameCity("Leeds", "London"));
+check("sameCity: unknown never matches", !sameCity(null, "London"));
+check("cityCentroid: sweep city", cityCentroid("Manchester")?.lat === 53.4808);
+check("cityCentroid: loose prefix match", cityCentroid("Newcastle upon Tyne")?.lng === -1.6178);
+check("cityCentroid: unknown town is null, never the venue point", cityCentroid("Monivea") === null);
+check("toCountryCode: Bandsintown full name", toCountryCode("United Kingdom") === "GB");
+check("toCountryCode: Ticketmaster ISO-2 passes through", toCountryCode("gb") === "GB");
+check("toCountryCode: Ireland", toCountryCode("Ireland") === "IE");
+check("countryName renders a code", countryName("GB") === "United Kingdom");
+check("countryName leaves non-codes alone", countryName("Narnia") === "Narnia");
+check("bandsintownArtistPath double-encodes the slash", bandsintownArtistPath("AC/DC") === "AC%252FDC");
+check("bandsintownArtistPath leaves plain names alone", bandsintownArtistPath("IDLES") === "IDLES");
+check(
+  "dedupeNames keeps one spelling per act",
+  JSON.stringify(dedupeNames(["IDLES", " idles", "Fontaines D.C.", "fontaines dc", ""])) ===
+    JSON.stringify(["IDLES", "Fontaines D.C."]),
+);
+
 /* ── Ticketmaster feed mapper ───────────────────────────────────────────── */
 //
 // Fixture note: hand-built to the Discovery v2 documented schema (a real
@@ -551,7 +585,19 @@ check("pgTextArray empty list is an empty literal", pgTextArray([]) === "{}");
   const fixture = require("./fixtures/ticketmaster-sample.json") as TmPage;
   const events = mapTmPage(fixture);
 
-  check("tm: cancelled events are dropped", events.length === 3, `${events.length}`);
+  check("tm: canceled events are dropped", events.length === 3, `${events.length}`);
+  check(
+    "tm: the British spelling is dropped too",
+    mapTmEvent({ id: "x", name: "X", dates: { status: { code: "cancelled" } } }) === null,
+  );
+  check(
+    "tm: postponed is kept and tagged",
+    mapTmEvent({
+      id: "y",
+      name: "Y",
+      dates: { status: { code: "postponed" }, start: { dateTime: "2026-11-20T19:30:00Z" } },
+    })?.tags.includes("postponed") === true,
+  );
   const gig = events.find((e) => e.externalId === "tm-evt-1");
   check("tm: title and headliner", gig?.title === "Fontaines D.C." && gig?.headliner === "Fontaines D.C.");
   check("tm: support act captured", gig?.artistNames.length === 2);
@@ -594,6 +640,14 @@ check("units: undefined -> null", toMinorUnits(undefined) === null);
   // 2026-11-20 in London is GMT: 20:00 local = 20:00Z.
   check("bit: local wall clock anchored to venue zone (winter)", gig?.startsAt === "2026-11-20T20:00:00.000Z", gig?.startsAt ?? "null");
   check("bit: empty title falls back to artist", gig?.title === "Just Mustard live");
+  check(
+    "bit: headliner is the API's spelling, not the follower's",
+    mapBitEvent("just mustard", fixture[0])?.headliner === "Just Mustard",
+  );
+  check(
+    "bit: country stored as ISO-2",
+    mapBitEvent("Just Mustard", { ...fixture[0], venue: { ...fixture[0].venue, country: "United Kingdom" } })?.venue?.country === "GB",
+  );
   check("bit: ticket offer becomes a link", gig?.ticketLinks[0]?.provider === "bandsintown");
 
   const dublin = events.find((e) => e.externalId === "bit-2");

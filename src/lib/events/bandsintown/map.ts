@@ -8,6 +8,7 @@
  */
 
 import type { FeedEvent } from "@/lib/events/feed-types";
+import { toCountryCode } from "@/lib/events/normalize";
 import { zonedWallClockToUtc } from "@/lib/events/ticketmaster/map";
 
 export type BitEvent = {
@@ -38,12 +39,16 @@ function localToUtc(local: string | undefined, tz: string | null): string | null
   return zonedWallClockToUtc(m[1], m[2], tz ?? "Europe/London");
 }
 
-export function mapBitEvent(artistName: string, ev: BitEvent): FeedEvent | null {
+export function mapBitEvent(followName: string, ev: BitEvent): FeedEvent | null {
   if (!ev.id) return null;
   const tz = ev.venue?.timezone ?? null;
   const startsAt = localToUtc(ev.datetime, tz);
   if (!startsAt) return null; // undated has no surface in the app
 
+  // The act's name as Bandsintown spells it, not as the follower typed it:
+  // "fontaines dc" in a follow must not become the headliner on a public
+  // card, and the canonical spelling is what matches Ticketmaster's.
+  const artistName = ev.artist?.name?.trim() || followName;
   const ticketOffer = ev.offers?.find((o) => o.type === "Tickets" && o.url);
   return {
     source: "bandsintown",
@@ -56,7 +61,7 @@ export function mapBitEvent(artistName: string, ev: BitEvent): FeedEvent | null 
       ? {
           name: ev.venue.name,
           city: ev.venue.city ?? null,
-          country: ev.venue.country ?? null,
+          country: toCountryCode(ev.venue.country),
           lat: ev.venue.latitude ? Number(ev.venue.latitude) : null,
           lng: ev.venue.longitude ? Number(ev.venue.longitude) : null,
         }

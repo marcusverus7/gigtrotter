@@ -4,7 +4,9 @@
  * recorded fixture.
  *
  * Field-mapping decisions worth remembering:
- * - `dates.status.code === "cancelled"` drops the event entirely. "offsale"
+ * - `dates.status.code` of "canceled" (Ticketmaster's US spelling — the
+ *   British "cancelled" never matched a real payload) drops the event
+ *   entirely; "postponed"/"rescheduled" are kept and tagged. "offsale"
  *   does NOT mean sold out — it means sales have ended — so sold-out defaults
  *   to false rather than guessing.
  * - A TBA time (`timeTBA`/`noSpecificTime`) still gets an instant: 19:00 in
@@ -128,10 +130,12 @@ export function pickTmImage(ev: TmEvent): string | null {
 /** One event; null when it should be skipped (cancelled or hopeless). */
 export function mapTmEvent(ev: TmEvent): FeedEvent | null {
   if (!ev.id || !ev.name) return null;
-  if (ev.dates?.status?.code === "cancelled") return null;
+  const statusCode = ev.dates?.status?.code?.toLowerCase() ?? "";
+  if (/^cancell?ed$/.test(statusCode)) return null;
 
   const tz = ev.dates?.timezone ?? ev._embedded?.venues?.[0]?.timezone ?? null;
   const tags: string[] = [];
+  if (statusCode === "postponed" || statusCode === "rescheduled") tags.push(statusCode);
 
   let startsAt = ev.dates?.start?.dateTime ?? null;
   if (!startsAt && ev.dates?.start?.localDate) {

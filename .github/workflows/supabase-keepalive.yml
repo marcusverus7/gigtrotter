@@ -1,30 +1,35 @@
-name: Supabase keep-alive
+name: Production health
 
-# Free-tier Supabase pauses a project after ~7 days without activity, and a
-# paused project drops off DNS entirely — which has now taken production down
-# twice (2026-07-27 and again by 2026-08-20): login dead, captures dead, while
-# the Vercel shell still returns 200 and looks "up".
+# Two jobs in one daily run:
 #
-# A REST request counts as activity, so a periodic ping prevents the pause.
+# 1. Keep-alive. Free-tier Supabase pauses a project after ~7 days without
+#    activity, and a paused project drops off DNS entirely — which took
+#    production down twice (2026-07-27, 2026-08-20): login dead, captures
+#    dead, while the Vercel shell still returned 200 and looked "up". A REST
+#    request counts as activity. The anon key is safe in CI — it is public by
+#    design and ships inside the client bundle; RLS is the security boundary.
+#
+# 2. Health. /api/health checks the things that have actually broken for
+#    testers: database reachable, captures bucket present, the nightly feed
+#    sync finished recently without failing, and the Anthropic key + model
+#    name still valid. It answers 503 with a breakdown when any check fails,
+#    so this job going red is the alarm — strictly better than discovering an
+#    outage from a tester's broken login.
+#
 # GitHub's `schedule` is not a precise cron (runs can be delayed or skipped),
-# but that's fine here: any successful ping within the week resets the clock.
-# The anon key is safe to use in CI — it is public by design and ships inside
-# the client bundle; RLS is the security boundary.
-#
-# While the project IS paused this workflow fails — that failure email is the
-# alarm bell, which is strictly better than discovering the outage from a
-# tester's broken login.
+# but that's fine here: any successful ping within the week resets the pause
+# clock, and a missed day of health checks is not a missed outage for long.
 
 on:
   schedule:
-    - cron: "17 6 * * 1,4" # twice a week, Mon + Thu
+    - cron: "17 6 * * *" # daily
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST
+      - name: Ping Supabase REST (keep-alive)
         run: |
           URL="https://zekwvsbxksgtofnpapmh.supabase.co"
           ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpla3d2c2J4a3NndG9mbnBhcG1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODQwNzIsImV4cCI6MjA5Njc2MDA3Mn0.JgcG5slHEpu_Np6MGF5hTUJ6c4rc01zNFIWF0Vkwq9s"
@@ -34,4 +39,19 @@ jobs:
           echo "REST answered HTTP $code"
           # 200 = alive. Anything else (000 = paused/DNS-gone) fails the job
           # so the repo owner gets a workflow-failure email.
+          [ "$code" = "200" ]
+
+      - name: Production health check
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET not set — skipping /api/health"; exit 0
+          fi
+          body=$(mktemp)
+          code=$(curl -s -o "$body" -w "%{http_code}" --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://gigtrotter.vercel.app/api/health)
+          echo "health answered HTTP $code"
+          cat "$body"; echo
           [ "$code" = "200" ]

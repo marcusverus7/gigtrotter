@@ -1,4 +1,22 @@
-# Migration pack — APPLIED 2026-09-02
+# Migration pack
+
+## Pending: 0023 (added 2026-09-05)
+
+`APPLY-ME-0023.sql` is `0023_feed_venue_centroids_and_trips.sql` verbatim. Two
+corrections, neither destructive:
+
+1. **Venue city centroids.** Until 2026-09-05 the feed copied each venue's exact
+   coordinates into `city_lat`/`city_lng` — the columns the anonymous public
+   board uses for its city-fuzzed pins. Backfills sweep-list cities to the list
+   centroid and nulls the rest. Verify: `select count(*) from venues where lat
+   is not null and city_lat is not distinct from lat` should be 0 afterwards.
+2. **`trip_assemble` window.** Attach and look-ahead windows were asymmetric
+   (18h vs 7 days), so a flight and a gig five days later never shared a trip.
+   Both are 7 days now, a trip must contain travel, wishlist items never
+   cluster, and emptied trips are deleted. Verify with `\df trip_assemble` or
+   by re-clustering a wallet that has a flight and a gig in the same week.
+
+## Applied 2026-09-02: 0014 through 0022
 
 Migrations **0014 through 0022 are applied to production** and verified
 against the catalogue. This folder is kept as the record of what was run and

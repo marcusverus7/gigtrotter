@@ -17,11 +17,17 @@ import { detectMimeType, stripCodeFence, parseCaptureBytes, ParseError } from ".
 import { ParsedCaptureSchema, type ParsedCapture } from "../src/lib/capture/schema";
 import {
   describeFriends,
+  describeNewDates,
+  followedAtIndex,
   friendDedupeKey,
   friendLabel,
+  groupNewDatesByArtist,
   groupOverlapsByGig,
+  tourDedupeKey,
+  type FeedDate,
   type Overlap,
 } from "../src/lib/alerts/phrasing";
+import { pgTextArray } from "../src/lib/supabase/filters";
 import { anchorToLocalZone, endDisplay, fromLocalDT } from "../src/lib/dates";
 import { mapBitEvent, sameLocalDate, type BitEvent } from "../src/lib/events/bandsintown/map";
 import {
@@ -426,6 +432,114 @@ check(
   "friendDedupeKey separates gigs",
   friendDedupeKey("gig-1", 2) !== friendDedupeKey("gig-2", 2),
 );
+
+/* ── tour_announce grouping ─────────────────────────────────────────────── */
+//
+// The first production sync stamped 4,836 events with one created_at. The
+// rule under test is what stops a follower being told an artist's whole
+// catalogue is "new", and what turns a twelve-date announcement into one
+// alert instead of twelve.
+
+const feedDate = (over: Partial<FeedDate> & { id: string }): FeedDate => ({
+  title: `${over.id} live`,
+  artist_names: ["Fontaines D.C."],
+  venue_name: "Barrowland",
+  venue_city: "Glasgow",
+  starts_at: "2026-11-20T19:30:00+00:00",
+  created_at: "2026-09-03T15:17:35+00:00", // the backfill instant
+  external_url: null,
+  ...over,
+});
+
+const followedBefore = followedAtIndex([
+  { kind: "artist", name: "fontaines d.c.", created_at: "2026-09-01T10:00:00+00:00" },
+  { kind: "venue", name: "Barrowland", created_at: "2026-09-01T10:00:00+00:00" },
+]);
+const followedAfter = followedAtIndex([
+  { kind: "artist", name: "Fontaines D.C.", created_at: "2026-09-04T10:00:00+00:00" },
+]);
+
+check(
+  "followedAtIndex lower-cases and keeps the earliest",
+  followedAtIndex([
+    { kind: "artist", name: "IDLES", created_at: "2026-09-02T00:00:00+00:00" },
+    { kind: "artist", name: "idles ", created_at: "2026-09-01T00:00:00+00:00" },
+  ]).get("idles") === "2026-09-01T00:00:00+00:00",
+);
+check("followedAtIndex ignores venues", !followedBefore.has("barrowland"));
+
+{
+  const backfill = [feedDate({ id: "a" }), feedDate({ id: "b" }), feedDate({ id: "c" })];
+  check(
+    "backfill before the follow is not news",
+    groupNewDatesByArtist(backfill, followedAfter).length === 0,
+  );
+  const groups = groupNewDatesByArtist(backfill, followedBefore);
+  check("dates after the follow group into one alert per artist", groups.length === 1);
+  check("the group holds every date", groups[0]?.dates.length === 3);
+  check("group artist is spelled as on the event", groups[0]?.artist === "Fontaines D.C.");
+}
+
+{
+  // A twelve-date tour on one day, then one extra date a week later.
+  const tour = Array.from({ length: 12 }, (_, i) =>
+    feedDate({
+      id: `t${i}`,
+      starts_at: `2026-12-${String(i + 1).padStart(2, "0")}T19:30:00+00:00`,
+      created_at: "2026-09-10T09:00:00+00:00",
+    }),
+  );
+  const [g] = groupNewDatesByArtist(tour.reverse(), followedBefore);
+  check("twelve dates sort soonest first", g?.dates[0]?.id === "t0");
+  const key1 = tourDedupeKey(g.artistKey, g.newestId);
+  check(
+    "dedupe key is stable across a rescan",
+    key1 === tourDedupeKey(g.artistKey, groupNewDatesByArtist(tour, followedBefore)[0].newestId),
+  );
+  const extra = feedDate({
+    id: "t99",
+    starts_at: "2026-12-20T19:30:00+00:00",
+    created_at: "2026-09-17T09:00:00+00:00",
+  });
+  const [g2] = groupNewDatesByArtist([...tour, extra], followedBefore);
+  check("a later date changes the key", tourDedupeKey(g2.artistKey, g2.newestId) !== key1);
+  check("multi-date wording", describeNewDates(g).title === "Fontaines D.C.: 12 new dates");
+  check("multi-date body names the first venue", describeNewDates(g).body === "First up: Barrowland, Glasgow.");
+  check(
+    "single-date wording keeps the event title",
+    describeNewDates(groupNewDatesByArtist([extra], followedBefore)[0]).title === "t99 live",
+  );
+}
+
+check(
+  "a shared bill lands in both artists' groups",
+  groupNewDatesByArtist(
+    [feedDate({ id: "x", artist_names: ["Fontaines D.C.", "IDLES"], created_at: "2026-09-10T00:00:00+00:00" })],
+    followedAtIndex([
+      { kind: "artist", name: "Fontaines D.C.", created_at: "2026-09-01T00:00:00+00:00" },
+      { kind: "artist", name: "IDLES", created_at: "2026-09-01T00:00:00+00:00" },
+    ]),
+  ).length === 2,
+);
+check(
+  "undated rows are skipped",
+  groupNewDatesByArtist([feedDate({ id: "u", starts_at: null, created_at: "2026-09-10T00:00:00+00:00" })], followedBefore).length === 0,
+);
+
+/* ── PostgREST array literal ────────────────────────────────────────────── */
+//
+// postgrest-js sends `{a,b}` unquoted; Postgres rejects `{"Weird Al" Yankovic}`
+// with 22P02 and splits "Earth, Wind & Fire" in two. Verified against the
+// production API before the helper was written.
+
+check("pgTextArray quotes plain names", pgTextArray(["Coldplay", "IDLES"]) === '{"Coldplay","IDLES"}');
+check("pgTextArray keeps a comma inside one element", pgTextArray(["Earth, Wind & Fire"]) === '{"Earth, Wind & Fire"}');
+check(
+  "pgTextArray escapes an inner double quote",
+  pgTextArray(['"Weird Al" Yankovic']) === '{"\\"Weird Al\\" Yankovic"}',
+);
+check("pgTextArray escapes a backslash", pgTextArray(["a\\b"]) === '{"a\\\\b"}');
+check("pgTextArray empty list is an empty literal", pgTextArray([]) === "{}");
 
 /* ── Ticketmaster feed mapper ───────────────────────────────────────────── */
 //

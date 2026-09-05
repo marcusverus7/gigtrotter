@@ -68,8 +68,119 @@ export function doorsDedupeKey(walletItemId: string): string {
 
 // ── feed-driven alerts (tour_announce / on_sale) ────────────────────────────
 
-export function tourDedupeKey(eventId: string): string {
-  return `tour:${eventId}`;
+/** The slice of an events row the tour grouping needs. */
+export type FeedDate = {
+  id: string;
+  title: string;
+  artist_names: string[] | null;
+  venue_name: string | null;
+  venue_city: string | null;
+  starts_at: string | null;
+  created_at: string;
+  external_url: string | null;
+};
+
+const nameKey = (name: string) => name.trim().toLowerCase();
+const at = (iso: string) => new Date(iso).getTime();
+
+/**
+ * artist name (lower-cased) -> when the user first followed or wishlisted
+ * them. The earliest wins when both exist, so re-adding an artist to a
+ * wishlist does not make already-known dates "new" again.
+ */
+export function followedAtIndex(
+  rows: { kind: string; name: string; created_at: string }[],
+): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const r of rows) {
+    if (r.kind !== "artist") continue;
+    const key = nameKey(r.name);
+    if (!key) continue;
+    const prev = out.get(key);
+    if (!prev || at(r.created_at) < at(prev)) out.set(key, r.created_at);
+  }
+  return out;
+}
+
+export type NewDatesGroup = {
+  /** As spelled on the event, not as the user typed it. */
+  artist: string;
+  artistKey: string;
+  /** Soonest first. */
+  dates: FeedDate[];
+  /** Most recently created — what the dedupe key rides on. */
+  newestId: string;
+};
+
+/**
+ * "Announced since you followed", one group per artist.
+ *
+ * Two rules, both learned from the first production sync:
+ *
+ * 1. Only dates the feed first saw AFTER the follow count. A bulk backfill —
+ *    a new provider, a new city — stamps thousands of rows with one
+ *    created_at, and a recent created_at is the only signal we have for
+ *    "announced". Without the follow-time cut, every follower of any artist
+ *    in that batch is told the artist's whole catalogue is new.
+ *
+ * 2. One alert per artist, however many dates arrived. A twelve-date tour is
+ *    one piece of news; twelve cards saying "New date announced" is noise.
+ *
+ * An event with two followed artists on the bill lands in both groups —
+ * that is two pieces of news to two different follows.
+ */
+export function groupNewDatesByArtist(
+  events: FeedDate[],
+  followedAt: Map<string, string>,
+): NewDatesGroup[] {
+  const groups = new Map<string, NewDatesGroup>();
+  for (const ev of events) {
+    if (!ev.starts_at) continue;
+    for (const name of ev.artist_names ?? []) {
+      const key = nameKey(name);
+      const since = followedAt.get(key);
+      if (!since || at(ev.created_at) <= at(since)) continue;
+      const g = groups.get(key);
+      if (!g) {
+        groups.set(key, { artist: name, artistKey: key, dates: [ev], newestId: ev.id });
+      } else if (!g.dates.some((d) => d.id === ev.id)) {
+        g.dates.push(ev);
+      }
+    }
+  }
+  const out = [...groups.values()];
+  for (const g of out) {
+    g.dates.sort((a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? ""));
+    g.newestId = [...g.dates].sort(
+      (a, b) => at(b.created_at) - at(a.created_at) || b.id.localeCompare(a.id),
+    )[0].id;
+  }
+  return out.sort((a, b) => a.artist.localeCompare(b.artist));
+}
+
+/** Title and body for a tour_announce alert. */
+export function describeNewDates(g: NewDatesGroup): { title: string; body: string } {
+  const first = g.dates[0];
+  const place = eventPlaceLine(first.venue_name, first.venue_city);
+  if (g.dates.length === 1) {
+    return {
+      title: first.title,
+      body: place ? `New date announced — ${place}.` : "New date announced.",
+    };
+  }
+  return {
+    title: `${g.artist}: ${g.dates.length} new dates`,
+    body: place ? `First up: ${place}.` : `${g.dates.length} dates just announced.`,
+  };
+}
+
+/**
+ * Keyed on the artist and the newest date in the batch: rescanning the same
+ * announcement inserts nothing, and a date added later raises one fresh
+ * alert rather than repeating the whole list.
+ */
+export function tourDedupeKey(artistKey: string, newestEventId: string): string {
+  return `tour:${artistKey}:${newestEventId}`;
 }
 
 /**

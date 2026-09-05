@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { pgTextArray } from "@/lib/supabase/filters";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { EventSearch } from "@/features/events/event-search";
 import { EventCard, type EventSummary } from "@/features/events/event-card";
@@ -68,7 +69,7 @@ export default async function EventsPage({
         ? supabase
             .from("events")
             .select(EVENT_COLS)
-            .overlaps("artist_names", followedArtists)
+            .overlaps("artist_names", pgTextArray(followedArtists))
             .gte("starts_at", nowIso)
             .order("starts_at", { ascending: true })
             .limit(6)

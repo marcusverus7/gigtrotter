@@ -116,7 +116,8 @@ Gate: none — migrations applied.
 | I4 | Follow an artist (artist page), revisit /app/events | a "For you" rail appears with their dates |
 | I5 | Event page → "Get tickets" | opens the Ticketmaster listing |
 | I6 | Add to wallet from a feed event | wallet item + map pin created |
-| I7 | Follow an artist with a date announced in the last 7 days, reopen app | one tour-announce alert, no duplicate on re-open |
+| I7 | Follow an artist, then wait for a nightly sync that adds a new date for them (or ask me to insert one), reopen app | ONE tour-announce alert per artist ("X: 3 new dates"), never one per date; nothing for dates that already existed when you followed; no duplicate on re-open |
+| I11 | Follow an artist whose name has a comma, e.g. "Leslie Odom, Jr." → /app/events | "For you" rail shows their dates (was silently empty before 2026-09-05) |
 | I8 | Follow an artist/venue whose tickets go on sale this week | one on-sale alert; time renders in YOUR timezone |
 | I9 | 🔒 `select * from feed_sync_runs order by started_at desc limit 3` | nightly rows, errors=0, upserted>0 |
 | I10 | 🔒 curl the cron route without the bearer token | 401 |

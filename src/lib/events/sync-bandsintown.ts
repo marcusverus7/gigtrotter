@@ -1,6 +1,7 @@
 import "server-only";
 
 import { serverEnv } from "@/lib/env";
+import { pgTextArray } from "@/lib/supabase/filters";
 import { createServiceClient } from "@/lib/supabase/server";
 import { mapBitEvent, sameLocalDate, type BitEvent } from "@/lib/events/bandsintown/map";
 import type { FeedEvent } from "@/lib/events/feed-types";
@@ -149,7 +150,7 @@ async function findTicketmasterTwin(
     .select("id, starts_at, timezone")
     .eq("source", "ticketmaster")
     .ilike("venue_city", ev.venue.city)
-    .contains("artist_names", [ev.headliner])
+    .contains("artist_names", pgTextArray([ev.headliner]))
     .gte("starts_at", new Date(t - 36 * 3600 * 1000).toISOString())
     .lte("starts_at", new Date(t + 36 * 3600 * 1000).toISOString())
     .limit(5);

@@ -2,28 +2,39 @@ import "server-only";
 
 import {
   describeFriends,
+  describeNewDates,
   doorsDedupeKey,
   eventPlaceLine,
+  followedAtIndex,
   friendDedupeKey,
   friendLabel,
+  groupNewDatesByArtist,
   groupOverlapsByGig,
   onSaleDedupeKey,
   tourDedupeKey,
+  type FeedDate,
   type Overlap,
 } from "@/lib/alerts/phrasing";
+import { pgTextArray } from "@/lib/supabase/filters";
 import type { createClient } from "@/lib/supabase/server";
 
 /**
  * Turn things the app already knows into alerts.
  *
- * The alerts table has existed since migration 0004 and nothing has ever
- * written to it, so the bell in the nav led to a page that could only be
- * empty. Three of the four original alert kinds — on_sale, price_drop,
- * tour_announce — need a live events feed that does not exist yet. These two
- * need nothing external:
+ * The alerts table has existed since migration 0004 and nothing wrote to it
+ * until 0017, so the bell in the nav led to a page that could only be empty.
+ * Two kinds need nothing external:
  *
  *   doors_tonight  your own wallet says you are out tonight
  *   friend_going   someone in your inner circle has the same gig in theirs
+ *
+ * Two more ride on the events feed (migration 0021, nightly cron):
+ *
+ *   tour_announce  a followed artist has dates the feed first saw after you
+ *                  followed them — one alert per artist per announcement
+ *   on_sale        tickets for a followed artist or venue go on sale this week
+ *
+ * price_drop still has no source and is never raised.
  *
  * Design notes worth keeping:
  *
@@ -221,12 +232,13 @@ async function friendsGoing(
  */
 async function feedAlerts(supabase: Client, userId: string): Promise<NewAlert[]> {
   const [{ data: follows }, { data: wishes }] = await Promise.all([
-    supabase.from("follows").select("kind, name").eq("user_id", userId).limit(500),
-    supabase.from("wishlist").select("kind, name").eq("user_id", userId).limit(500),
+    supabase.from("follows").select("kind, name, created_at").eq("user_id", userId).limit(500),
+    supabase.from("wishlist").select("kind, name, created_at").eq("user_id", userId).limit(500),
   ]);
+  const interests = [...(follows ?? []), ...(wishes ?? [])];
   const artistNames = [
     ...new Set(
-      [...(follows ?? []), ...(wishes ?? [])]
+      interests
         .filter((f) => f.kind === "artist")
         .map((f) => f.name.trim())
         .filter(Boolean),
@@ -234,7 +246,7 @@ async function feedAlerts(supabase: Client, userId: string): Promise<NewAlert[]>
   ];
   const venueNames = [
     ...new Set(
-      [...(follows ?? []), ...(wishes ?? [])]
+      interests
         .filter((f) => f.kind === "venue")
         .map((f) => f.name.trim())
         .filter(Boolean),
@@ -260,33 +272,40 @@ async function feedAlerts(supabase: Client, userId: string): Promise<NewAlert[]>
   };
   const cols = "id, title, headliner, venue_name, venue_city, starts_at, on_sale_at, external_url";
 
-  // tour_announce: a followed artist has a NEW future date (first seen within
-  // the last week — created_at approximates "announced").
-  if (artistNames.length > 0) {
+  // tour_announce: a followed artist has a date the feed first saw AFTER the
+  // follow (and within the last week). Both cuts matter — see
+  // groupNewDatesByArtist for the backfill storm the follow-time cut prevents.
+  // The query pre-filters on the oldest follow so a long-time follower does
+  // not pull the whole week; the per-artist rule is applied in code.
+  const followedAt = followedAtIndex(interests);
+  if (followedAt.size > 0) {
+    const oldestFollow = [...followedAt.values()].sort()[0];
+    const since = oldestFollow > weekAgo ? oldestFollow : weekAgo;
     const { data } = await supabase
       .from("events")
-      .select(cols)
-      .overlaps("artist_names", artistNames)
-      .gt("created_at", weekAgo)
+      .select(`${cols}, artist_names, created_at`)
+      .overlaps("artist_names", pgTextArray(artistNames))
+      .gt("created_at", since)
       .gt("starts_at", nowIso)
-      .limit(20);
-    for (const ev of (data ?? []) as FeedEventRow[]) {
-      if (seen.has(ev.id)) continue;
-      seen.add(ev.id);
-      const place = eventPlaceLine(ev.venue_name, ev.venue_city);
+      .order("starts_at", { ascending: true })
+      .limit(100);
+    for (const g of groupNewDatesByArtist((data ?? []) as FeedDate[], followedAt)) {
+      const first = g.dates[0];
+      const { title, body } = describeNewDates(g);
       out.push({
         user_id: userId,
         kind: "tour_announce",
-        title: ev.title,
-        body: place ? `New date announced — ${place}.` : "New date announced.",
-        url: ev.external_url,
-        event_at: ev.starts_at,
-        dedupe_key: tourDedupeKey(ev.id),
+        title,
+        body,
+        url: first.external_url,
+        event_at: first.starts_at,
+        dedupe_key: tourDedupeKey(g.artistKey, g.newestId),
       });
     }
   }
 
   // on_sale: tickets for a followed artist or venue go on sale within a week.
+  // Soonest first, so the cap keeps the ones that matter this week.
   const onSaleFilters: { column: "artist_names" | "venue_name"; values: string[] }[] = [];
   if (artistNames.length > 0) onSaleFilters.push({ column: "artist_names", values: artistNames });
   if (venueNames.length > 0) onSaleFilters.push({ column: "venue_name", values: venueNames });
@@ -296,8 +315,12 @@ async function feedAlerts(supabase: Client, userId: string): Promise<NewAlert[]>
       .select(cols)
       .gte("on_sale_at", nowIso)
       .lte("on_sale_at", weekAhead)
+      .order("on_sale_at", { ascending: true })
       .limit(20);
-    q = f.column === "artist_names" ? q.overlaps("artist_names", f.values) : q.in("venue_name", f.values);
+    q =
+      f.column === "artist_names"
+        ? q.overlaps("artist_names", pgTextArray(f.values))
+        : q.in("venue_name", f.values);
     const { data } = await q;
     for (const ev of (data ?? []) as FeedEventRow[]) {
       const key = onSaleDedupeKey(ev.id);

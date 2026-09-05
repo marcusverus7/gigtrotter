@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { deriveStatus, effectiveEnd } from "@/lib/wallet/lifecycle";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { FlexibleDate } from "@/lib/validation/dates";
 import type {
@@ -126,16 +127,9 @@ export async function addManualWalletItem(raw: {
 
   // 3) Decide status from the date — unless the user said they have no ticket,
   //    in which case it is a wishlist item however firm the date is.
-  const now = Date.now();
   const startsAt = input.starts_at ? new Date(input.starts_at).getTime() : null;
   const hasTicket = input.hasTicket ?? true;
-  const status: WalletStatus = !hasTicket
-    ? "wishlist"
-    : !startsAt
-      ? "wishlist"
-      : startsAt < now
-        ? "attended"
-        : "going";
+  const status: WalletStatus = !hasTicket ? "wishlist" : deriveStatus(input.starts_at, null);
 
   // 4) wallet_item.
   const { data: wallet, error: walletErr } = await supabase
@@ -168,11 +162,13 @@ export async function addManualWalletItem(raw: {
       title: input.title,
       subtitle: input.venue?.full ?? null,
       starts_at: new Date(startsAt).toISOString(),
-      ends_at: new Date(startsAt + 3 * 3600_000).toISOString(),
+      ends_at: new Date(effectiveEnd(input.starts_at!, null)).toISOString(),
       audience: input.audience,
       verified_by: "manual",
     });
   }
+
+  await supabase.rpc("trip_assemble", { target_user: user.id });
 
   revalidatePath("/app");
   revalidatePath("/app/map");

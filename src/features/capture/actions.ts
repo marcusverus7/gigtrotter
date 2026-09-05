@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { deriveStatus, effectiveEnd } from "@/lib/wallet/lifecycle";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { geocodePlace } from "@/lib/geo/geocode";
 import { FlexibleDate } from "@/lib/validation/dates";
@@ -149,20 +150,10 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
     }
   }
 
-  // 2) Decide the lifecycle status from the dates.
-  const now = Date.now();
+  // 2) Decide the lifecycle status from the dates — the one rule in
+  //    lib/wallet/lifecycle.ts, shared with the hourly reconciler.
   const startsAt = parsed.starts_at ? new Date(parsed.starts_at).getTime() : null;
-  const endsAt = parsed.ends_at ? new Date(parsed.ends_at).getTime() : null;
-  let status: WalletStatus = "going";
-  if (!startsAt) status = "wishlist";
-  else if (startsAt < now && (endsAt ?? startsAt + 4 * 3600_000) < now) {
-    status = "attended";
-  } else if (
-    startsAt - now < 12 * 3600_000 ||
-    (startsAt < now && (endsAt ?? startsAt) >= now)
-  ) {
-    status = "tonight";
-  }
+  const status: WalletStatus = deriveStatus(parsed.starts_at || null, parsed.ends_at || null);
 
   // 3) Insert the wallet_item with .select() so an RLS silent-fail surfaces.
   const { data: walletItem, error: walletErr } = await supabase
@@ -203,11 +194,15 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
       title: parsed.title,
       subtitle: parsed.subtitle ?? null,
       starts_at: new Date(startsAt).toISOString(),
-      ends_at: new Date(endsAt ?? startsAt + 3 * 3600_000).toISOString(),
+      ends_at: new Date(effectiveEnd(parsed.starts_at!, parsed.ends_at || null)).toISOString(),
       audience: parsed.audience as Audience,
       verified_by: "ticket",
     });
   }
+
+  // Cluster into a trip if a flight or stay sits nearby. Idempotent RPC;
+  // best-effort — a clustering hiccup must not fail the confirm.
+  await supabase.rpc("trip_assemble", { target_user: user.id });
 
   // 5) Mark the capture confirmed. `.eq("status", "pending")` plus the
   //    .select() guard closes the gap between the check above and this write:

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { deriveStatus, effectiveEnd } from "@/lib/wallet/lifecycle";
 import { createClient } from "@/lib/supabase/server";
 
 export async function toggleEventInterest(
@@ -187,6 +188,9 @@ export async function addToWalletFromEvent(
     .maybeSingle();
   if (existing) throw new Error("This event is already in your wallet.");
 
+  // Born with the status the dates imply — a feed event added the morning
+  // after is already attended, one tonight is tonight.
+  const status = deriveStatus(event.starts_at, event.ends_at);
   const { data: item, error } = await supabase
     .from("wallet_items")
     .insert({
@@ -197,31 +201,33 @@ export async function addToWalletFromEvent(
       venue_id: event.venue_id,
       starts_at: event.starts_at,
       ends_at: event.ends_at,
-      status: "going",
+      status,
       purchased_via_platform: purchasedViaPlatform,
     })
     .select("id")
     .single();
   if (error) throw error;
 
-  // experiences requires kind, title, starts_at and ends_at NOT NULL. This
-  // insert supplied none of them, and its result was never destructured, so it
-  // failed with 23502 on every call and said nothing: the wallet item appeared,
-  // the map pin never did. An event with no date cannot have a pin at all, so
-  // that case is skipped rather than guessed at.
-  if (event.starts_at) {
+  // The pin is minted only once the gig has happened. Minting it up front put
+  // future gigs on the map and into memories and lifetime counts before they
+  // took place; the hourly reconciler (lib/wallet/reconcile.ts) mints it when
+  // the date passes, the same as every other insert path.
+  if (status === "attended" && event.starts_at) {
     const { error: pinError } = await supabase.from("experiences").insert({
       user_id: user.id,
       wallet_item_id: item.id,
       kind: "ticket",
       title: event.title,
       starts_at: event.starts_at,
-      ends_at: event.ends_at ?? event.starts_at,
+      ends_at: new Date(effectiveEnd(event.starts_at, event.ends_at)).toISOString(),
       venue_id: event.venue_id,
       audience: "inner",
+      verified_by: "none",
     });
     if (pinError) throw pinError;
   }
+
+  await supabase.rpc("trip_assemble", { target_user: user.id });
 
   // Auto-enroll as "going" in event interests
   const { data: existingInterest } = await supabase

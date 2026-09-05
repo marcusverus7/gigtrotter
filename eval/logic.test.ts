@@ -28,6 +28,7 @@ import {
   type Overlap,
 } from "../src/lib/alerts/phrasing";
 import { pgTextArray } from "../src/lib/supabase/filters";
+import { deriveStatus, effectiveEnd, nextStatus } from "../src/lib/wallet/lifecycle";
 import {
   bandsintownArtistPath,
   cityCentroid,
@@ -550,6 +551,37 @@ check(
 );
 check("pgTextArray escapes a backslash", pgTextArray(["a\\b"]) === '{"a\\\\b"}');
 check("pgTextArray empty list is an empty literal", pgTextArray([]) === "{}");
+
+/* ── wallet lifecycle ───────────────────────────────────────────────────── */
+//
+// One rule for "what status should this item have right now", shared by
+// every insert path and the hourly reconciler that finally makes statuses
+// move with time.
+
+{
+  const H = 3600_000;
+  const now = Date.parse("2026-09-05T18:00:00Z");
+  const at = (offsetH: number) => new Date(now + offsetH * H).toISOString();
+  check("lifecycle: no date is wishlist", deriveStatus(null, null, now) === "wishlist");
+  check("lifecycle: next week is going", deriveStatus(at(7 * 24), null, now) === "going");
+  check("lifecycle: doors in 2h is tonight", deriveStatus(at(2), null, now) === "tonight");
+  check("lifecycle: 12h exactly is still going", deriveStatus(at(12), null, now) === "going");
+  check("lifecycle: started 1h ago, no end, is tonight (live)", deriveStatus(at(-1), null, now) === "tonight");
+  check("lifecycle: started 5h ago, no end, is attended", deriveStatus(at(-5), null, now) === "attended");
+  check("lifecycle: explicit end in the future keeps it live", deriveStatus(at(-5), at(1), now) === "tonight");
+  check("lifecycle: explicit end in the past is attended", deriveStatus(at(-3), at(-1), now) === "attended");
+  check("lifecycle: end before start falls back to the default duration", effectiveEnd(at(0), at(-2)) === now + 4 * H);
+
+  check("reconcile: going -> tonight", nextStatus("going", at(2), null, now) === "tonight");
+  check("reconcile: going -> attended", nextStatus("going", at(-6), null, now) === "attended");
+  check("reconcile: tonight -> attended", nextStatus("tonight", at(-6), null, now) === "attended");
+  check("reconcile: tonight never goes back to going", nextStatus("tonight", at(48), null, now) === null);
+  check("reconcile: unchanged is null", nextStatus("going", at(48), null, now) === null);
+  check("reconcile: wishlist never moves", nextStatus("wishlist", at(-6), null, now) === null);
+  check("reconcile: attended never moves", nextStatus("attended", at(48), null, now) === null);
+  check("reconcile: archived never moves", nextStatus("archived", at(-6), null, now) === null);
+  check("reconcile: undated going stays", nextStatus("going", null, null, now) === null);
+}
 
 /* ── feed normalisers ───────────────────────────────────────────────────── */
 

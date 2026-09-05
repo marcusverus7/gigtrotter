@@ -17,6 +17,7 @@ import {
 } from "@/lib/alerts/phrasing";
 import { pgTextArray } from "@/lib/supabase/filters";
 import type { createClient } from "@/lib/supabase/server";
+import { reconcileWalletLifecycle } from "@/lib/wallet/reconcile";
 
 /**
  * Turn things the app already knows into alerts.
@@ -99,6 +100,11 @@ export async function generateAlerts(
 ): Promise<number> {
   try {
     if (!opts.force && !(await dueForScan(supabase, userId))) return 0;
+
+    // Advance wallet statuses first (going -> tonight -> attended, minting
+    // pins for gigs that passed) so the candidates below read the truth.
+    // Same hourly slot, same user-scoped client; see lib/wallet/reconcile.ts.
+    await reconcileWalletLifecycle(supabase, userId);
 
     const candidates = [
       ...(await doorsTonight(supabase, userId)),

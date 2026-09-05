@@ -1,4 +1,5 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { DEFAULT_DURATION_MS, effectiveEnd } from "@/lib/wallet/lifecycle";
 
 import { MorningAfterPrompt } from "./morning-after";
 
@@ -12,9 +13,15 @@ export async function MorningAfterQueue() {
   const user = await getSessionUser();
   if (!user) return null;
 
-  // Items that ended in the last 36h.
-  const since = new Date(Date.now() - 36 * 3600_000).toISOString();
-  const now = new Date().toISOString();
+  // Gigs that ended in the last 36h. Most wallet items have no ends_at —
+  // tickets rarely print one — so the old `ends_at` window excluded nearly
+  // everything and the "how was it?" prompt almost never fired. The query
+  // narrows by start time; the window is applied to the EFFECTIVE end in
+  // code. Flights and stays are not asked about, nor is a wishlist item the
+  // user never had a ticket for.
+  const now = Date.now();
+  const windowMs = 36 * 3600_000;
+  const earliestStart = new Date(now - windowMs - DEFAULT_DURATION_MS).toISOString();
 
   const { data: items } = await supabase
     .from("wallet_items")
@@ -22,12 +29,17 @@ export async function MorningAfterQueue() {
       "id, title, subtitle, ends_at, starts_at, experiences(id, rating), morning_after_log(responded_at, dismissed)",
     )
     .eq("user_id", user.id)
-    .lt("ends_at", now)
-    .gte("ends_at", since);
+    .in("status", ["going", "tonight", "attended"])
+    .not("kind", "in", "(flight,stay)")
+    .gte("starts_at", earliestStart)
+    .lte("starts_at", new Date(now).toISOString());
 
   if (!items) return null;
 
   const queue = items.filter((i) => {
+    if (!i.starts_at) return false;
+    const end = effectiveEnd(i.starts_at, i.ends_at);
+    if (end >= now || end < now - windowMs) return false;
     const exp = (i as { experiences: Array<{ rating: number | null }> | null }).experiences;
     const log = (i as { morning_after_log: Array<{ responded_at: string | null; dismissed: boolean }> | null })
       .morning_after_log;

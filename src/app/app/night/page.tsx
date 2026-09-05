@@ -36,6 +36,9 @@ export default async function NightModePage() {
     .from("wallet_items")
     .select("*, venues(name, city, country, lat, lng)")
     .eq("user_id", user.id)
+    // A wishlist item is a gig the user has NO ticket for; it must not render
+    // as tonight's ticket with a countdown and a barcode section.
+    .neq("status", "wishlist")
     .gte("starts_at", floor)
     .lte("starts_at", horizon)
     .order("starts_at", { ascending: true });

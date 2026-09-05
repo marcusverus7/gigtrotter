@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { geocodePlace } from "@/lib/geo/geocode";
+import { deriveStatus, effectiveEnd } from "@/lib/wallet/lifecycle";
+import { mintMissingPins } from "@/lib/wallet/reconcile";
 
 export async function updateWalletItemDates(
   itemId: string,
@@ -19,14 +21,79 @@ export async function updateWalletItemDates(
     .update({ starts_at, ends_at })
     .eq("id", itemId)
     .eq("user_id", user.id)
-    .select("id");
+    .select("id, status, kind, title, subtitle, venue_id, capture_id");
 
   if (error) throw error;
   if (!data || data.length === 0)
     throw new Error("Could not update — item not found or not yours.");
+  const item = data[0];
+
+  // A date edit changes what the item IS: a mis-parsed 2024 gig corrected to
+  // 2026 is upcoming, not attended. Re-derive the status (wishlist and
+  // archived are the user's call and stay put) and keep the experience row —
+  // what the map, memories and the time-shift privacy rule read — in step.
+  if (item.status !== "wishlist" && item.status !== "archived") {
+    const derived = deriveStatus(starts_at, ends_at);
+    if (derived !== item.status) {
+      await supabase
+        .from("wallet_items")
+        .update({ status: derived })
+        .eq("id", itemId)
+        .eq("user_id", user.id);
+    }
+
+    const { data: pins } = await supabase
+      .from("experiences")
+      .select("id, rating, review, photos")
+      .eq("wallet_item_id", itemId)
+      .eq("user_id", user.id);
+    const pin = pins?.[0];
+
+    if (derived === "attended") {
+      if (pin && starts_at) {
+        await supabase
+          .from("experiences")
+          .update({
+            starts_at,
+            ends_at: new Date(effectiveEnd(starts_at, ends_at)).toISOString(),
+          })
+          .eq("id", pin.id)
+          .eq("user_id", user.id);
+      } else if (!pin) {
+        await mintMissingPins(supabase, user.id, [
+          { ...item, starts_at, ends_at },
+        ]);
+      }
+    } else if (pin) {
+      // The gig is no longer in the past. An untouched auto-minted pin is
+      // simply wrong now and goes; one the user rated, reviewed or added
+      // photos to is theirs to delete.
+      const untouched =
+        pin.rating == null &&
+        !pin.review &&
+        (!Array.isArray(pin.photos) || pin.photos.length === 0);
+      if (untouched) {
+        await supabase.from("experiences").delete().eq("id", pin.id).eq("user_id", user.id);
+      } else if (starts_at) {
+        await supabase
+          .from("experiences")
+          .update({
+            starts_at,
+            ends_at: new Date(effectiveEnd(starts_at, ends_at)).toISOString(),
+          })
+          .eq("id", pin.id)
+          .eq("user_id", user.id);
+      }
+    }
+  }
+
+  // Trips are clustered by date; let them follow the edit.
+  await supabase.rpc("trip_assemble", { target_user: user.id });
 
   revalidatePath(`/app/item/${itemId}`);
   revalidatePath("/app");
+  revalidatePath("/app/map");
+  revalidatePath("/app/trips");
 }
 
 export async function deleteWalletItem(itemId: string) {
@@ -57,8 +124,12 @@ export async function deleteWalletItem(itemId: string) {
   if (!data || data.length === 0)
     throw new Error("Could not delete — item not found or not yours.");
 
+  // Drops any trip this was the last item of.
+  await supabase.rpc("trip_assemble", { target_user: user.id });
+
   revalidatePath("/app");
   revalidatePath("/app/map");
+  revalidatePath("/app/trips");
 }
 
 export async function updateWalletItemDetails(
@@ -93,6 +164,13 @@ export async function updateWalletItemDetails(
   if (error) throw error;
   if (!data || data.length === 0)
     throw new Error("Could not update — item not found or not yours.");
+
+  // The pin carries its own copy of the title and kind.
+  await supabase
+    .from("experiences")
+    .update({ title, kind: kind as never })
+    .eq("wallet_item_id", itemId)
+    .eq("user_id", user.id);
 
   // Upsert venue. Mirrors confirmCapture — including, until now, its bug: this
   // wrote with the session client, which the venues RLS silently denies (public
@@ -142,12 +220,22 @@ export async function updateWalletItemDetails(
       .update({ venue_id: venueId })
       .eq("id", itemId)
       .eq("user_id", user.id);
+    await supabase
+      .from("experiences")
+      .update({ venue_id: venueId })
+      .eq("wallet_item_id", itemId)
+      .eq("user_id", user.id);
   } else if (venueName !== undefined) {
     // Explicit empty string clears the venue.
     await supabase
       .from("wallet_items")
       .update({ venue_id: null })
       .eq("id", itemId)
+      .eq("user_id", user.id);
+    await supabase
+      .from("experiences")
+      .update({ venue_id: null })
+      .eq("wallet_item_id", itemId)
       .eq("user_id", user.id);
   }
 

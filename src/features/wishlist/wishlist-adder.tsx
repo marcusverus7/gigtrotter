@@ -36,10 +36,13 @@ export function WishlistAdder() {
     });
   }
 
+  // `absolute mt-12` with no positioned ancestor painted the message 48px
+  // down, ON TOP of the first wishlist row, taking no layout space — two
+  // unreadable lines on top of each other. It gets its own line now.
   return (
-    <form onSubmit={onSubmit} className="flex gap-2">
+    <form onSubmit={onSubmit} className="flex flex-wrap gap-2">
       <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
-        <SelectTrigger className="w-36 shrink-0">
+        <SelectTrigger className="w-36 shrink-0" aria-label="What kind of thing">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -61,12 +64,13 @@ export function WishlistAdder() {
         }
         value={name}
         onChange={(e) => setName(e.target.value)}
+        aria-label="Name"
       />
-      <Button type="submit" disabled={pending || !name}>
+      <Button type="submit" disabled={pending || !name} aria-label="Add to wishlist">
         <Plus />
       </Button>
       {error ? (
-        <p className="absolute mt-12 text-sm text-destructive" role="alert">
+        <p className="w-full text-sm text-destructive" role="alert">
           {error}
         </p>
       ) : null}

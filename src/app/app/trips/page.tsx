@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Bed, Plane, Ticket as TicketIcon } from "lucide-react";
@@ -84,16 +85,15 @@ export default async function TripsPage() {
                     </Badge>
                     <CardTitle className="mt-2 text-xl">{t.title}</CardTitle>
                     <CardDescription>
-                      {new Intl.DateTimeFormat(undefined, {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      }).format(new Date(t.starts_at))}
+                      <LocalDateTime
+                        iso={t.starts_at}
+                        options={{ day: "numeric", month: "short", year: "numeric" }}
+                      />
                       {" → "}
-                      {new Intl.DateTimeFormat(undefined, {
-                        day: "numeric",
-                        month: "short",
-                      }).format(new Date(t.ends_at))}
+                      <LocalDateTime
+                        iso={t.ends_at}
+                        options={{ day: "numeric", month: "short" }}
+                      />
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3 pt-5">

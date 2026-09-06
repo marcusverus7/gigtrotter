@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -157,11 +158,10 @@ export default async function ArtistPage({
                 <p className="text-sm font-medium">{item.title}</p>
                 {item.starts_at ? (
                   <span className="text-xs text-muted-foreground">
-                    {new Intl.DateTimeFormat(undefined, {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    }).format(new Date(item.starts_at))}
+                    <LocalDateTime
+                      iso={item.starts_at}
+                      options={{ day: "numeric", month: "short", year: "numeric" }}
+                    />
                   </span>
                 ) : null}
               </Link>

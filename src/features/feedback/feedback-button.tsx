@@ -99,7 +99,8 @@ export function FeedbackButton() {
                     <button
                       key={c}
                       onClick={() => setCategory(c)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      aria-pressed={category === c}
+                      className={`min-h-10 rounded-full px-4 text-xs font-medium transition-colors ${
                         category === c
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted text-muted-foreground hover:bg-muted/80"

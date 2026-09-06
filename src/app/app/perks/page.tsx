@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Calendar, Crown, ExternalLink } from "lucide-react";
@@ -91,12 +92,12 @@ function PerkCard({
   };
   unlocked: boolean;
 }) {
-  const ending = perk.ends_at
-    ? new Intl.DateTimeFormat(undefined, {
-        day: "numeric",
-        month: "short",
-      }).format(new Date(perk.ends_at))
-    : null;
+  const ending = perk.ends_at ? (
+    <LocalDateTime
+      iso={perk.ends_at}
+      options={{ day: "numeric", month: "short" }}
+    />
+  ) : null;
 
   const kindVariant: Record<string, "inner" | "friends" | "open" | "verified"> = {
     discount: "inner",

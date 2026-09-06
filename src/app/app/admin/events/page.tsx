@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CalendarClock, MapPin, ShieldCheck, TriangleAlert } from "lucide-react";
@@ -96,16 +97,23 @@ export default async function EventModerationPage() {
 
       <div className="space-y-3">
         {rows.map((ev) => {
-          const when = ev.starts_at
-            ? new Intl.DateTimeFormat(undefined, {
+          // A moderator approving a gig needs the time the promoter meant,
+          // not Vercel's UTC — a 19:30 BST doors read as 18:30 here.
+          const when = ev.starts_at ? (
+            <LocalDateTime
+              iso={ev.starts_at}
+              options={{
                 weekday: "short",
                 day: "numeric",
                 month: "short",
                 year: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-              }).format(new Date(ev.starts_at))
-            : "No date given";
+              }}
+            />
+          ) : (
+            "No date given"
+          );
           const where = [ev.venue_name, ev.venue_city]
             .filter(Boolean)
             .join(" · ");

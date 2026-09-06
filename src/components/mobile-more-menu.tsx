@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
 
@@ -36,22 +37,29 @@ export function MobileMoreMenu({
   alertBadge?: number;
   signOutAction: () => Promise<void>;
 }) {
+  const [signingOut, startSignOut] = useTransition();
+
   return (
     <DropdownMenu>
+      {/* The avatar stays 32px, but the TARGET is 44 — this is the only way
+          into six destinations and sign-out on a phone, and it was a 32px
+          tap area in the corner of the header. */}
       <DropdownMenuTrigger
-        className="relative rounded-full outline-none ring-primary/60 focus-visible:ring-2"
+        className="-mr-1.5 flex h-11 w-11 items-center justify-center rounded-full outline-none ring-primary/60 focus-visible:ring-2"
         aria-label="Account and more"
       >
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={avatarUrl ?? undefined} alt="" />
-          <AvatarFallback>{initials}</AvatarFallback>
-        </Avatar>
-        {alertBadge ? (
-          <span
-            aria-hidden
-            className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full border-2 border-background bg-primary"
-          />
-        ) : null}
+        <span className="relative">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={avatarUrl ?? undefined} alt="" />
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+          {alertBadge ? (
+            <span
+              aria-hidden
+              className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full border-2 border-background bg-primary"
+            />
+          ) : null}
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {items.map((n) => (
@@ -69,16 +77,24 @@ export function MobileMoreMenu({
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <form action={signOutAction} className="w-full">
-            <button
-              type="submit"
-              className="flex min-h-[44px] w-full items-center gap-3 text-left"
-            >
-              <LogOut className="h-4 w-4 text-muted-foreground" />
-              Sign out
-            </button>
-          </form>
+        {/* onSelect, not a nested <form>. With `asChild` Radix puts its
+            role=menuitem and key handlers on the FORM, and its Enter/Space
+            handler calls currentTarget.click() — a synthetic click on a form
+            element does not submit it, so a keyboard or switch-control user
+            just closed the menu. Tap and click happened to work because the
+            press landed on the inner button. One path now for all of them. */}
+        <DropdownMenuItem
+          disabled={signingOut}
+          onSelect={(e) => {
+            e.preventDefault();
+            startSignOut(async () => {
+              await signOutAction();
+            });
+          }}
+          className="flex min-h-[44px] items-center gap-3"
+        >
+          <LogOut className="h-4 w-4 text-muted-foreground" />
+          {signingOut ? "Signing out…" : "Sign out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

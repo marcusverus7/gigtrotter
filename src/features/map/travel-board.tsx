@@ -123,7 +123,9 @@ export function TravelBoard({ pins }: { pins: Pin[] }) {
             key={k}
             onClick={() => setFilter(k)}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs transition-colors",
+              // min-h-10: at py-1 these were ~26px, directly above the map,
+              // so a mis-tap started a map drag instead of filtering.
+              "min-h-10 rounded-full border px-4 text-xs transition-colors",
               filter === k
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",

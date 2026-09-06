@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -65,12 +65,18 @@ export function ItemDateEditor({
     setEditing(false);
   }
 
+  // Labels need ids to point at: "Starts"/"Ends" were bare <Label>s, so a
+  // screen reader announced two unnamed datetime fields and tapping the text
+  // did not focus the input.
+  const startsId = useId();
+  const endsId = useId();
+
   if (!editing) {
     return (
       <Button
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 text-xs text-muted-foreground"
+        className="gap-1.5 text-xs text-muted-foreground"
         onClick={() => setEditing(true)}
       >
         <Pencil className="h-3 w-3" />
@@ -86,21 +92,27 @@ export function ItemDateEditor({
       </p>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-xs">Starts</Label>
+          <Label htmlFor={startsId} className="text-xs">
+            Starts
+          </Label>
           <Input
+            id={startsId}
             type="datetime-local"
             value={starts}
             onChange={(e) => setStarts(e.target.value)}
-            className="h-8 text-sm"
+            className="text-sm"
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">Ends</Label>
+          <Label htmlFor={endsId} className="text-xs">
+            Ends
+          </Label>
           <Input
+            id={endsId}
             type="datetime-local"
             value={ends}
             onChange={(e) => setEnds(e.target.value)}
-            className="h-8 text-sm"
+            className="text-sm"
           />
         </div>
       </div>

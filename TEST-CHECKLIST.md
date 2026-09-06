@@ -122,6 +122,34 @@ Gate: none — migrations applied.
 | I9 | 🔒 `select * from feed_sync_runs order by started_at desc limit 3` | nightly rows, errors=0, upserted>0 |
 | I10 | 🔒 curl the cron route without the bearer token | 401 |
 
+## J — Audit fixes (added 2026-09-06)
+
+Everything here was found by a code audit, not by a tester, so these are the
+rows most likely to still be wrong.
+
+| # | Check | Expected |
+|---|---|---|
+| J1 | Sign out, then sign up with a username someone already has | "That username is already taken" — not "Database error saving new user" |
+| J2 | New account: at "How should we call you?", leave Display name blank | Continue stays disabled; fill it in, Continue, then "Skip" lands on the wallet and STAYS there (it used to bounce back to step 0 forever) |
+| J3 | /app/events city chips | London, Glasgow, Manchester, Dublin, Birmingham… — the real circuit, not Aberdeen/Aylesbury/Watford |
+| J4 | Visit `/app/events?city=%25` (a literal `%`) | Shows everything with "All" highlighted, NOT a city chip claiming one city |
+| J5 | An event with no image that is sold out | "Sold out" is visible on the CARD, not only after opening it |
+| J6 | A festival or unannounced-time event | Shows the date and "time TBA" — never a made-up 19:00 |
+| J7 | "N upcoming" badge next to Browse events | The real total (thousands), not always 30 |
+| J8 | With a city chip active, search for an artist | Results stay in that city; the chip and the list agree |
+| J9 | Phone: tap the avatar in the header | Opens on the first tap — the target is 44px now, not 32 |
+| J10 | Phone/keyboard: open the avatar menu, Tab to "Sign out", press Enter | Actually signs out (it used to just close the menu) |
+| J11 | Wallet item for a gig that has now passed, open the app | Status becomes Attended within the hour, a map pin appears, and the "how was it?" prompt offers a rating |
+| J12 | Wallet item more than 12h away vs less than 12h | Reads Going, then flips to Tonight — the badge and the tab agree |
+| J13 | Correct a wrong date on an item from past to future | Pin disappears from the map; correcting it back re-creates it |
+| J14 | Night Mode with a wishlist (no-ticket) gig tonight | It does NOT appear as tonight's ticket |
+| J15 | Add a flight and a gig in the same week, open /app/trips | Both in ONE trip, without pressing Re-cluster (needs migration 0024) |
+| J16 | Backfill 3 screenshots, one of them a photo of nothing | Says how many were read and how many "need filling in by hand" — no bare red X |
+| J17 | Alerts page, an on-sale alert | Shows the on-sale TIME in your timezone, not just a date |
+| J18 | Dates anywhere (trips, venues, artists, activity, event detail) | Match your phone's clock — no times an hour out |
+| J19 | 🔒 `curl -H "Authorization: Bearer $CRON_SECRET" https://gigtrotter.vercel.app/api/health` | 200 with db/storage/feed/anthropic all ok |
+| J20 | 🔒 Public board `/b/<your handle>` after adding a feed gig | Pin sits on the CITY, not on the venue building |
+
 ## Known-not-ready (don't file these as bugs)
 
 - Push to lock screen — alerts appear on app open only; push needs a native build

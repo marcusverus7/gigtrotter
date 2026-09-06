@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -219,14 +220,10 @@ export default async function ActivityPage() {
                         </Badge>
                       )}
                       <span className="font-mono tnum">
-                        {new Intl.DateTimeFormat(undefined, {
-                          day: "numeric",
-                          month: "short",
-                        }).format(
-                          new Date(
-                            item.kind === "pin" ? item.date : item.created_at,
-                          ),
-                        )}
+                        <LocalDateTime
+                          iso={item.kind === "pin" ? item.date : item.created_at}
+                          options={{ day: "numeric", month: "short" }}
+                        />
                       </span>
                     </div>
                   </div>

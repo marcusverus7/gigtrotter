@@ -32,7 +32,7 @@ export function DeleteItemButton({ itemId }: { itemId: string }) {
       <Button
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 text-xs text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+        className="gap-1.5 text-xs text-destructive/70 hover:text-destructive hover:bg-destructive/10"
         onClick={() => setConfirming(true)}
       >
         <Trash2 className="h-3 w-3" />

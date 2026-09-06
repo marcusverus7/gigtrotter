@@ -254,11 +254,10 @@ export default async function MerchDetailPage({
                   </p>
                   {link.wallet_items.starts_at ? (
                     <p className="text-xs text-muted-foreground">
-                      {new Intl.DateTimeFormat(undefined, {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                      }).format(new Date(link.wallet_items.starts_at))}
+                      <LocalDateTime
+                        iso={link.wallet_items.starts_at}
+                        options={{ weekday: "short", day: "numeric", month: "short" }}
+                      />
                     </p>
                   ) : null}
                 </Link>

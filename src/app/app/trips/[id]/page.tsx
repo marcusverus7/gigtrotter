@@ -124,17 +124,15 @@ export default async function TripDetailPage({
           </Badge>
           <CardTitle className="mt-3 text-3xl">{trip.title}</CardTitle>
           <p className="mt-2 text-muted-foreground">
-            {new Intl.DateTimeFormat(undefined, {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            }).format(new Date(trip.starts_at))}
+            <LocalDateTime
+              iso={trip.starts_at}
+              options={{ day: "numeric", month: "long", year: "numeric" }}
+            />
             {" → "}
-            {new Intl.DateTimeFormat(undefined, {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            }).format(new Date(trip.ends_at))}
+            <LocalDateTime
+              iso={trip.ends_at}
+              options={{ day: "numeric", month: "long", year: "numeric" }}
+            />
           </p>
         </CardHeader>
         <CardContent className="grid grid-cols-3 gap-4 pt-6">
@@ -154,10 +152,15 @@ export default async function TripDetailPage({
               <span className="absolute left-0 top-5 h-full w-px -translate-x-1/2 bg-border" />
               <div>
                 <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  {/* `day` is a UTC date KEY (starts_at.slice(0,10)), not an
+                      instant, so it is formatted in UTC on purpose — reading
+                      it in the viewer's zone would print a different day from
+                      the one the items were grouped into. */}
                   {new Intl.DateTimeFormat(undefined, {
                     weekday: "long",
                     day: "numeric",
                     month: "short",
+                    timeZone: "UTC",
                   }).format(new Date(day))}
                 </p>
                 <div className="mt-2 space-y-2">

@@ -12,18 +12,15 @@ import { sendFriendRequest } from "./actions";
 export function AddFriendForm() {
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     startTransition(async () => {
       try {
         await sendFriendRequest(username);
         toast.success(`Request sent to @${username.replace(/^@/, "")}`);
-        setSuccess(`Request sent to @${username.replace(/^@/, "")}`);
         setUsername("");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not send request.");
@@ -31,23 +28,25 @@ export function AddFriendForm() {
     });
   }
 
+  // Both messages were `absolute mt-12` inside a non-relative form, so they
+  // painted over the friends list below rather than taking a line of their
+  // own — and the success text duplicated the toast fired one line earlier.
+  // The toast keeps the success case; the error gets a real line.
   return (
-    <form onSubmit={onSubmit} className="flex gap-2">
+    <form onSubmit={onSubmit} className="flex flex-wrap gap-2">
       <Input
         placeholder="Add by username (e.g. @markl)"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
+        aria-label="Friend's username"
       />
       <Button type="submit" disabled={pending || !username}>
         <UserPlus /> Request
       </Button>
       {error ? (
-        <p className="absolute mt-12 text-sm text-destructive" role="alert">
+        <p className="w-full text-sm text-destructive" role="alert">
           {error}
         </p>
-      ) : null}
-      {success ? (
-        <p className="absolute mt-12 text-sm text-secondary">{success}</p>
       ) : null}
     </form>
   );

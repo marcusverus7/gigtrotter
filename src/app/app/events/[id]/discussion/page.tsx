@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -248,11 +249,10 @@ export default async function EventDiscussionPage({
               {event.starts_at ? (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  {new Intl.DateTimeFormat(undefined, {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  }).format(new Date(event.starts_at))}
+                  <LocalDateTime
+                    iso={event.starts_at}
+                    options={{ weekday: "short", day: "numeric", month: "short" }}
+                  />
                 </span>
               ) : null}
             </div>

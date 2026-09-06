@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MessageSquare, Bug, Lightbulb, Paintbrush, Globe } from "lucide-react";
@@ -91,12 +92,17 @@ export default async function FeedbackAdminPage() {
             row.profiles?.display_name ??
             row.profiles?.username ??
             "Anonymous";
-          const ts = new Intl.DateTimeFormat(undefined, {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          }).format(new Date(row.created_at));
+          const ts = (
+            <LocalDateTime
+              iso={row.created_at}
+              options={{
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              }}
+            />
+          );
 
           return (
             <Card key={row.id} className="border-border/60">

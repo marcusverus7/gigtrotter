@@ -1,5 +1,21 @@
 # Migration pack
 
+## Pending: 0025 (added 2026-09-06)
+
+`APPLY-ME-0025.sql` — a length check constraint on `follows.name` and
+`wishlist.name`, truncating any existing over-long rows first so it validates.
+
+The 120-char bound lives only in the follow server action. The Supabase anon
+key ships inside the client bundle by design and the row-owner policy grants
+insert, so anyone signed in can POST straight to `/rest/v1/follows` and store a
+multi-kilobyte name — bypassing the action. Those names are interpolated into
+the Bandsintown URL path by the nightly sync and build the PostgREST array
+filters behind the "For you" rail and the tour/on-sale alerts. The code now
+skips over-long names too; this is the half the database enforces.
+
+Verify: `insert into follows (user_id, kind, name) values (auth.uid(),
+'artist', repeat('x', 200));` should be rejected.
+
 ## Pending: 0024 (added 2026-09-05)
 
 `APPLY-ME-0024.sql` is `0024_trip_clustering_window.sql` verbatim — a

@@ -53,5 +53,12 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET" \
             https://gigtrotter.vercel.app/api/health)
           echo "health answered HTTP $code"
-          cat "$body"; echo
+          # This repo is PUBLIC, so the Actions log is public. /api/health is
+          # behind CRON_SECRET precisely because its body describes
+          # infrastructure — the configured model name, raw Supabase error
+          # text, and feed_sync_runs.notes, which can contain a user-typed
+          # follow name. Printing it here would publish exactly what the gate
+          # exists to withhold. Only the per-check ok/fail flags are echoed.
+          jq -r '.checks | to_entries[] | "  \(.key): \(if .value.ok then "ok" else "FAILING" end)"' "$body" \
+            || echo "  (could not parse health body)"
           [ "$code" = "200" ]

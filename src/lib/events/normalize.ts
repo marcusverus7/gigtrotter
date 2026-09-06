@@ -119,6 +119,9 @@ export function bandsintownArtistPath(name: string): string {
     .replace(/%22/g, "%27C");
 }
 
+/** Matches the zod bound in src/features/follows/actions.ts. */
+export const MAX_FOLLOW_NAME = 120;
+
 /**
  * Keep one spelling per act. Follows are user-typed, so "IDLES" and "idles"
  * both exist; Bandsintown's lookup is case-insensitive, and two spellings
@@ -129,7 +132,13 @@ export function dedupeNames(names: string[]): string[] {
   const seen = new Map<string, string>();
   for (const n of names) {
     const t = n.trim();
-    if (!t) continue;
+    // The 120-char bound lives in the follow server action, but the anon key
+    // ships in the client bundle by design, so a signed-in user can POST
+    // straight to /rest/v1/follows and store a multi-kilobyte name. These
+    // strings go into a URL path and into PostgREST array filters, so the
+    // bound is re-applied here rather than trusted. Migration 0025 adds the
+    // matching check constraint so the database enforces it too.
+    if (!t || t.length > MAX_FOLLOW_NAME) continue;
     const k = normalizeName(t);
     if (k && !seen.has(k)) seen.set(k, t);
   }

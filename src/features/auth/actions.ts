@@ -17,6 +17,9 @@ type Admin = ReturnType<typeof createServiceClient>;
 /** Every bucket a user can write into, keyed on `<user id>/…`. */
 const USER_BUCKETS = ["captures", "avatars", "discussion-photos"] as const;
 
+/** `<uid>/photos/<experienceId>/<file>` is the deepest path we write. */
+const MAX_PURGE_DEPTH = 6;
+
 /**
  * Delete everything under a storage prefix, however deep and however many.
  *
@@ -27,21 +30,55 @@ const USER_BUCKETS = ["captures", "avatars", "discussion-photos"] as const;
  * attached to their memories, the one thing they would most expect to go —
  * along with any captures past the first thousand.
  */
-async function purgePrefix(admin: Admin, bucket: string, prefix: string) {
+async function purgePrefix(
+  admin: Admin,
+  bucket: string,
+  prefix: string,
+  depth = 0,
+): Promise<void> {
+  if (depth > MAX_PURGE_DEPTH) {
+    console.error("[account] purge depth exceeded", JSON.stringify({ bucket, prefix }));
+    return;
+  }
   const PAGE = 1000;
+  const files: string[] = [];
   const folders: string[] = [];
+
+  // Enumerate the whole prefix BEFORE deleting anything. Paging with a
+  // growing offset while removing the page you just listed is the classic
+  // shrinking-collection bug: the survivors slide down into positions the
+  // next offset has already passed, so with 2,500 objects a thousand of them
+  // are never listed again — and the loop then exits looking successful.
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await admin.storage
       .from(bucket)
       .list(prefix, { limit: PAGE, offset });
-    if (error || !data || data.length === 0) return;
+    if (error) {
+      console.error(
+        "[account] purge list failed",
+        JSON.stringify({ bucket, prefix, offset, message: error.message }),
+      );
+      break; // break, not return: the folders found so far still get walked
+    }
+    if (!data || data.length === 0) break;
     // A folder entry has no id; a file has one.
-    const files = data.filter((e) => e.id).map((e) => `${prefix}/${e.name}`);
-    for (const e of data) if (!e.id) folders.push(`${prefix}/${e.name}`);
-    if (files.length > 0) await admin.storage.from(bucket).remove(files);
+    for (const e of data) {
+      if (e.id) files.push(`${prefix}/${e.name}`);
+      else folders.push(`${prefix}/${e.name}`);
+    }
     if (data.length < PAGE) break;
   }
-  for (const folder of folders) await purgePrefix(admin, bucket, folder);
+
+  for (let i = 0; i < files.length; i += PAGE) {
+    const { error } = await admin.storage.from(bucket).remove(files.slice(i, i + PAGE));
+    if (error) {
+      console.error(
+        "[account] purge remove failed",
+        JSON.stringify({ bucket, prefix, count: files.length, message: error.message }),
+      );
+    }
+  }
+  for (const folder of folders) await purgePrefix(admin, bucket, folder, depth + 1);
 }
 
 /**

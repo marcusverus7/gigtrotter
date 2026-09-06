@@ -11,6 +11,9 @@ jobs:
     steps:
       - name: Trigger the sync endpoint
         run: |
-          curl -fsS --max-time 300 \
+          # -o /dev/null: this repo is public, and the response carries both
+          # providers' `notes`, which can include a user-typed follow name.
+          # -f still fails the job on a non-2xx, which is the point.
+          curl -fsS --max-time 300 -o /dev/null -w "events-sync answered HTTP %{http_code}\n" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             https://gigtrotter.vercel.app/api/cron/events-sync

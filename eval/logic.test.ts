@@ -616,6 +616,16 @@ check("countryName renders a code", countryName("GB") === "United Kingdom");
 check("countryName leaves non-codes alone", countryName("Narnia") === "Narnia");
 check("bandsintownArtistPath double-encodes the slash", bandsintownArtistPath("AC/DC") === "AC%252FDC");
 check("bandsintownArtistPath leaves plain names alone", bandsintownArtistPath("IDLES") === "IDLES");
+// The 120-char zod bound only runs in the server action; the anon key ships
+// in the client bundle, so a row can be written straight to PostgREST.
+check(
+  "dedupeNames drops a name past the 120-char bound",
+  dedupeNames(["IDLES", "x".repeat(121)]).length === 1,
+);
+check(
+  "dedupeNames keeps a name exactly at the bound",
+  dedupeNames(["y".repeat(120)]).length === 1,
+);
 check(
   "dedupeNames keeps one spelling per act",
   JSON.stringify(dedupeNames(["IDLES", " idles", "Fontaines D.C.", "fontaines dc", ""])) ===

@@ -14,9 +14,15 @@
  * search rather than a guess. When a real reporting service is wired later,
  * this is where it hooks in.
  *
- * The digest is what Next shows the user; `request.path` and the router kind
- * say where it happened. No request body, headers or user id: this line ends
- * up in a log the app's own privacy rules do not cover.
+ * The digest is what Next shows the user; the route pattern says where it
+ * happened. No request body, headers or user id: this line ends up in a log
+ * the app's own privacy rules do not cover.
+ *
+ * The QUERY STRING is stripped, deliberately. Next hands this hook
+ * `path: req.url` — the raw request target, not a route pattern — and the
+ * auth callback carries single-use credentials there (`?token_hash=…`,
+ * `?code=…`). One unhandled throw on that route would otherwise copy a
+ * working session grant into the runtime log.
  */
 export async function onRequestError(
   err: unknown,
@@ -30,7 +36,7 @@ export async function onRequestError(
       digest: e?.digest ?? null,
       message: e?.message ?? String(err),
       method: request.method,
-      path: request.path,
+      path: request.path.split("?")[0],
       route: context.routePath,
       routerKind: context.routerKind,
       renderSource: context.renderSource ?? null,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,14 @@ export function LoginForm({
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  searchParams.then((p) => {
-    if (p.error && !error) {
+  // In an effect, not the render body. Attached inline, the `.then` was
+  // scheduled on EVERY render whenever `error` was null: submitting the form
+  // cleared the error, the re-render re-applied "That link has expired…", and
+  // the tester read a stale message while their password was in flight.
+  useEffect(() => {
+    let live = true;
+    searchParams.then((p) => {
+      if (!live || !p.error) return;
       setError(
         p.error === "link_invalid"
           ? "That link has expired or was already used. Request a new one below."
@@ -32,8 +38,11 @@ export function LoginForm({
             ? "That link was incomplete. Request a new one below."
             : "Sign-in failed. Try again.",
       );
-    }
-  });
+    });
+    return () => {
+      live = false;
+    };
+  }, [searchParams]);
 
   async function signInWithEmail(e: React.FormEvent) {
     e.preventDefault();

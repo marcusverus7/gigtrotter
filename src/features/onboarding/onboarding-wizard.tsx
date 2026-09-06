@@ -44,7 +44,12 @@ export function OnboardingWizard({
     startTransition(async () => {
       try {
         await updateProfile({
-          display_name: displayName.trim() || null,
+          // Required, not optional: /app sends anyone with an empty wallet and
+          // no display name here, so saving null meant "Skip — I'll explore
+          // first" landed on /app and was bounced straight back to step 0
+          // with nothing on screen explaining why. The Continue button below
+          // now requires a name, which is what makes the redirect terminate.
+          display_name: displayName.trim(),
           username: username.trim(),
         });
         setStep(2);
@@ -157,7 +162,7 @@ export function OnboardingWizard({
             size="lg"
             className="group"
             onClick={saveAndNext}
-            disabled={pending || !username.trim()}
+            disabled={pending || !username.trim() || !displayName.trim()}
           >
             {pending ? "Saving..." : "Continue"}
             <ArrowRight className="transition-transform group-hover:translate-x-1" />

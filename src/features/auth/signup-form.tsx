@@ -39,7 +39,15 @@ export function SignupForm() {
         },
       });
       if (error) {
-        setError(error.message);
+        // GoTrue reports a failure inside the handle_new_user trigger as the
+        // opaque "Database error saving new user". In practice it is the
+        // unique constraint on profiles.username, and the tester has no way
+        // to know that — retrying the same username fails identically.
+        setError(
+          /database error saving new user/i.test(error.message)
+            ? "That username is already taken — try another."
+            : error.message,
+        );
         return;
       }
       if (data.user && !data.session) {

@@ -157,6 +157,22 @@ export async function ingestCapture(opts: {
     } catch (err) {
       const reason = err instanceof ParseError ? err.reason : "model_error";
       parseError = `${reason}: ${err instanceof Error ? err.message : "unknown"}`;
+      // Loud, because the failure is otherwise INVISIBLE: the placeholder
+      // below makes the request succeed, the route answers 200, and the only
+      // record is a captures.error column nothing queries. When the Anthropic
+      // balance ran dry every tester got "AI couldn't read this image" for
+      // every upload and the logs said nothing at all. `model_error` is
+      // infrastructure (key, model name, credits, network); the other reasons
+      // mean the image itself was unreadable.
+      console.error(
+        "[capture] parse failed",
+        JSON.stringify({
+          reason,
+          message: err instanceof Error ? err.message : String(err),
+          userId: opts.userId,
+          infrastructure: reason === "model_error",
+        }),
+      );
       // Surface a placeholder parse so the row still lands — the UI shows a
       // manual-review state instead of swallowing the capture silently.
       parsed = {

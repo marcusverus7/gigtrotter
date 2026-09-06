@@ -11,12 +11,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { pgTextArray } from "@/lib/supabase/filters";
+import { pgTextArray, stripLikeWildcards } from "@/lib/supabase/filters";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { EventSearch } from "@/features/events/event-search";
 import { EventCard, type EventSummary } from "@/features/events/event-card";
 
 export const metadata: Metadata = { title: "Events — Social Hub" };
+
+/** Rows fetched for the browse grid. The badge shows the real total. */
+const PAGE_SIZE = 30;
 
 const EVENT_COLS =
   "id, title, headliner, artist_names, category, venue_name, venue_city, venue_country, starts_at, image_url, min_price_cents, currency, is_sold_out, tags";
@@ -40,24 +43,47 @@ export default async function EventsPage({
     .select(EVENT_COLS)
     .gte("starts_at", nowIso)
     .order("starts_at", { ascending: true })
-    .limit(30);
-  if (city) upcomingQuery = upcomingQuery.ilike("venue_city", city);
+    .limit(PAGE_SIZE);
+  let countQuery = supabase
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .gte("starts_at", nowIso);
+  // .ilike sends this value as the PATTERN, so a wildcard in the query string
+  // would widen the filter while the chip still claimed one city. Stripped,
+  // not escaped — see stripLikeWildcards for why escaping does nothing here.
+  const cityFilter = city ? stripLikeWildcards(city) : "";
+  if (cityFilter) {
+    upcomingQuery = upcomingQuery.ilike("venue_city", cityFilter);
+    countQuery = countQuery.ilike("venue_city", cityFilter);
+  }
 
-  const [{ data: upcoming }, { data: cityRows }, { data: follows }] =
+  const [{ data: upcoming }, { count: upcomingCount }, { data: cityRows }, { data: follows }] =
     await Promise.all([
       upcomingQuery,
+      countQuery,
+      // Ordered by date and taking the largest page PostgREST will return:
+      // an unordered 400-row sample sorted alphabetically put Aberdeen and
+      // Aylesbury on the chips and hid London and Manchester entirely. Cities
+      // are ranked by how much is on soonest, which is what a chip is for.
       supabase
         .from("events")
         .select("venue_city")
         .gte("starts_at", nowIso)
         .not("venue_city", "is", null)
-        .limit(400),
+        .order("starts_at", { ascending: true })
+        .limit(1000),
       supabase.from("follows").select("kind, name").eq("user_id", user.id).limit(200),
     ]);
 
-  const cities = [...new Set((cityRows ?? []).map((r) => r.venue_city).filter((c): c is string => !!c))]
-    .sort((a, b) => a.localeCompare(b))
-    .slice(0, 12);
+  const cityCounts = new Map<string, number>();
+  for (const r of cityRows ?? []) {
+    if (!r.venue_city) continue;
+    cityCounts.set(r.venue_city, (cityCounts.get(r.venue_city) ?? 0) + 1);
+  }
+  const cities = [...cityCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 12)
+    .map(([name]) => name);
 
   // "For you": upcoming events for artists/venues the user follows.
   const followedArtists = (follows ?? []).filter((f) => f.kind === "artist").map((f) => f.name);
@@ -215,7 +241,9 @@ export default async function EventsPage({
             Browse events
           </h2>
           <Badge variant="outline" className="text-[10px]">
-            {upcoming?.length ?? 0} upcoming
+            {/* The real total, not the page size — this printed "30 upcoming"
+                for every city with at least 30 events. */}
+            {upcomingCount ?? upcoming?.length ?? 0} upcoming
           </Badge>
         </div>
 
@@ -223,7 +251,7 @@ export default async function EventsPage({
             inside the WebView shells included. */}
         {cities.length > 1 ? (
           <div className="flex flex-wrap gap-2">
-            <Button asChild size="sm" variant={!city ? "default" : "outline"} className="h-8">
+            <Button asChild size="sm" variant={!cityFilter ? "default" : "outline"} className="h-8">
               <Link href="/app/events">All</Link>
             </Button>
             {cities.map((c) => (
@@ -231,7 +259,7 @@ export default async function EventsPage({
                 key={c}
                 asChild
                 size="sm"
-                variant={city?.toLowerCase() === c.toLowerCase() ? "default" : "outline"}
+                variant={cityFilter.toLowerCase() === c.toLowerCase() ? "default" : "outline"}
                 className="h-8"
               >
                 <Link href={`/app/events?city=${encodeURIComponent(c)}`}>{c}</Link>
@@ -240,19 +268,26 @@ export default async function EventsPage({
           </div>
         ) : null}
 
+        {/* The search box renders either way. The empty state told people to
+            "search for a city or artist" while the search box was inside the
+            non-empty branch, so the one instruction on screen was the one
+            thing they could not do. */}
+        <EventSearch initialEvents={enrichedUpcoming} initialCity={cityFilter} />
+
         {!upcoming || upcoming.length === 0 ? (
           <Card className="border-dashed">
             <CardHeader>
-              <CardTitle className="text-base">No events listed yet</CardTitle>
+              <CardTitle className="text-base">
+                {cityFilter ? `Nothing listed in ${cityFilter} yet` : "No events listed yet"}
+              </CardTitle>
               <CardDescription>
-                Events appear here as promoters and our sync pipeline add them.
-                Search for a city or artist to find what&apos;s on.
+                {cityFilter
+                  ? "Try another city, or search above for an artist."
+                  : "Events appear here as promoters and our sync pipeline add them. Search above for a city or artist to find what's on."}
               </CardDescription>
             </CardHeader>
           </Card>
-        ) : (
-          <EventSearch initialEvents={enrichedUpcoming} />
-        )}
+        ) : null}
       </section>
     </div>
   );

@@ -215,14 +215,20 @@ export default async function EventDetailPage({
               <div className="flex items-start gap-3">
                 <Calendar className="mt-0.5 h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-sm font-medium">
-                    {new Intl.DateTimeFormat(undefined, {
+                  {/* Client-side, like the time beneath it. Formatted on the
+                      server this was Vercel's UTC forever — never a hydration
+                      flash — so a 00:30 BST gig showed the previous day's
+                      date directly above its own correct start time. */}
+                  <LocalDateTime
+                    className="block text-sm font-medium"
+                    iso={event.starts_at}
+                    options={{
                       weekday: "long",
                       day: "numeric",
                       month: "long",
                       year: "numeric",
-                    }).format(startsAt)}
-                  </p>
+                    }}
+                  />
                   <p className="text-xs text-muted-foreground">
                     <LocalDateTime
                       iso={event.starts_at}

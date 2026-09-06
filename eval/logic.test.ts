@@ -27,11 +27,12 @@ import {
   type FeedDate,
   type Overlap,
 } from "../src/lib/alerts/phrasing";
-import { pgTextArray } from "../src/lib/supabase/filters";
+import { pgTextArray, stripLikeWildcards } from "../src/lib/supabase/filters";
 import { deriveStatus, effectiveEnd, nextStatus } from "../src/lib/wallet/lifecycle";
 import {
   bandsintownArtistPath,
   cityCentroid,
+  cleanText,
   countryName,
   dedupeNames,
   normalizeName,
@@ -552,6 +553,16 @@ check(
 check("pgTextArray escapes a backslash", pgTextArray(["a\\b"]) === '{"a\\\\b"}');
 check("pgTextArray empty list is an empty literal", pgTextArray([]) === "{}");
 
+// .ilike sends its value as the PATTERN. Backslash-escaping is a no-op --
+// PostgREST eats the backslash -- so wildcards are removed instead.
+check("stripLikeWildcards removes a bare percent", stripLikeWildcards("%") === "");
+check("stripLikeWildcards removes a trailing percent", stripLikeWildcards("L%") === "L");
+check("stripLikeWildcards removes the underscore wildcard", stripLikeWildcards("L_eds") === "Leds");
+check("stripLikeWildcards removes a backslash", stripLikeWildcards("a\\b") === "ab");
+check("stripLikeWildcards leaves an ordinary city alone", stripLikeWildcards("Milton Keynes") === "Milton Keynes");
+
+// .ilike sends its value as the PATTERN: "?city=%" matched every city.
+
 /* ── wallet lifecycle ───────────────────────────────────────────────────── */
 //
 // One rule for "what status should this item have right now", shared by
@@ -594,6 +605,10 @@ check("sameCity: unknown never matches", !sameCity(null, "London"));
 check("cityCentroid: sweep city", cityCentroid("Manchester")?.lat === 53.4808);
 check("cityCentroid: loose prefix match", cityCentroid("Newcastle upon Tyne")?.lng === -1.6178);
 check("cityCentroid: unknown town is null, never the venue point", cityCentroid("Monivea") === null);
+check("cleanText trims provider padding", cleanText(" London ") === "London");
+check("cleanText collapses inner runs", cleanText("Newcastle  upon   Tyne") === "Newcastle upon Tyne");
+check("cleanText maps blank to null", cleanText("   ") === null);
+check("cleanText passes a clean name through", cleanText("Belfast") === "Belfast");
 check("toCountryCode: Bandsintown full name", toCountryCode("United Kingdom") === "GB");
 check("toCountryCode: Ticketmaster ISO-2 passes through", toCountryCode("gb") === "GB");
 check("toCountryCode: Ireland", toCountryCode("Ireland") === "IE");

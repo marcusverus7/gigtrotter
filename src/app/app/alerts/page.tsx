@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LocalDateTime } from "@/components/local-datetime";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { AlertDismisser } from "@/features/wishlist/alert-dismisser";
 
@@ -107,13 +108,22 @@ export default async function AlertsPage() {
                       </span>
                     ) : null}
                     {a.event_at ? (
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {new Intl.DateTimeFormat(undefined, {
+                      // In the VIEWER's zone, not the server's (UTC on
+                      // Vercel), and with the time for on-sale alerts — the
+                      // one fact an on-sale alert exists to deliver is when
+                      // to be at the ticket page, and it was not on screen.
+                      <LocalDateTime
+                        className="font-mono text-xs text-muted-foreground"
+                        iso={a.event_at}
+                        options={{
                           day: "numeric",
                           month: "short",
                           year: "numeric",
-                        }).format(new Date(a.event_at))}
-                      </span>
+                          ...(a.kind === "on_sale"
+                            ? { hour: "2-digit", minute: "2-digit" }
+                            : {}),
+                        }}
+                      />
                     ) : null}
                   </div>
                   <p className="text-base font-medium leading-tight">

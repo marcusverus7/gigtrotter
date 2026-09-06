@@ -11,11 +11,17 @@ import { EventCard, type EventSummary } from "./event-card";
 
 export function EventSearch({
   initialEvents,
+  initialCity = "",
 }: {
   initialEvents: EventSummary[];
+  /** The ?city= chip the page is filtered by, so searching stays in scope. */
+  initialCity?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [city, setCity] = useState("");
+  // Seeded from the active chip: searching used to drop it silently, so
+  // "Fontaines" under a highlighted Dublin chip returned every city while the
+  // chip still claimed Dublin.
+  const [city, setCity] = useState(initialCity);
   const [results, setResults] = useState<EventSummary[]>(initialEvents);
   const [searched, setSearched] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -31,7 +37,7 @@ export function EventSearch({
 
   function onReset() {
     setQuery("");
-    setCity("");
+    setCity(initialCity);
     setResults(initialEvents);
     setSearched(false);
   }
@@ -42,6 +48,8 @@ export function EventSearch({
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            type="search"
+            aria-label="Search events, artists and venues"
             placeholder="Search events, artists, venues..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -51,6 +59,7 @@ export function EventSearch({
         <div className="relative w-40">
           <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            aria-label="City"
             placeholder="City"
             value={city}
             onChange={(e) => setCity(e.target.value)}

@@ -135,3 +135,17 @@ export function dedupeNames(names: string[]): string[] {
   }
   return [...seen.values()];
 }
+
+/**
+ * Collapse the whitespace providers leave on names.
+ *
+ * Ticketmaster returns " London", "Belfast " and "Todmorden " alongside the
+ * clean spellings — 96 events across 14 city names in the first two sweeps.
+ * Every one of those is a second, separate value: it splits the city chips,
+ * and clicking the clean chip silently misses the padded rows, because
+ * `.ilike` is an exact match once the wildcards are gone.
+ */
+export function cleanText(v: string | null | undefined): string | null {
+  const t = (v ?? "").replace(/\s+/g, " ").trim();
+  return t || null;
+}

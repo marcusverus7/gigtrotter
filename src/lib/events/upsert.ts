@@ -2,7 +2,7 @@ import "server-only";
 
 import { createServiceClient } from "@/lib/supabase/server";
 import type { FeedEvent } from "@/lib/events/feed-types";
-import { cityCentroid, toCountryCode } from "@/lib/events/normalize";
+import { cityCentroid, cleanText, toCountryCode } from "@/lib/events/normalize";
 
 /**
  * FeedEvent[] -> database. Idempotent: events upsert on the
@@ -40,7 +40,7 @@ export type UpsertResult = {
 };
 
 const venueKey = (name: string, city: string | null | undefined) =>
-  `${name.trim().toLowerCase()}|${(city ?? "").trim().toLowerCase()}`;
+  `${(cleanText(name) ?? "").toLowerCase()}|${(cleanText(city) ?? "").toLowerCase()}`;
 
 /** PostgREST returns at most this many rows per request (Supabase max-rows). */
 const PAGE = 1000;
@@ -90,9 +90,9 @@ async function resolveVenues(
         batch.map(([, v]) => {
           const centroid = cityCentroid(v.city);
           return {
-            name: v.name,
-            city: v.city,
-            country: toCountryCode(v.country),
+            name: cleanText(v.name) ?? v.name,
+            city: cleanText(v.city),
+            country: toCountryCode(cleanText(v.country)),
             lat: v.lat,
             lng: v.lng,
             city_lat: centroid?.lat ?? null,
@@ -158,9 +158,9 @@ export async function upsertFeedEvents(events: FeedEvent[]): Promise<UpsertResul
           venue_id: ev.venue?.name
             ? (venueIds.get(venueKey(ev.venue.name, ev.venue.city)) ?? null)
             : null,
-          venue_name: ev.venue?.name ?? null,
-          venue_city: ev.venue?.city ?? null,
-          venue_country: toCountryCode(ev.venue?.country),
+          venue_name: cleanText(ev.venue?.name),
+          venue_city: cleanText(ev.venue?.city),
+          venue_country: toCountryCode(cleanText(ev.venue?.country)),
           lat: ev.venue?.lat ?? null,
           lng: ev.venue?.lng ?? null,
           starts_at: ev.startsAt,

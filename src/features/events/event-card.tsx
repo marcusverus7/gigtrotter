@@ -66,44 +66,64 @@ function money(cents: number, currency: string) {
   }).format(cents / 100);
 }
 
+/** Tags that describe the LISTING, not the music — never shown as genres. */
+const STATUS_TAGS = new Set(["time_tba", "postponed", "rescheduled"]);
+
 export function EventCard({ event }: { event: EventSummary }) {
   const Icon = CATEGORY_ICONS[event.category] ?? Music;
   const place = [event.venue_name, event.venue_city]
     .filter(Boolean)
     .join(" · ");
+  // Ticketmaster gives no time for an unannounced or multi-day event; the
+  // mapper stores 19:00 in the venue's zone as a placeholder and records that
+  // it did. Printing it as fact told people to turn up at seven for a
+  // festival, so the card shows the date alone and says the time is not out.
+  const timeTba = event.tags.includes("time_tba");
+  const statusNote = event.tags.find((t) => t === "postponed" || t === "rescheduled");
+  const genreTags = event.tags.filter((t) => !STATUS_TAGS.has(t));
 
   return (
     <Link href={`/app/events/${event.id}`}>
       <Card className="group overflow-hidden transition-all hover:border-primary/40 hover:shadow-lg">
-        {event.image_url ? (
-          <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+        {/* The sold-out and category badges sit OUTSIDE the image branch: they
+            used to live inside it, so an event with no image_url — every
+            manually submitted one, and many Bandsintown rows — showed no
+            sold-out marker at all, and the only way to find out was to open
+            it. */}
+        <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+          {event.image_url ? (
             <img
               src={event.image_url}
               alt={event.title}
               className="h-full w-full object-cover transition-transform group-hover:scale-105"
             />
-            {event.is_sold_out ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/70">
-                <Badge variant="destructive" className="text-sm">
-                  Sold out
-                </Badge>
-              </div>
-            ) : null}
-            <div className="absolute bottom-2 left-2 flex gap-1.5">
-              <Badge
-                variant="secondary"
-                className="bg-background/80 text-[10px] backdrop-blur-sm"
-              >
-                <Icon className="mr-1 h-3 w-3" />
-                {CATEGORY_LABELS[event.category] ?? "Event"}
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/10">
+              <Icon className="h-12 w-12 text-muted-foreground/30" />
+            </div>
+          )}
+          {event.is_sold_out ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/70">
+              <Badge variant="destructive" className="text-sm">
+                Sold out
               </Badge>
             </div>
+          ) : null}
+          <div className="absolute bottom-2 left-2 flex flex-wrap gap-1.5">
+            <Badge
+              variant="secondary"
+              className="bg-background/80 text-[10px] backdrop-blur-sm"
+            >
+              <Icon className="mr-1 h-3 w-3" />
+              {CATEGORY_LABELS[event.category] ?? "Event"}
+            </Badge>
+            {statusNote ? (
+              <Badge variant="destructive" className="text-[10px] capitalize">
+                {statusNote}
+              </Badge>
+            ) : null}
           </div>
-        ) : (
-          <div className="flex aspect-[16/9] items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/10">
-            <Icon className="h-12 w-12 text-muted-foreground/30" />
-          </div>
-        )}
+        </div>
 
         <CardHeader className="pb-2 pt-3">
           <CardTitle className="text-base leading-tight">
@@ -128,9 +148,9 @@ export function EventCard({ event }: { event: EventSummary }) {
                 weekday: "short",
                 day: "numeric",
                 month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
+                ...(timeTba ? {} : { hour: "2-digit", minute: "2-digit" }),
               }).format(new Date(event.starts_at))}
+              {timeTba ? " · time TBA" : ""}
             </p>
           ) : null}
 
@@ -162,9 +182,9 @@ export function EventCard({ event }: { event: EventSummary }) {
             </div>
           </div>
 
-          {event.tags.length > 0 ? (
+          {genreTags.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {event.tags.slice(0, 3).map((tag) => (
+              {genreTags.slice(0, 3).map((tag) => (
                 <Badge
                   key={tag}
                   variant="outline"

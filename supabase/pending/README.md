@@ -1,20 +1,34 @@
 # Migration pack
 
-## Pending: 0023 (added 2026-09-05)
+## Pending: 0024 (added 2026-09-05)
 
-`APPLY-ME-0023.sql` is `0023_feed_venue_centroids_and_trips.sql` verbatim. Two
-corrections, neither destructive:
+`APPLY-ME-0024.sql` is `0024_trip_clustering_window.sql` verbatim — a
+`create or replace function` for `trip_assemble`, so it needs the SQL editor.
 
-1. **Venue city centroids.** Until 2026-09-05 the feed copied each venue's exact
-   coordinates into `city_lat`/`city_lng` — the columns the anonymous public
-   board uses for its city-fuzzed pins. Backfills sweep-list cities to the list
-   centroid and nulls the rest. Verify: `select count(*) from venues where lat
-   is not null and city_lat is not distinct from lat` should be 0 afterwards.
-2. **`trip_assemble` window.** Attach and look-ahead windows were asymmetric
-   (18h vs 7 days), so a flight and a gig five days later never shared a trip.
-   Both are 7 days now, a trip must contain travel, wishlist items never
-   cluster, and emptied trips are deleted. Verify with `\df trip_assemble` or
-   by re-clustering a wallet that has a flight and a gig in the same week.
+The attach and look-ahead windows were asymmetric (18h vs 7 days), so a flight
+and a gig five days later never shared a trip: the flight sat in a one-item
+trip and the gig in none. Both are 7 days now, a trip must contain travel,
+wishlist items never cluster, and trips emptied by a deletion or a date edit
+are dropped. The app calls this RPC after every wallet insert, date edit and
+delete as of 2026-09-05 — the OLD function is safe to keep calling meanwhile
+(it still has its 0015 auth guard), it just clusters less well and leaves
+empty trips behind.
+
+Verify after running: with a flight and a gig in the same week in one wallet,
+press Re-cluster on /app/trips — both should land in one trip.
+
+## Applied 2026-09-05: 0023 (feed venue centroids)
+
+Applied through PostgREST rather than the SQL editor — it is two UPDATEs, no
+DDL. 629 of 633 venue rows carried the venue's exact coordinates in
+`city_lat`/`city_lng`, the columns the anonymous public board reads for its
+city-fuzzed pins, so a wallet item at any feed venue was pinned to the
+building on `/b/<handle>`. Sweep-list cities took the list centroid (every
+London venue now shares one point); 109 rows whose city is not in the list
+were nulled, since a missing pin is the safe failure and an exact one is not.
+
+Verified: `select count(*) from venues where lat is not null and city_lat is
+not distinct from lat` returns 0.
 
 ## Applied 2026-09-02: 0014 through 0022
 

@@ -301,12 +301,33 @@ export async function issueCompTicket(
   if (!tier || tier.event_id !== eventId) throw new Error("That ticket type is not on this event.");
 
   const code = makeTicketCode(currentSigningSecret());
+  const walletStatus = deriveStatus(event.starts_at, event.ends_at);
+
+  // One transaction for the wallet item and the ticket row (0033). Until the
+  // function exists in this database, fall back to the two inserts.
+  const tx = await service.rpc("issue_ticket_tx", {
+    target_event: eventId,
+    target_tier: tierId,
+    new_owner: target.id,
+    new_code: code,
+    issued_as: "comp",
+    from_user: user.id,
+    for_order: null,
+    wallet_status: walletStatus,
+    note,
+  });
+  if (!tx.error) {
+    revalidatePath(`/app/events/${eventId}/tickets`);
+    return { code };
+  }
+  if (!isMissingFunction(tx.error)) throw new Error(tx.error.message);
+
   const { data: wallet } = await service
     .from("wallet_items")
     .insert({
       user_id: target.id,
       kind: "ticket",
-      status: deriveStatus(event.starts_at, event.ends_at),
+      status: walletStatus,
       title: event.title,
       subtitle: [tier.name, event.venue_name, event.venue_city].filter(Boolean).join(" · ") || null,
       venue_id: event.venue_id,
@@ -336,6 +357,11 @@ export async function issueCompTicket(
   if (error) throw error;
   revalidatePath(`/app/events/${eventId}/tickets`);
   return { code };
+}
+
+/** PostgREST's "no such function" (migration not applied yet). */
+function isMissingFunction(err: { code?: string; message?: string }): boolean {
+  return err.code === "PGRST202" || err.code === "42883" || /could not find the function/i.test(err.message ?? "");
 }
 
 export type CheckInResult =
@@ -484,6 +510,30 @@ export async function transferTicket(ticketId: string, username: string) {
     .in("status", ["open", "reserved"])
     .maybeSingle();
   if (live) throw new Error("This ticket is listed for resale. Withdraw the listing first.");
+
+  // Void + re-issue in ONE transaction (0033): a failure half-way can no
+  // longer leave the holder with nothing valid, and the row lock means two
+  // concurrent transfers cannot both succeed. Falls back to the stepwise path
+  // only while the function is absent from this database.
+  const freshCode = makeTicketCode(currentSigningSecret());
+  const tx = await service.rpc("transfer_ticket_tx", {
+    target_ticket: row.id,
+    current_owner: user.id,
+    new_owner: target.id,
+    new_code: freshCode,
+    wallet_status: deriveStatus(row.events?.starts_at ?? null, row.events?.ends_at ?? null),
+  });
+  if (!tx.error) {
+    const r = (tx.data ?? {}) as { error?: string };
+    if (r.error === "listed") throw new Error("This ticket is listed for resale. Withdraw the listing first.");
+    if (r.error === "started") throw new Error("The event has started.");
+    if (r.error === "not_valid" || r.error === "not_found") throw new Error("This ticket can no longer be transferred.");
+    if (r.error) throw new Error("Could not transfer — try again.");
+    revalidatePath("/app");
+    if (row.wallet_item_id) revalidatePath(`/app/item/${row.wallet_item_id}`);
+    return;
+  }
+  if (!isMissingFunction(tx.error)) throw new Error(tx.error.message);
 
   // The old code dies with the transfer; the new holder gets a fresh one.
   const { data: voided } = await service

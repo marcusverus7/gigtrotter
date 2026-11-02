@@ -212,6 +212,23 @@ async function main() {
   check("G5: resale replay is a no-op", (rr2[0].r as { already?: boolean }).already === true && (await sql`select count(*)::int as n from public.refunds where related_order_id = ${buyerOrder}`)[0].n === 1);
   check("G1: the seller can read their refund row; a stranger cannot", (await as(users.stranger, (tx) => tx`select id from public.refunds where order_id = ${order}`)).length === 1 && (await as(users.inner, (tx) => tx`select id from public.refunds where order_id = ${order}`)).length === 0);
 
+  // ── 0033: transfers are atomic and exclusive ───────────────────────────────
+  const [tk3] = await sql`select id from public.tickets where order_id = ${order} and status = 'valid' limit 1`;
+  const codeA = `GT-TRANA-${tag.slice(-5).toUpperCase()}-AAAAAA`;
+  const codeB = `GT-TRANB-${tag.slice(-5).toUpperCase()}-BBBBBB`;
+  const [ta, tb] = await Promise.all([
+    sql`select public.transfer_ticket_tx(${tk3.id}, ${users.stranger}, ${users.friend}, ${codeA}, 'going') as r`,
+    sql`select public.transfer_ticket_tx(${tk3.id}, ${users.stranger}, ${users.inner}, ${codeB}, 'going') as r`,
+  ]);
+  const trs = [ta[0].r, tb[0].r] as Array<{ error?: string; ticket_id?: string }>;
+  const newOnes = await sql`select owner_id, status, issued_as, transferred_from from public.tickets where code in (${codeA}, ${codeB})`;
+  const [oldT3] = await sql`select status from public.tickets where id = ${tk3.id}`;
+  check("0033 transfer: two concurrent transfers → exactly one succeeds", trs.filter((r) => r.ticket_id).length === 1 && trs.filter((r) => r.error === "not_valid").length === 1, JSON.stringify(trs));
+  check("0033 transfer: old voided, exactly one new valid ticket issued as transfer", oldT3.status === "transferred" && newOnes.length === 1 && newOnes[0].status === "valid" && newOnes[0].issued_as === "transfer" && newOnes[0].transferred_from === users.stranger);
+  const notMine = await sql`select public.transfer_ticket_tx(${tk3.id}, ${users.inner}, ${users.friend}, 'GT-NOPEE-NOPEE-NOPEEE', 'going') as r`;
+  check("0033 transfer: not the owner → not_found, nothing changes", (notMine[0].r as { error?: string }).error === "not_found");
+  check("0033 transfer_ticket_tx not callable by a user", !!(await denied(as(users.stranger, (tx) => tx`select public.transfer_ticket_tx(${tk3.id}, ${users.stranger}, ${users.friend}, 'x', 'going')`))));
+
   // ── G6: door race + staff rights ─────────────────────────────────────────
   const [tk2] = await sql`select id from public.tickets where order_id = ${order} and status = 'valid' limit 1`;
   const scans = await Promise.all([

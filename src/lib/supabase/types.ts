@@ -686,6 +686,15 @@ export interface Database {
         Returns: Record<string, unknown>;
       };
       can_check_in: { Args: { target_event: string }; Returns: boolean };
+      /** 0033: atomic issue / transfer (service role). */
+      issue_ticket_tx: {
+        Args: { target_event: string; target_tier: string; new_owner: string; new_code: string; issued_as: string; from_user: string | null; for_order: string | null; wallet_status: string; note?: string | null };
+        Returns: Record<string, unknown>;
+      };
+      transfer_ticket_tx: {
+        Args: { target_ticket: string; current_owner: string; new_owner: string; new_code: string; wallet_status: string };
+        Returns: Record<string, unknown>;
+      };
       /** 0033: the owner's private profile columns (anonymous-board handle, plan). */
       my_profile_private: {
         Args: Record<string, never>;

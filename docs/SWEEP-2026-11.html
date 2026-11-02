@@ -155,6 +155,24 @@ a{color:var(--accent)}
 <li><strong>Reliability is the review-killer</strong> across this category: duplicates, lost gigs, un-editable fields. One data-loss report in a 13-rating app is fatal.</li>
 </ul>
 
+<h2>Built since this report was written</h2>
+<p>Three more commits the same day (<span class="mono">b6fc811</span>, <span class="mono">6101b36</span>, plus the earlier <span class="mono">9d4a4d5</span>), all CI-green and deployed. Of the ranked list below: items 1, 2, 3, 4, 5, 8, 9 and 10 are built; 6 and 7 need a native build. Some are dormant until a key is set — the app says so in place and nothing breaks without them.</p>
+<div class="wrap"><table>
+<tr><th>Item</th><th>Status</th><th>Needs</th></tr>
+<tr><td>1 · Issuer-aware night mode</td><td class="done">Shipped</td><td>—</td></tr>
+<tr><td>2 · Wrapped share card</td><td class="done">Shipped</td><td>—</td></tr>
+<tr><td>3 · Setlist on past gigs</td><td class="done">Shipped, dormant</td><td><span class="mono">SETLISTFM_API_KEY</span> (free, api.setlist.fm) + migration 0028</td></tr>
+<tr><td>4 · History import (setlist.fm + paste a list)</td><td class="done">Shipped</td><td>Paste works now; setlist.fm needs the same key</td></tr>
+<tr><td>5 · Spotify connect</td><td class="done">Shipped, dormant</td><td><span class="mono">SPOTIFY_CLIENT_ID</span> / <span class="mono">SECRET</span>, callback URI <span class="mono">/api/integrations/spotify/callback</span> registered</td></tr>
+<tr><td>6 · Push notifications</td><td class="open">Not started</td><td>Native build</td></tr>
+<tr><td>7 · Sign-in inside the shells</td><td class="open">Not started</td><td>Native build (Capacitor Browser plugin) + Sign in with Apple</td></tr>
+<tr><td>8 · Can't go? + want-a-ticket list</td><td class="done">Shipped</td><td>Migration 0028 for the list</td></tr>
+<tr><td>9 · Anniversary + friend alerts</td><td class="done">Shipped</td><td>Migration 0027</td></tr>
+<tr><td>10 · Skiddle feed</td><td class="done">Shipped, dormant</td><td><span class="mono">SKIDDLE_API_KEY</span> (apply at skiddle.com/api)</td></tr>
+<tr><td>Quick wins</td><td class="done">Load more, staged parse progress, confirm-all after backfill, board share</td><td>—</td></tr>
+</table></div>
+<p class="meta">Pending migrations now: 0024, 0025, 0026, 0027, 0028 — all in <span class="mono">supabase/pending/</span>, apply in order, each with a verification query. Test rows: checklist sections K, L and M.</p>
+
 <h2>What to build next — ranked by impact per effort</h2>
 <p class="meta">Effort is for one developer working with an assistant. "Native build" means the iOS and Android shells must be rebuilt; a web deploy is not enough.</p>
 

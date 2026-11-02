@@ -60,13 +60,19 @@ tolerates their absence (fallbacks are listed below), so the order is:
 
 ## 3. Backups and restore
 
-Supabase Free has no point-in-time recovery and the dashboard shows "No backups" for this project. Before applying a migration to production, take a logical dump from the SQL editor-free path:
+Supabase Free has no point-in-time recovery and the dashboard shows "No backups" for this project, and `pg_dump` is not installed on the owner's machine. Interim plan, data only (the schema is the migrations):
 
 ```bash
-pg_dump "$PRODUCTION_DATABASE_URL" --schema=public --no-owner -Fc -f gigtrotter-$(date +%F).dump
+node scripts/db-snapshot.mjs dump --env PRODUCTION_DATABASE_URL --out backups/$(date +%F)
 ```
 
-(`pg_dump` is not installed on the owner's machine today; the Supabase dashboard's Database → Backups page offers a download on paid plans only. This is an open item in docs/OWNER_FACTS_NEEDED.md.)
+Put the production connection string in `.env.local` as `PRODUCTION_DATABASE_URL` (gitignored; `backups/` is gitignored too). Take one before applying 0031/0032. Restore into a project that already has the migrations applied:
+
+```bash
+node scripts/db-snapshot.mjs restore --env STAGING_DATABASE_URL --in backups/2026-11-02
+```
+
+Restoring into production needs `--i-mean-production`. Auth users are not in `public`, so a full restore after a lost project also needs the users re-created (Supabase Auth export is a dashboard/API action). Rehearse the restore on staging before relying on it. Proper backups mean the Pro plan (daily backups + PITR add-on); that decision is in docs/OWNER_FACTS_NEEDED.md.
 
 ## 4. Payment reconciliation: who acts and how
 

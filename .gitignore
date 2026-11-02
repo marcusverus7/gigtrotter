@@ -79,3 +79,6 @@ public/__sweep/
 
 # staging database (disposable, never commit)
 .env.staging
+
+# database snapshots (scripts/db-snapshot.mjs) — never commit
+backups/

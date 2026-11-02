@@ -42,6 +42,64 @@ $$;
 revoke all on function public.my_profile_private() from public, anon;
 grant execute on function public.my_profile_private() to authenticated, service_role;
 
+
+-- ═══ RPC sweep (same day): relationship oracle and an anonymous write ═════
+--
+-- Probing every function as the anonymous key showed are_friends(u1, u2) and
+-- in_inner_circle(owner, member) executable by anyone: a relationship oracle
+-- over the enumerable profile ids. Every legitimate caller (the RLS policies
+-- in 0002/0026/0031 and who_else_going) passes auth.uid() as one of the two
+-- ids, so the guard below costs them nothing and answers false to everyone
+-- else — false, not an error, so policy evaluation never trips on it.
+-- bump_anon_view was executable by anon (anyone could inflate a board's
+-- views) although only the /b page's service client calls it, and is_plus
+-- reads the now-private plan column and is called from nowhere.
+
+create or replace function public.are_friends(u1 uuid, u2 uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null
+     and auth.uid() in (u1, u2)
+     and exists (
+       select 1
+         from public.friendships f
+        where f.state = 'accepted'
+          and f.user_a = least(u1, u2) and f.user_b = greatest(u1, u2)
+     );
+$$;
+
+create or replace function public.in_inner_circle(owner uuid, member uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null
+     and auth.uid() in (owner, member)
+     and exists (
+       select 1
+         from public.circles c
+         join public.circle_members m on m.circle_id = c.id
+        where c.user_id = owner
+          and c.kind = 'inner'
+          and m.member_id = member
+     );
+$$;
+
+revoke all on function public.bump_anon_view(text) from public, anon, authenticated;
+grant execute on function public.bump_anon_view(text) to service_role;
+
+revoke all on function public.is_plus(uuid) from public, anon, authenticated;
+grant execute on function public.is_plus(uuid) to service_role;
+
+-- Verify (as anon): POST /rest/v1/rpc/are_friends {"u1":"<a>","u2":"<b>"} -> false even for friends
+--                   POST /rest/v1/rpc/bump_anon_view {"handle":"x"}        -> 42501
+
 -- Verify (as anon, via PostgREST):
 --   GET /rest/v1/profiles?select=username,anon_handle&limit=1   -- 42501 permission denied
 --   GET /rest/v1/profiles?select=username&limit=1               -- 200

@@ -134,6 +134,13 @@ async function main() {
   check("SEC-03 future: anon does NOT see", !(await sees(null, futureEvent)));
   check("SEC-03 past: plain friend sees", await sees(users.friend, pastEvent));
   check("SEC-03 past: stranger does NOT see", !(await sees(users.stranger, pastEvent)));
+  // 0033: the helpers answer only to a participant.
+  check("0033 are_friends: anon gets false for real friends", (await as(null, (tx) => tx`select public.are_friends(${users.owner}, ${users.friend}) as ok`))[0].ok === false);
+  check("0033 are_friends: a third party gets false for real friends", (await as(users.stranger, (tx) => tx`select public.are_friends(${users.owner}, ${users.friend}) as ok`))[0].ok === false);
+  check("0033 are_friends: a participant gets true", (await as(users.friend, (tx) => tx`select public.are_friends(${users.owner}, ${users.friend}) as ok`))[0].ok === true);
+  check("0033 in_inner_circle: third party false, member true", (await as(users.stranger, (tx) => tx`select public.in_inner_circle(${users.owner}, ${users.inner}) as ok`))[0].ok === false && (await as(users.inner, (tx) => tx`select public.in_inner_circle(${users.owner}, ${users.inner}) as ok`))[0].ok === true);
+  check("0033 bump_anon_view: anon cannot call it", !!(await denied(as(null, (tx) => tx`select public.bump_anon_view('nope')`))));
+  check("0033 is_plus: signed-in user cannot call it", !!(await denied(as(users.stranger, (tx) => tx`select public.is_plus(${users.owner})`))));
   await sql`delete from public.circle_members where circle_id = ${circle} and member_id = ${users.inner}`;
   check("SEC-03 future: removed from inner circle loses access", !(await sees(users.inner, futureEvent)));
   const [ua, ub] = pair(users.owner, users.friend);

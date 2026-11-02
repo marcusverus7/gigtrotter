@@ -12,6 +12,9 @@ file did. **Pending now: 0031, then 0032, then 0033.**
 could be named. Table SELECT is withdrawn from anon/authenticated and
 re-granted on the public columns only; the owner reads their private fields
 through `my_profile_private()`. Code falls back to the table until applied.
+Also: `are_friends` / `in_inner_circle` answer only when the caller is one of
+the two ids (they were a relationship oracle for anyone), and `bump_anon_view`
+/ `is_plus` become service-role only.
 
 ## Pending: 0031 (added 2026-11-02) -- pilot hardening (apply BEFORE 0032)
 

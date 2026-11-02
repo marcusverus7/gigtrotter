@@ -165,6 +165,81 @@ export interface ExperienceRow {
   updated_at: string;
 }
 
+export type TicketTierStatus = "draft" | "on_sale" | "paused" | "sold_out" | "ended";
+export type OrderStatus = "pending" | "paid" | "expired" | "cancelled" | "refunded";
+export type TicketStatus = "valid" | "used" | "transferred" | "refunded" | "void";
+
+export interface PromoterAccountRow {
+  user_id: string;
+  stripe_account_id: string | null;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
+  fee_bps: number;
+  fee_fixed_cents: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TicketTierRow {
+  id: string;
+  event_id: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  quantity: number;
+  sold: number;
+  reserved: number;
+  max_per_order: number;
+  sales_start: string | null;
+  sales_end: string | null;
+  status: TicketTierStatus;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderRow {
+  id: string;
+  user_id: string;
+  event_id: string;
+  status: OrderStatus;
+  currency: string;
+  face_cents: number;
+  fee_cents: number;
+  total_cents: number;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  buyer_email: string | null;
+  created_at: string;
+  paid_at: string | null;
+  expires_at: string | null;
+}
+
+export interface OrderItemRow {
+  order_id: string;
+  tier_id: string;
+  quantity: number;
+  unit_price_cents: number;
+}
+
+export interface TicketRow {
+  id: string;
+  order_id: string | null;
+  event_id: string;
+  tier_id: string;
+  owner_id: string;
+  wallet_item_id: string | null;
+  code: string;
+  status: TicketStatus;
+  used_at: string | null;
+  checked_in_by: string | null;
+  transferred_from: string | null;
+  issued_as: string;
+  created_at: string;
+}
+
 export interface EventWaitlistRow {
   user_id: string;
   event_id: string;
@@ -414,6 +489,31 @@ export interface Database {
         Insert: Partial<EventWaitlistRow> & { user_id: string; event_id: string };
         Update: Partial<EventWaitlistRow>;
       };
+      promoter_accounts: {
+        Row: PromoterAccountRow;
+        Insert: Partial<PromoterAccountRow> & { user_id: string };
+        Update: Partial<PromoterAccountRow>;
+      };
+      ticket_tiers: {
+        Row: TicketTierRow;
+        Insert: Partial<TicketTierRow> & { event_id: string; name: string; price_cents: number; quantity: number };
+        Update: Partial<TicketTierRow>;
+      };
+      orders: {
+        Row: OrderRow;
+        Insert: Partial<OrderRow> & { user_id: string; event_id: string };
+        Update: Partial<OrderRow>;
+      };
+      order_items: {
+        Row: OrderItemRow;
+        Insert: OrderItemRow;
+        Update: Partial<OrderItemRow>;
+      };
+      tickets: {
+        Row: TicketRow;
+        Insert: Partial<TicketRow> & { event_id: string; tier_id: string; owner_id: string; code: string };
+        Update: Partial<TicketRow>;
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -443,6 +543,10 @@ export interface Database {
         Returns: Array<{ interested: number; going: number }>;
       };
       event_waitlist_count: { Args: { target_event: string }; Returns: number };
+      reserve_tier: { Args: { target_tier: string; qty: number }; Returns: boolean };
+      release_tier: { Args: { target_tier: string; qty: number }; Returns: void };
+      commit_tier: { Args: { target_tier: string; qty: number }; Returns: void };
+      tier_availability: { Args: { target_event: string }; Returns: Array<{ tier_id: string; remaining: number }> };
       event_interest_counts_for: {
         Args: { target_events: string[] };
         Returns: Array<{ event_id: string; interested: number; going: number }>;

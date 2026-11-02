@@ -1,3 +1,5 @@
+import { TicketQr } from "@/features/ticketing/ticket-qr";
+import { TransferTicket } from "@/features/ticketing/transfer-ticket";
 import { CantGo } from "@/features/wallet/cant-go";
 import { SetlistPanel } from "@/features/wallet/setlist-panel";
 import type { StoredSetlist } from "@/lib/setlistfm/map";
@@ -141,6 +143,11 @@ export default async function WalletItemDetail({
   // review and photo editor for almost every attended gig — the morning-after
   // card's "open the pin to add photos" link landed on nothing to tap.
   const gigOver = !!item.starts_at && effectiveEnd(item.starts_at, item.ends_at) < Date.now();
+  // A ticket WE issued: the QR is the ticket, and it can be passed on.
+  const ownTicketCode = ((item.meta as { gigtrotter_ticket_code?: string } | null)?.gigtrotter_ticket_code) ?? null;
+  const ownTicket = ownTicketCode
+    ? ((await supabase.from("tickets").select("id, status, used_at").eq("wallet_item_id", id).eq("owner_id", user.id).maybeSingle()).data as { id: string; status: string; used_at: string | null } | null)
+    : null;
   const isFuture = startsAt ? startsAt.getTime() > Date.now() : false;
   const isLive =
     startsAt &&
@@ -280,7 +287,22 @@ export default async function WalletItemDetail({
             country={item.venues?.country ?? ""}
           />
 
-          {item.barcode_ref || item.kind === "ticket" || item.kind === "flight" ? (
+          {ownTicketCode ? (
+            <div className="rounded-lg border border-primary/40 bg-card p-5">
+              <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Your ticket · scan at the door</p>
+              <div className="mt-3">
+                <TicketQr code={ownTicketCode} />
+              </div>
+              {ownTicket && ownTicket.status === "valid" && isFuture ? (
+                <div className="mt-4 border-t border-border pt-4">
+                  <p className="mb-2 text-xs text-muted-foreground">Can&apos;t go? Send it to a friend — their wallet gets a fresh QR and yours stops working.</p>
+                  <TransferTicket ticketId={ownTicket.id} />
+                </div>
+              ) : ownTicket?.status === "used" ? (
+                <p className="mt-3 text-xs text-muted-foreground">Checked in{ownTicket.used_at ? " — enjoy the show." : "."}</p>
+              ) : null}
+            </div>
+          ) : item.barcode_ref || item.kind === "ticket" || item.kind === "flight" ? (
             <BarcodePanel
               hasBarcode={!!item.barcode_ref}
               eventOver={gigOver}
@@ -291,7 +313,7 @@ export default async function WalletItemDetail({
             />
           ) : null}
 
-          {isFuture && item.kind === "ticket" ? (
+          {isFuture && item.kind === "ticket" && !ownTicketCode ? (
             <CantGo
               issuer={classifyIssuer(
                 ((item.meta as { vendor?: string } | null)?.vendor) ?? null,

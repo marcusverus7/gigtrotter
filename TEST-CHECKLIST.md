@@ -202,6 +202,23 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | M10 | Backfill 3+ screenshots, then Capture | "Confirm the N confident ones" button confirms the ≥80% cards in one tap; the rest stay |
 | M11 | Public Board page | Share link (phone) and Copy link buttons |
 
+## N — Ticketing (added 2026-11-02; needs migration 0029 + Stripe keys)
+
+| # | Check | Expected |
+|---|---|---|
+| N1 | As a promoter: submit an event, open it, "Sell tickets for this event" | Sales page with Payouts (Not set up), Ticket types, Guest list, Door |
+| N2 | Set up payouts with Stripe (test mode) | Stripe hosted onboarding; back on Settings "Payouts are set up"; badge reads Ready |
+| N3 | Add a £15 General ticket, capacity 2 | Shows "Buyer pays £15.95 … You receive £15.00 … On Eventbrite £16.63" |
+| N4 | As a buyer: event page | Buy box with +/−, fee shown per ticket, total updates; "Buy tickets" → Stripe Checkout |
+| N5 | Pay with test card 4242 4242 4242 4242 | Back on /app/orders/…: "Paid — you're going", two QR codes; both in the wallet with "Your ticket" QR; Night Mode shows the QR on the day |
+| N6 | Buy the last ticket, then try again as another account | "has sold out" before checkout; tier shows Sold out |
+| N7 | Abandon a checkout, wait 30 minutes | Stock comes back (reserved → 0) |
+| N8 | Promoter: Door → type the code | Green IN with tier + name; scan again → red ALREADY USED with the time |
+| N9 | Promoter: Guest list → give a ticket to a username | Appears in their wallet as a comp; scans at the door |
+| N10 | Buyer: item page → Send this ticket to a friend | Friend gets a new QR; the sender's QR scans as CANCELLED |
+| N11 | Promoter sales page after a sale | Sold / Orders / You're owed update; Stripe dashboard shows the transfer of face value |
+| N12 | 🔒 POST junk to /api/stripe/webhook | 400 bad signature; nothing changes |
+
 ## Known-not-ready (don't file these as bugs)
 
 - Push to lock screen — alerts appear on app open only; push needs a native build

@@ -106,4 +106,13 @@ export const serverEnv = {
     const v = process.env.SPOTIFY_CLIENT_SECRET;
     return v ? clean(v) : null;
   },
+  // ── payments (Stripe) — null until the account exists ────────────────────
+  get stripeSecretKey() {
+    const v = process.env.STRIPE_SECRET_KEY;
+    return v ? clean(v) : null;
+  },
+  get stripeWebhookSecret() {
+    const v = process.env.STRIPE_WEBHOOK_SECRET;
+    return v ? clean(v) : null;
+  },
 };

@@ -1,3 +1,7 @@
+import { BuyTickets, type TierView } from "@/features/ticketing/buy-tickets";
+import { stripeConfigured } from "@/lib/stripe/client";
+import { DEFAULT_FEES } from "@/lib/tickets/pricing";
+import { createServiceClient } from "@/lib/supabase/server";
 import { WantOneButton } from "@/features/events/want-one-button";
 import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
@@ -12,6 +16,7 @@ import {
   Shield,
   Tag,
   Users,
+  Ticket,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +121,40 @@ export default async function EventDetailPage({
   const goingCount =
     Number(agg?.going ?? NaN) ||
     (interests?.filter((i) => i.interest_type === "going").length ?? 0);
+
+  // Tickets sold through GigTrotter (migration 0029). Absent table → empty.
+  const [{ data: tierRows }, { data: availRows }] = await Promise.all([
+    supabase
+      .from("ticket_tiers")
+      .select("id, name, description, price_cents, currency, max_per_order, status")
+      .eq("event_id", id)
+      .neq("status", "draft")
+      .order("sort_order"),
+    supabase.rpc("tier_availability", { target_event: id }),
+  ]);
+  const remainingByTier = new Map<string, number>(
+    ((availRows ?? []) as Array<{ tier_id: string; remaining: number }>).map((a) => [a.tier_id, Number(a.remaining)]),
+  );
+  const tiers: TierView[] = ((tierRows ?? []) as Array<{ id: string; name: string; description: string | null; price_cents: number; currency: string; max_per_order: number; status: string }>).map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    priceCents: t.price_cents,
+    currency: t.currency,
+    remaining: remainingByTier.get(t.id) ?? 0,
+    maxPerOrder: t.max_per_order,
+    status: t.status,
+  }));
+  let fees = DEFAULT_FEES;
+  if (tiers.length > 0 && event.promoter_id) {
+    const { data: acct } = await createServiceClient()
+      .from("promoter_accounts")
+      .select("fee_bps, fee_fixed_cents")
+      .eq("user_id", event.promoter_id)
+      .maybeSingle();
+    if (acct) fees = { bps: acct.fee_bps, fixedCents: acct.fee_fixed_cents };
+  }
+  const isPromoter = !!event.promoter_id && event.promoter_id === user.id;
 
   // Waitlist (sold-out events only) — tolerant of the table not existing yet.
   let wanted = false;
@@ -376,8 +415,20 @@ export default async function EventDetailPage({
             ) : null}
           </div>
 
+          {/* Sold here: the buy box comes first, the outbound links after. */}
+          {isFuture && tiers.length > 0 ? (
+            <BuyTickets eventId={id} tiers={tiers} fees={fees} paymentsOn={stripeConfigured()} />
+          ) : null}
+          {isPromoter ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/app/events/${id}/tickets`}>
+                <Ticket className="mr-1 h-4 w-4" /> Sell tickets for this event
+              </Link>
+            </Button>
+          ) : null}
+
           {/* Add to wallet */}
-          {isFuture ? <AddToWalletButton eventId={id} /> : null}
+          {isFuture && tiers.length === 0 ? <AddToWalletButton eventId={id} /> : null}
 
           {/* Sold out: join the want-a-ticket list (migration 0028) */}
           {isFuture && event.is_sold_out ? (

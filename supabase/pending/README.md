@@ -1,5 +1,23 @@
 # Migration pack
 
+## Pending: 0029 (added 2026-11-02) — ticketing
+
+`APPLY-ME-0029.sql` — the tables behind selling tickets through GigTrotter:
+`promoter_accounts` (Stripe Connect state + fee schedule), `ticket_tiers`,
+`orders`, `order_items`, `tickets`, plus the atomic stock functions
+`reserve_tier` / `release_tier` / `commit_tier` (service role only) and the
+public `tier_availability`. Until applied, the Sell tickets page says so and
+event pages show no buy box.
+
+After applying, Vercel also needs `STRIPE_SECRET_KEY` and
+`STRIPE_WEBHOOK_SECRET` (Production + Preview, Sensitive), and the webhook
+`https://gigtrotter.vercel.app/api/stripe/webhook` registered in the Stripe
+dashboard for `checkout.session.completed` and `checkout.session.expired`.
+
+Verify: `select proname from pg_proc where proname like '%_tier%';` lists
+four; `select policyname from pg_policies where tablename = 'tickets';`
+lists two.
+
 ## Pending: 0028 (added 2026-11-02)
 
 `APPLY-ME-0028.sql` — setlist columns on `experiences` (songs from setlist.fm,

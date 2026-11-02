@@ -34,6 +34,8 @@ import { computeYearStats } from "../src/lib/review/year-stats";
 import { anniversaryTitle } from "../src/lib/alerts/phrasing";
 import { fromSetlistfmDate, headlinerOf, parseGigCsv, pickSetlist, toSetlistfmDate, toStoredSetlist } from "../src/lib/setlistfm/map";
 import { categoriseSkiddle, mapSkiddleEvent, parseSkiddlePrice } from "../src/lib/events/skiddle/map";
+import { buyerFeeCents, eventbriteFeeCents, orderTotals, validateBasket } from "../src/lib/tickets/pricing";
+import { makeTicketCode, normaliseCode, verifyTicketCode } from "../src/lib/tickets/codes";
 import {
   bandsintownArtistPath,
   cityCentroid,
@@ -648,6 +650,41 @@ check("issuer: every known issuer has an open link", ["ticketmaster","axs","dice
 check("anniversary: one year", anniversaryTitle("2025-11-02T20:00:00Z", Date.parse("2026-11-02T20:00:00Z")) === "One year ago tonight");
 check("anniversary: three years", anniversaryTitle("2023-11-02T20:00:00Z", Date.parse("2026-11-02T20:00:00Z")) === "Three years ago tonight");
 check("friends: past tense", describeFriends(["Ana"], true) === "Ana was there too.");
+
+/* ── ticketing: pricing ─────────────────────────────────────────────────── */
+// The promise: the promoter gets every penny of face; the buyer pays one fee
+// that is lower than Eventbrite's organiser-pays default.
+check("fee: £15 ticket costs the buyer 95p", buyerFeeCents(1500) === 95);
+check("fee: free ticket carries no fee", buyerFeeCents(0) === 0);
+check("fee: cheaper than Eventbrite on £15", buyerFeeCents(1500) < eventbriteFeeCents(1500) && eventbriteFeeCents(1500) === 163);
+{
+  const t = orderTotals([{ tierId: "a", name: "GA", unitPriceCents: 1500, quantity: 2 }, { tierId: "b", name: "VIP", unitPriceCents: 4000, quantity: 1 }]);
+  check("order: face sums", t.faceCents === 7000);
+  check("order: fee per ticket, per line", t.feeCents === 95 * 2 + 220);
+  check("order: promoter receives face exactly", t.promoterCents === 7000 && t.applicationFeeCents === t.feeCents);
+  check("order: total", t.totalCents === 7000 + 410);
+}
+{
+  const tiers = [{ id: "a", name: "GA", remaining: 3, maxPerOrder: 6, status: "on_sale", priceCents: 1500 }, { id: "p", name: "Paused", remaining: 9, maxPerOrder: 6, status: "paused", priceCents: 1000 }];
+  check("basket: ok", validateBasket([{ tierId: "a", quantity: 2 }], tiers).ok);
+  check("basket: over capacity", !validateBasket([{ tierId: "a", quantity: 4 }], tiers).ok);
+  check("basket: sold out wording", (validateBasket([{ tierId: "a", quantity: 1 }], [{ ...tiers[0], remaining: 0 }]) as { reason?: string }).reason === "GA has sold out.");
+  check("basket: paused tier refused", !validateBasket([{ tierId: "p", quantity: 1 }], tiers).ok);
+  check("basket: empty refused", !validateBasket([{ tierId: "a", quantity: 0 }], tiers).ok);
+}
+
+/* ── ticketing: codes ───────────────────────────────────────────────────── */
+{
+  const secret = "test-secret";
+  const code = makeTicketCode(secret);
+  check("code: shape GT-XXXXX-XXXXX-XXXXXX", /^GT-[A-Z2-9]{5}-[A-Z2-9]{5}-[A-Z2-9]{6}$/.test(code) && !/[01IOL]/.test(code));
+  check("code: verifies with the right secret", verifyTicketCode(code, secret));
+  check("code: fails with another secret", !verifyTicketCode(code, "other"));
+  check("code: one flipped character fails", !verifyTicketCode(code.slice(0, -1) + (code.endsWith("A") ? "B" : "A"), secret));
+  check("code: typed sloppily still verifies", verifyTicketCode(code.toLowerCase().replace(/-/g, " "), secret));
+  check("code: normalise re-hyphenates", normaliseCode(code.replace(/-/g, "").toLowerCase()) === code);
+  check("code: two codes differ", makeTicketCode(secret) !== code);
+}
 
 /* ── setlist.fm ─────────────────────────────────────────────────────────── */
 check("setlistfm: date out", toSetlistfmDate("2026-07-04T19:00:00.000Z") === "04-07-2026");

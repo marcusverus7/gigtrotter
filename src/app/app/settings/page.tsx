@@ -30,9 +30,9 @@ import { publicEnv, serverEnv } from "@/lib/env";
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ e?: string; spotify?: string; artists?: string }>;
+  searchParams: Promise<{ e?: string; spotify?: string; artists?: string; payouts?: string }>;
 }) {
-  const { e: actionError, spotify: spotifyStatus, artists: spotifyArtists } = await searchParams;
+  const { e: actionError, spotify: spotifyStatus, artists: spotifyArtists, payouts } = await searchParams;
   const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -155,6 +155,15 @@ export default async function SettingsPage({
 
       <InboxSyncPanel forwardingAddress={forwardingAddress} />
 
+      {payouts ? (
+        <p className={`rounded-md border px-3 py-2 text-sm ${payouts === "ready" ? "border-secondary/40" : "border-border"}`} role="status">
+          {payouts === "ready"
+            ? "Payouts are set up — your events can go on sale."
+            : payouts === "incomplete"
+              ? "Stripe still needs a few details before payouts can start. Open any event's Sell tickets page to continue."
+              : "Payments are not switched on for this deployment yet."}
+        </p>
+      ) : null}
       {spotifyStatus ? (
         <p
           className={`rounded-md border px-3 py-2 text-sm ${spotifyStatus === "connected" ? "border-secondary/40 text-foreground" : "border-destructive/40 text-destructive"}`}

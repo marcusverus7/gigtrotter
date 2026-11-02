@@ -19,6 +19,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 
+import { TicketQr } from "@/features/ticketing/ticket-qr";
 import { barcodeScansAtDoor, classifyIssuer } from "@/lib/tickets/issuer";
 
 import { GeofenceCheckInButton } from "./geofence-button";
@@ -183,7 +184,12 @@ export function NightCard({ item }: { item: NightItem }) {
             DICE it lives only in the app, so a captured code would be refused
             at the door — the one moment this card exists for. The issuer
             decides what is shown. */}
-        {item.kind === "ticket" ? (
+        {item.kind === "ticket" && typeof item.meta?.gigtrotter_ticket_code === "string" ? (
+          <div className="rounded-xl border border-border/60 bg-background/30 p-5 text-center backdrop-blur">
+            <p className="mb-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">Your ticket · show this at the door</p>
+            <TicketQr code={item.meta.gigtrotter_ticket_code} size={200} />
+          </div>
+        ) : item.kind === "ticket" ? (
           <EntryPanel
             vendor={(item.meta?.vendor as string | undefined) ?? null}
             hints={[item.title, ...(((item.meta?.details as string[] | undefined) ?? []))]}

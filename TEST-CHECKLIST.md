@@ -202,7 +202,7 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | M10 | Backfill 3+ screenshots, then Capture | "Confirm the N confident ones" button confirms the ≥80% cards in one tap; the rest stay |
 | M11 | Public Board page | Share link (phone) and Copy link buttons |
 
-## N — Ticketing (added 2026-11-02; needs migration 0029 + Stripe keys)
+## N — Ticketing (added 2026-11-02; schema live since 2026-11-02; still needs Stripe keys)
 
 | # | Check | Expected |
 |---|---|---|

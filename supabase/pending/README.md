@@ -1,5 +1,10 @@
 # Migration pack
 
+**APPLIED 2026-11-02: 0024 through 0030 are live in production** (run as one pack,
+`RUN-ME-0024-to-0030.sql`, verified via PostgREST: tables answer, RPCs respond, stock
+functions are denied to anon). The sections below are kept as the record of what each
+file did. Nothing is pending.
+
 ## Pending: 0030 (added 2026-11-02) — face-value resale
 
 `APPLY-ME-0030.sql` — `ticket_listings` (one live listing per ticket, buyers

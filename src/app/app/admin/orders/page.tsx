@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { OpsControls } from "@/features/ops/ops-controls";
 import { getAdminUser } from "@/lib/auth/admin";
+import { opsHealth } from "@/lib/ops/health";
 import { createServiceClient } from "@/lib/supabase/server";
 import { reconciliationReport } from "@/lib/tickets/fulfil";
 import { formatMoney } from "@/lib/tickets/pricing";
@@ -22,7 +23,7 @@ export default async function AdminOrdersPage() {
   const user = await getAdminUser();
   if (!user) redirect("/app");
   const service = createServiceClient();
-  const report = await reconciliationReport({ service });
+  const [report, health] = await Promise.all([reconciliationReport({ service }), opsHealth({ service })]);
 
   const { data: recentOps } = await service
     .from("ops_actions")
@@ -49,6 +50,40 @@ export default async function AdminOrdersPage() {
       </header>
 
       <OpsControls />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Operations <span className="text-muted-foreground">({health.warnings.length} warning{health.warnings.length === 1 ? "" : "s"})</span></CardTitle>
+          <CardDescription>Feeds, the capture model and the platform capture budget. Counts only.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {health.warnings.length > 0 ? (
+            <ul className="list-disc pl-5 text-destructive">
+              {health.warnings.map((w) => <li key={w}>{w}</li>)}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">Feeds fresh, captures healthy, budget fine.</p>
+          )}
+          <ul className="divide-y divide-border">
+            {health.feeds.map((f) => (
+              <li key={f.source} className="flex justify-between py-1.5">
+                <span>{f.source}</span>
+                <span className={f.stale ? "text-destructive" : "text-muted-foreground"}>
+                  {f.lastOk ? `last good run ${new Date(f.lastOk).toLocaleString("en-GB")}` : "no successful run"}{f.lastErrors > 0 ? ` · ${f.lastErrors} errors last run` : ""}
+                </span>
+              </li>
+            ))}
+            <li className="flex justify-between py-1.5">
+              <span>Captures, last 24h</span>
+              <span className="text-muted-foreground">{health.captures24h.total} total · {health.captures24h.failed} failed ({health.captures24h.failedPct}%)</span>
+            </li>
+            <li className="flex justify-between py-1.5">
+              <span>Platform capture budget today</span>
+              <span className="text-muted-foreground">{health.platformBudget.used ?? "n/a (0032 not applied)"} / {health.platformBudget.limit}</span>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
 
       <Section
         title="Paid but not fulfilled"

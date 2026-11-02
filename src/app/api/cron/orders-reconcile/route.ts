@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { serverEnv } from "@/lib/env";
+import { opsHealth } from "@/lib/ops/health";
 import { getStripe } from "@/lib/stripe/client";
 import { dispatchStripeEvent } from "@/lib/stripe/events";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -81,6 +82,9 @@ export async function GET(request: NextRequest) {
   const pending = await reconcilePendingOrders(stripe, { service });
   const refunds = await processRefunds(stripe, { service });
   const report = await reconciliationReport({ service });
+  const health = await opsHealth({ service }).catch((err: unknown) => ({
+    warnings: [`health check failed: ${err instanceof Error ? err.message : String(err)}`],
+  }));
 
   const summary = {
     ok: report.critical === 0,
@@ -89,6 +93,9 @@ export async function GET(request: NextRequest) {
     pending,
     refunds,
     critical: report.critical,
+    // Informational: a stale feed or a failing model does not fail the run
+    // (events-sync has its own alarm), but it is in every summary line.
+    health: health.warnings,
     counts: {
       paidUnfulfilled: report.paidUnfulfilled.length,
       pendingOverdue: report.pendingOverdue.length,

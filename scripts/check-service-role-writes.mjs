@@ -49,7 +49,9 @@ function walk(dir) {
 /** Identifiers in this file that hold a service-role client. */
 function serviceClientNames(source) {
   const names = new Set();
-  const decl = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?createServiceClient\s*\(/g;
+  // Also `deps.service ?? createServiceClient()` — an injectable client whose
+  // only non-test value is the service client.
+  const decl = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?(?:[\w$.]+\s*\?\?\s*)?createServiceClient\s*\(/g;
   let m;
   while ((m = decl.exec(source)) !== null) names.add(m[1]);
   return names;

@@ -26,7 +26,7 @@ export default async function DiscoverPage() {
   if (!user) redirect("/login");
 
   // Pull all friendships the user is in.
-  const [{ data: friendships }, { data: follows }] = await Promise.all([
+  const [{ data: friendships }, { data: follows }, { data: innerCircle }] = await Promise.all([
     supabase
       .from("friendships")
       .select("*")
@@ -36,7 +36,17 @@ export default async function DiscoverPage() {
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
+    // Who is in the caller's Inner Circle — the owner-only policy scopes it.
+    supabase
+      .from("circles")
+      .select("circle_members(member_id)")
+      .eq("user_id", user.id)
+      .eq("kind", "inner")
+      .maybeSingle(),
   ]);
+  const innerIds = (
+    (innerCircle as { circle_members?: { member_id: string }[] } | null)?.circle_members ?? []
+  ).map((m) => m.member_id);
 
   // For accepted friendships, fetch the counterparty profiles.
   const accepted = friendships?.filter((f) => f.state === "accepted") ?? [];
@@ -73,6 +83,7 @@ export default async function DiscoverPage() {
         pendingIncoming={pending.filter((f) => f.requested_by !== user.id)}
         pendingOutgoing={pending.filter((f) => f.requested_by === user.id)}
         profileById={Object.fromEntries(profileById)}
+        innerIds={innerIds}
       />
 
       <Card>

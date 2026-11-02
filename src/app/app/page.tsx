@@ -60,6 +60,9 @@ export default async function WalletPage() {
       <YearReviewTeaser />
       <ThrowbacksStrip />
 
+      {!items || items.length === 0 ? (
+        <EmptyWalletCta />
+      ) : (
       <Wallet
         items={((items ?? []) as unknown[]).map((raw) => {
           // The query builder types the venues embed as an array even though
@@ -73,8 +76,7 @@ export default async function WalletPage() {
           };
         })}
       />
-
-      {(!items || items.length === 0) && <EmptyWalletCta />}
+      )}
     </div>
   );
 }

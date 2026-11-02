@@ -29,9 +29,21 @@ export async function rateAttended(input: {
       .update({ rating, review: input.review })
       .eq("id", input.experienceId)
       .eq("user_id", user.id)
-      .select("id");
+      .select("id, verified_by");
     if (error) throw error;
     if (!data || data.length === 0) throw new Error("Could not save rating.");
+    // Rating a gig IS the manual confirmation the achievements view counts.
+    // The reconciler mints feed/manual items as 'none', and this branch used
+    // to leave that alone — so a user who rated every gig had no verified
+    // pins and every achievement stayed locked.
+    if (data[0].verified_by === "none") {
+      await supabase
+        .from("experiences")
+        .update({ verified_by: "manual" })
+        .eq("id", input.experienceId)
+        .eq("user_id", user.id)
+        .eq("verified_by", "none");
+    }
   } else {
     // Mint the experience from the wallet item — happens for items that
     // were "attended" but never crossed a geofence/ticket-scan path.

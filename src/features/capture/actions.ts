@@ -169,6 +169,10 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
       starts_at: parsed.starts_at || null,
       ends_at: parsed.ends_at || null,
       meta: {
+        // Carried on the item so the pin minted later (when the gig passes)
+        // honours the choice made on the confirm card; it used to be read
+        // only in the already-attended branch and dropped otherwise.
+        audience: parsed.audience,
         ...(parsed.details.length > 0 ? { details: parsed.details } : {}),
         ...(parsed.price_total_cents != null
           ? { price_total_cents: parsed.price_total_cents, currency: parsed.currency ?? null }

@@ -47,6 +47,10 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>GigTrotter uses the camera to photograph a paper ticket or boarding pass so it can be added to your wallet.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GigTrotter reads the screenshot or photo you choose so it can be added to your wallet.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

@@ -40,6 +40,21 @@ export function fromLocalDT(value: string): string {
 export function anchorToLocalZone(value: string | null | undefined): string {
   if (!value) return "";
   if (HAS_OFFSET.test(value)) return value;
+  // A bare date ("2026-07-18") is what the parser emits when the ticket
+  // prints no time, and the eval corpus shows it does so often. The JS spec
+  // parses that form as UTC midnight — 01:00 BST — so the gig read as
+  // starting in the small hours, flipped to "tonight" the afternoon before,
+  // and was marked attended (pin and all) at five in the morning of the show.
+  // It becomes 19:00 local — the same placeholder the events feed uses for
+  // a Ticketmaster date with no time — which the confirm card shows and the
+  // user can correct. Detecting "midnight" later would depend on the
+  // server's zone (UTC on Vercel), so the placeholder is applied here, in the
+  // viewer's zone, once.
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dateOnly) {
+    const d = new Date(+dateOnly[1], +dateOnly[2] - 1, +dateOnly[3], 19, 0, 0);
+    return Number.isNaN(d.getTime()) ? value : d.toISOString();
+  }
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? value : d.toISOString();
 }

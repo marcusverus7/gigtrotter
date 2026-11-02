@@ -126,7 +126,10 @@ export default async function AppLayout({
           />
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 md:py-12">
+        {/* pb-28 on phones: the floating Feedback button sits above the
+            bottom nav and was covering the last control on short pages —
+            the empty wallet's "Add one manually" button, for one. */}
+        <main className="mx-auto w-full max-w-6xl flex-1 px-6 pt-8 pb-28 md:py-12">
           <PageTransition>{children}</PageTransition>
         </main>
 

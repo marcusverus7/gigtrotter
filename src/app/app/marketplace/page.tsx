@@ -1,3 +1,4 @@
+import { SHOW_UNLAUNCHED } from "@/lib/flags";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -30,6 +31,9 @@ export default async function MarketplacePage() {
   const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  // Hidden behind the launch flag: the nav only stopped LINKING to this page,
+  // the URL still served it to any signed-in user.
+  if (!SHOW_UNLAUNCHED) redirect("/app");
 
   const { data: listings } = await supabase
     .from("listings")

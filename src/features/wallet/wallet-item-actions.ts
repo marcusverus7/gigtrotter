@@ -21,7 +21,7 @@ export async function updateWalletItemDates(
     .update({ starts_at, ends_at })
     .eq("id", itemId)
     .eq("user_id", user.id)
-    .select("id, status, kind, title, subtitle, venue_id, capture_id");
+    .select("id, status, kind, title, subtitle, venue_id, capture_id, meta");
 
   if (error) throw error;
   if (!data || data.length === 0)

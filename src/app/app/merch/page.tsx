@@ -1,3 +1,4 @@
+import { SHOW_UNLAUNCHED } from "@/lib/flags";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ShoppingBag, Sparkles } from "lucide-react";
@@ -18,6 +19,9 @@ export default async function MerchPage() {
   const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  // Hidden behind the launch flag: the nav only stopped LINKING to this page,
+  // the URL still served it to any signed-in user.
+  if (!SHOW_UNLAUNCHED) redirect("/app");
 
   const { data: items } = await supabase
     .from("merch_items")

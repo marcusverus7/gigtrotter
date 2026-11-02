@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { Check, Eye, X } from "lucide-react";
+import { Check, Eye, Heart, X } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import type { Database } from "@/lib/supabase/types";
 
-import { acceptFriendRequest, removeFriend } from "./actions";
+import { acceptFriendRequest, removeFriend, setInnerCircle } from "./actions";
 
 type Friendship = Database["public"]["Tables"]["friendships"]["Row"];
 type Profile = Pick<
@@ -29,13 +29,17 @@ export function FriendsList({
   pendingIncoming,
   pendingOutgoing,
   profileById,
+  innerIds = [],
 }: {
   currentUserId: string;
   accepted: Friendship[];
   pendingIncoming: Friendship[];
   pendingOutgoing: Friendship[];
   profileById: Record<string, Profile>;
+  /** Friends currently in the caller's Inner Circle. */
+  innerIds?: string[];
 }) {
+  const inner = new Set(innerIds);
   const other = (f: Friendship) =>
     profileById[f.user_a === currentUserId ? f.user_b : f.user_a];
 
@@ -63,6 +67,11 @@ export function FriendsList({
           <CardTitle className="text-base">
             Friends · {accepted.length}
           </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Tap the heart to put someone in your Inner Circle. They see the gigs
+            you are going to, not only the ones you have been to.
+            {inner.size > 0 ? ` ${inner.size} in your circle.` : ""}
+          </p>
         </CardHeader>
         <CardContent className="space-y-2">
           {accepted.length === 0 ? (
@@ -74,7 +83,13 @@ export function FriendsList({
               <FriendRow
                 key={f.id}
                 profile={other(f)}
-                actions={<AcceptedActions profile={other(f)} friendshipId={f.id} />}
+                actions={
+                  <AcceptedActions
+                    profile={other(f)}
+                    friendshipId={f.id}
+                    inInner={!!other(f) && inner.has(other(f)!.id)}
+                  />
+                }
               />
             ))
           )}
@@ -165,13 +180,28 @@ function IncomingActions({ friendshipId }: { friendshipId: string }) {
 function AcceptedActions({
   profile,
   friendshipId,
+  inInner,
 }: {
   profile?: Profile;
   friendshipId: string;
+  inInner: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   return (
     <>
+      {profile ? (
+        <Button
+          size="sm"
+          variant={inInner ? "default" : "outline"}
+          aria-pressed={inInner}
+          aria-label={inInner ? "Remove from Inner Circle" : "Add to Inner Circle"}
+          title={inInner ? "In your Inner Circle" : "Add to Inner Circle"}
+          onClick={() => startTransition(() => setInnerCircle(profile.id, !inInner))}
+          disabled={pending}
+        >
+          <Heart className={inInner ? "fill-current" : ""} />
+        </Button>
+      ) : null}
       {profile?.username ? (
         <Button size="sm" variant="outline" asChild>
           <Link href={`/app/u/${profile.username}`}>
@@ -182,6 +212,7 @@ function AcceptedActions({
       <Button
         size="sm"
         variant="ghost"
+        aria-label="Remove friend"
         onClick={() => startTransition(() => removeFriend(friendshipId))}
         disabled={pending}
       >

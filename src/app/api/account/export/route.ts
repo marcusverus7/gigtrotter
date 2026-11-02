@@ -36,8 +36,19 @@ export async function GET() {
     user_id: user.id,
     email: user.email ?? null,
   };
+  // Scoped to the caller explicitly. `select *` relied on RLS to narrow each
+  // table, but profiles is read-all and experiences shows friends' pins — so a
+  // "my data" download carried every account's profile (anon handles
+  // included) and other people's gigs.
+  const { data: myCircles } = await supabase.from("circles").select("id").eq("user_id", user.id);
+  const circleIds = (myCircles ?? []).map((c) => c.id);
   for (const t of tables) {
-    const { data } = await supabase.from(t).select("*");
+    let q = supabase.from(t).select("*");
+    if (t === "profiles") q = q.eq("id", user.id);
+    else if (t === "circle_members") q = circleIds.length ? q.in("circle_id", circleIds) : q.eq("circle_id", "00000000-0000-0000-0000-000000000000");
+    else if (t === "friendships") q = q.or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+    else q = q.eq("user_id", user.id);
+    const { data } = await q;
     out[t] = data ?? [];
   }
 

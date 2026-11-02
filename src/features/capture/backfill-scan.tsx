@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { downscaleForUpload } from "@/lib/capture/downscale";
 import { cn } from "@/lib/utils";
 
 const BATCH_LIMIT = 50;
@@ -59,7 +60,7 @@ export function BackfillScan() {
     let result: FileState;
     let outcome: "ok" | "quota" | "failed" = "failed";
     try {
-      const res = await fetch("/api/captures", { method: "POST", body: buildForm(file) });
+      const res = await fetch("/api/captures", { method: "POST", body: buildForm(await downscaleForUpload(file)) });
       const body = await res.json().catch(() => null);
       if (res.ok) {
         // confidence 0 with the placeholder title is the pipeline saying "the

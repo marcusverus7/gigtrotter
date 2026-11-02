@@ -32,8 +32,16 @@ type Candidate = {
   ends_at: string | null;
   venue_id: string | null;
   capture_id: string | null;
+  meta?: unknown;
   experiences: { id: string }[] | { id: string } | null;
 };
+
+const AUDIENCES = new Set(["vault", "inner", "friends", "open"]);
+/** The audience chosen when the item was added, if one was recorded. */
+export function chosenAudience(meta: unknown): "vault" | "inner" | "friends" | "open" {
+  const a = (meta as { audience?: unknown } | null)?.audience;
+  return typeof a === "string" && AUDIENCES.has(a) ? (a as "vault" | "inner" | "friends" | "open") : "inner";
+}
 
 const hasPin = (c: Candidate) =>
   Array.isArray(c.experiences) ? c.experiences.length > 0 : c.experiences != null;
@@ -48,7 +56,7 @@ export async function reconcileWalletLifecycle(
   const { data, error } = await supabase
     .from("wallet_items")
     .select(
-      "id, status, kind, title, subtitle, starts_at, ends_at, venue_id, capture_id, experiences(id)",
+      "id, status, kind, title, subtitle, starts_at, ends_at, venue_id, capture_id, meta, experiences(id)",
     )
     .eq("user_id", userId)
     .in("status", ["going", "tonight"])
@@ -108,10 +116,10 @@ export async function reconcileWalletLifecycle(
 export async function mintMissingPins(
   supabase: Client,
   userId: string,
-  items: Pick<
+  items: (Pick<
     Candidate,
     "id" | "kind" | "title" | "subtitle" | "starts_at" | "ends_at" | "venue_id" | "capture_id"
-  >[],
+  > & { meta?: unknown })[],
 ): Promise<number> {
   const rows = items
     .filter((c) => c.starts_at)
@@ -127,7 +135,7 @@ export async function mintMissingPins(
       ends_at:
         c.ends_at ??
         new Date(new Date(c.starts_at!).getTime() + DEFAULT_DURATION_MS).toISOString(),
-      audience: "inner" as const,
+      audience: chosenAudience(c.meta),
       verified_by: (c.capture_id ? "ticket" : "none") as "ticket" | "none",
     }));
   if (rows.length === 0) return 0;

@@ -1,5 +1,6 @@
 "use client";
 
+import { downscaleForUpload } from "@/lib/capture/downscale";
 import { useRef, useState, useTransition } from "react";
 import { UploadCloud, Loader2, Camera } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -29,10 +30,13 @@ export function CaptureDropzone() {
       return;
     }
     setError(null);
-    const form = new FormData();
-    form.append("file", file);
-    form.append("source", "screenshot");
     startTransition(async () => {
+      // A full-size phone photo is 3–8MB; Vercel refuses the body above
+      // 4.5MB before the route runs. Shrunk here first (see downscale.ts).
+      const upload = await downscaleForUpload(file);
+      const form = new FormData();
+      form.append("file", upload);
+      form.append("source", "screenshot");
       let res: Response;
       try {
         res = await fetch("/api/captures", { method: "POST", body: form });
@@ -45,7 +49,12 @@ export function CaptureDropzone() {
       }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Couldn't read this one.");
+        setError(
+          body.error ??
+            (res.status === 413
+              ? "That image is too large to send — try a screenshot instead of a photo."
+              : "Couldn't read this one."),
+        );
         return;
       }
       // Don't render an inline card here: router.refresh() re-renders

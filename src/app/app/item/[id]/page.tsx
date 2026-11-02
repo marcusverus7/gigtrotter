@@ -1,3 +1,4 @@
+import { effectiveEnd } from "@/lib/wallet/lifecycle";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -120,6 +121,10 @@ export default async function WalletItemDetail({
 
   const startsAt = item.starts_at ? new Date(item.starts_at) : null;
   const endsAt = item.ends_at ? new Date(item.ends_at) : null;
+  // Most tickets carry no end time, so gating on ends_at hid the rating,
+  // review and photo editor for almost every attended gig — the morning-after
+  // card's "open the pin to add photos" link landed on nothing to tap.
+  const gigOver = !!item.starts_at && effectiveEnd(item.starts_at, item.ends_at) < Date.now();
   const isFuture = startsAt ? startsAt.getTime() > Date.now() : false;
   const isLive =
     startsAt &&
@@ -262,7 +267,7 @@ export default async function WalletItemDetail({
           {item.barcode_ref || item.kind === "ticket" || item.kind === "flight" ? (
             <BarcodePanel
               hasBarcode={!!item.barcode_ref}
-              eventOver={!!endsAt && endsAt.getTime() < Date.now()}
+              eventOver={gigOver}
             />
           ) : null}
 
@@ -287,7 +292,7 @@ export default async function WalletItemDetail({
                 experienceId={experience.id}
                 audience={experience.audience}
               />
-              {(endsAt && endsAt.getTime() < Date.now()) || experience.rating ? (
+              {gigOver || experience.rating ? (
                 <ExperienceEditor
                   experienceId={experience.id}
                   initialRating={experience.rating ?? null}

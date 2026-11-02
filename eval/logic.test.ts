@@ -563,6 +563,18 @@ check("stripLikeWildcards leaves an ordinary city alone", stripLikeWildcards("Mi
 
 // .ilike sends its value as the PATTERN: "?city=%" matched every city.
 
+/* ── date-only parses ───────────────────────────────────────────────────── */
+// "2026-07-18" alone used to become UTC midnight (01:00 BST), so the gig was
+// "tonight" the afternoon before and attended at five in the morning.
+{
+  const iso = anchorToLocalZone("2026-07-18");
+  const d = new Date(iso);
+  check("date-only parse lands at 19:00 local", d.getHours() === 19 && d.getDate() === 18 && d.getMonth() === 6);
+  check("date-only parse is tonight at noon that day, not attended", deriveStatus(iso, null, new Date(2026, 6, 18, 12).getTime()) === "tonight");
+  check("date-only parse is going the day before", deriveStatus(iso, null, new Date(2026, 6, 17, 6).getTime()) === "going");
+  check("date-time parse unchanged", anchorToLocalZone("2026-07-18T20:30:00") === new Date(2026, 6, 18, 20, 30).toISOString());
+}
+
 /* ── wallet lifecycle ───────────────────────────────────────────────────── */
 //
 // One rule for "what status should this item have right now", shared by
@@ -661,7 +673,7 @@ check(
   check("tm: starts_at passes through as UTC", gig?.startsAt === "2026-11-14T19:30:00Z");
   check("tm: on-sale date captured", gig?.onSaleAt === "2026-09-05T09:00:00Z");
   check("tm: prices to minor units", gig?.minPriceCents === 4550 && gig?.maxPriceCents === 6500);
-  check("tm: largest 16:9 image wins", gig?.imageUrl === "https://img.tm/wide-big.jpg");
+  check("tm: smallest card-sized 16:9 image wins (640 over 2048)", gig?.imageUrl === "https://img.tm/wide-small.jpg");
   check("tm: venue mapped with coords", gig?.venue?.name === "O2 Apollo Manchester" && gig?.venue?.lat === 53.4646);
   check("tm: one ticket link", gig?.ticketLinks.length === 1 && gig?.ticketLinks[0].provider === "ticketmaster");
   check("tm: genre tags lowercased", !!gig && gig.tags.includes("rock") && gig.tags.includes("indie rock"));

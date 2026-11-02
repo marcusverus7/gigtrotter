@@ -1,3 +1,4 @@
+import { FollowButton } from "@/features/follows/follow-button";
 import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -100,7 +101,7 @@ export default async function ArtistPage({
               <CardDescription className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
                   <Users className="h-3 w-3" />
-                  {followerCount ?? 0} followers
+                  {followerCount ?? 0} {followerCount === 1 ? "follower" : "followers"}
                 </span>
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
@@ -111,15 +112,7 @@ export default async function ArtistPage({
           </div>
         </CardHeader>
         <CardContent className="pt-4">
-          {myFollow ? (
-            <Badge variant="verified" className="text-xs">
-              <Heart className="mr-1 h-3 w-3 fill-current" /> Following
-            </Badge>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Follow this artist on the Discover page to get alerts when new events are listed.
-            </p>
-          )}
+          <FollowButton kind="artist" name={artistName} followId={myFollow?.id ?? null} />
         </CardContent>
       </Card>
 

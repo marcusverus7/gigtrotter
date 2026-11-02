@@ -121,10 +121,15 @@ export function categoriseTm(ev: TmEvent): EventCategory {
 
 export function pickTmImage(ev: TmEvent): string | null {
   const images = ev.images ?? [];
+  // The grid card is ~360px wide on a phone. Ticketmaster ships the same art
+  // at 2048, 1024 and 640 wide; the largest was being chosen, so a page of
+  // thirty cards pulled tens of megabytes. Smallest 16:9 at or above 640,
+  // else the largest available.
   const wide = images
     .filter((i) => i.ratio === "16_9" && i.url)
-    .sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
-  return wide[0]?.url ?? images.find((i) => i.url)?.url ?? null;
+    .sort((a, b) => (a.width ?? 0) - (b.width ?? 0));
+  const fit = wide.find((i) => (i.width ?? 0) >= 640) ?? wide[wide.length - 1];
+  return fit?.url ?? images.find((i) => i.url)?.url ?? null;
 }
 
 /** One event; null when it should be skipped (cancelled or hopeless). */

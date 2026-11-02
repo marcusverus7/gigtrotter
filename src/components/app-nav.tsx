@@ -25,16 +25,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
-// Flip to true to preview every flagged surface at once (dev convenience).
-const SHOW_UNLAUNCHED = false;
-
-/**
- * Flagged routes that have graduated: real data behind them, shown to
- * everyone. Launching a surface is adding its href here — the mobile menu
- * derives from the same list, so phones get it in the same deploy.
- * Marketplace and Merch stay hidden until payment rails are real.
- */
-const LAUNCHED_FLAGGED = new Set(["/app/events"]);
+import { LAUNCHED_FLAGGED, SHOW_UNLAUNCHED } from "@/lib/flags";
 
 export type NavItem = {
   href: string;

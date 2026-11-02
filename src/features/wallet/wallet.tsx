@@ -52,7 +52,19 @@ export function Wallet({ items }: { items: WalletListItem[] }) {
   const groups = useMemo(() => groupItems(items), [items]);
 
   return (
-    <Tabs defaultValue="tonight">
+    // "Tonight" is empty 29 days a month; opening on it showed a user with
+    // three upcoming gigs "Nothing tonight. Take a breath." and no action.
+    <Tabs
+      defaultValue={
+        groups.tonight.length > 0
+          ? "tonight"
+          : groups.upcoming.length > 0
+            ? "upcoming"
+            : groups.past.length > 0
+              ? "past"
+              : "upcoming"
+      }
+    >
       {/* Scrollable: four labelled tabs with counts overflow a 375px phone,
           and the ancestor clips rather than scrolls — the Past tab was
           unreachable on small screens. */}

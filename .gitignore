@@ -70,3 +70,4 @@ fastlane/test_output
 /GigTrotter-Status-Report.pdf
 /test-report.pdf
 /generate-test-report.py
+public/__sweep/

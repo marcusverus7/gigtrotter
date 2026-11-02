@@ -71,6 +71,59 @@ export async function acceptFriendRequest(friendshipId: string) {
   revalidatePath("/app/discover");
 }
 
+/**
+ * Inner Circle membership — the one privacy tier that was otherwise dead.
+ *
+ * Every pin defaults to audience 'inner' and the time-shift rule shows a
+ * friend's FUTURE plans only to inner-circle members, yet nothing in the app
+ * ever wrote a circle_members row — so 'Inner' behaved exactly like 'Vault'
+ * and "who else is going" could never match a future gig. Only an accepted
+ * friend can be added; the owner-only policy on circle_members does the
+ * rest, and .select() guards surface a silently denied write.
+ */
+export async function setInnerCircle(memberId: string, inCircle: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  if (memberId === user.id) throw new Error("That is you.");
+
+  const [{ data: circle }, { data: friendship }] = await Promise.all([
+    supabase.from("circles").select("id").eq("user_id", user.id).eq("kind", "inner").maybeSingle(),
+    supabase
+      .from("friendships")
+      .select("id")
+      .eq("state", "accepted")
+      .or(
+        `and(user_a.eq.${user.id},user_b.eq.${memberId}),and(user_a.eq.${memberId},user_b.eq.${user.id})`,
+      )
+      .maybeSingle(),
+  ]);
+  if (!circle) throw new Error("No Inner Circle found for your account.");
+  if (!friendship) throw new Error("Only an accepted friend can join your Inner Circle.");
+
+  if (inCircle) {
+    const { data, error } = await supabase
+      .from("circle_members")
+      .upsert({ circle_id: circle.id, member_id: memberId }, { onConflict: "circle_id,member_id" })
+      .select("member_id");
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error("Could not add to your Inner Circle.");
+  } else {
+    const { data, error } = await supabase
+      .from("circle_members")
+      .delete()
+      .eq("circle_id", circle.id)
+      .eq("member_id", memberId)
+      .select("member_id");
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error("They were not in your Inner Circle.");
+  }
+  revalidatePath("/app/discover");
+  revalidatePath("/app");
+}
+
 export async function removeFriend(friendshipId: string) {
   const supabase = await createClient();
   const {

@@ -35,6 +35,8 @@ const ms = (iso: string | null | undefined): number | null => {
 export function effectiveEnd(startsAt: string, endsAt: string | null | undefined): number {
   const start = ms(startsAt) ?? 0;
   const end = ms(endsAt);
+  // A date-only ticket arrives here as 19:00 local (see anchorToLocalZone),
+  // so the default duration lands it in a sensible evening window.
   return end != null && end >= start ? end : start + DEFAULT_DURATION_MS;
 }
 

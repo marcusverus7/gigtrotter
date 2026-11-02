@@ -150,6 +150,29 @@ rows most likely to still be wrong.
 | J19 | 🔒 `curl -H "Authorization: Bearer $CRON_SECRET" https://gigtrotter.vercel.app/api/health` | 200 with db/storage/feed/anthropic all ok |
 | J20 | 🔒 Public board `/b/<your handle>` after adding a feed gig | Pin sits on the CITY, not on the venue building |
 
+## K — November 2026 sweep (added 2026-11-02)
+
+Found by a fresh code review and a real phone-sized walk with a test account.
+
+| # | Check | Expected |
+|---|---|---|
+| K1 | Accept a friend, then tap the heart on their row on People | They join your Inner Circle; THEY now see your upcoming gigs on your map page (this tier was dead before — nothing ever wrote to it) |
+| K2 | Event page where a friend has marked Going | "Friends going" shows them (the RPC it called never existed) |
+| K3 | Confirm a ticket whose date has no printed time | Shows 19:00 on the card, stays "Upcoming" until that evening — not "Attended" at 5am |
+| K4 | Confirm a FUTURE ticket as Vault, wait for it to pass | The pin is Vault, not Inner |
+| K5 | Rate a gig added from Events or by hand | It now counts toward achievements |
+| K6 | Open a past gig with no end time | Rating, review and Add photo are there |
+| K7 | Take a full-size photo of a paper ticket on a phone | Uploads (it's shrunk client-side); no "Couldn't read this one" for a 6MB photo |
+| K8 | Drop the same screenshot twice | One confirm card, not two |
+| K9 | Settings → Export my data | Only YOUR rows (it included every user's profile before) |
+| K10 | Visit /app/marketplace or /app/merch by URL | Bounced to the wallet |
+| K11 | Artist page | A Follow button that works, not "go to Discover and retype the name" |
+| K12 | Wallet with upcoming gigs but nothing tonight | Opens on Upcoming, not an empty Tonight tab |
+| K13 | Empty wallet | The get-started card, with nothing hidden under the Feedback button |
+| K14 | Events grid on 4G | Loads quickly (cards use the 640px image, not the 2048px one) |
+| K15 | 🔒 Apply migration 0026, then `GET /rest/v1/event_interests?select=user_id` with the anon key | Only your own and friends' rows |
+| K16 | 🔒 iOS: Take photo (needs a NEW native build) | Camera opens with a permission prompt instead of the app being killed |
+
 ## Known-not-ready (don't file these as bugs)
 
 - Push to lock screen — alerts appear on app open only; push needs a native build

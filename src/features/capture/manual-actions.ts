@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { deriveStatus, effectiveEnd } from "@/lib/wallet/lifecycle";
+import { cityCentroid } from "@/lib/events/normalize";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { FlexibleDate } from "@/lib/validation/dates";
 import type {
@@ -100,8 +101,11 @@ export async function addManualWalletItem(raw: {
           country: input.venue.country,
           lat: input.venue.lat,
           lng: input.venue.lng,
-          city_lat: input.venue.lat,
-          city_lng: input.venue.lng,
+          // The city pair feeds the anonymous public board, which is
+          // city-fuzzed on purpose; copying the venue point here put the
+          // building on /b/<handle> (same bug the feed had, fixed 0023).
+          city_lat: cityCentroid(input.venue.city)?.lat ?? null,
+          city_lng: cityCentroid(input.venue.city)?.lng ?? null,
           mapbox_id: input.venue.mapboxId,
         })
         .select("id")
@@ -143,6 +147,7 @@ export async function addManualWalletItem(raw: {
       title: input.title,
       subtitle: input.venue?.full ?? null,
       starts_at: input.starts_at,
+      meta: { audience: input.audience },
     })
     .select("id")
     .single();

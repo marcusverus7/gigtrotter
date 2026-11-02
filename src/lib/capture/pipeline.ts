@@ -90,6 +90,21 @@ export async function ingestCapture(opts: {
   //    is refused by the store and treated as already-done.
   const hash = await templateHash(opts.bytes);
 
+  // The same bytes already waiting on a confirm card — hand that card back
+  // rather than minting a second one. Re-dropping a screenshot (a stall, a
+  // double tap) produced two pending cards and then two wallet items.
+  const { data: pendingTwin } = await supabase
+    .from("captures")
+    .select("id, parse_json")
+    .eq("user_id", opts.userId)
+    .eq("status", "pending")
+    .eq("storage_ref", `${opts.userId}/${hash}.enc`)
+    .maybeSingle();
+  if (pendingTwin) {
+    const twinParse = ParsedCaptureSchema.safeParse(pendingTwin.parse_json);
+    if (twinParse.success) return { captureId: pendingTwin.id, parsed: twinParse.data };
+  }
+
   const encrypted = await encryptBytes(opts.userId, opts.bytes);
   const key = `${opts.userId}/${hash}.enc`;
   const { error: upErr } = await supabase.storage

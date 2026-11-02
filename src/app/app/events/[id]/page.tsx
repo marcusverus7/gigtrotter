@@ -109,12 +109,15 @@ export default async function EventDetailPage({
     interests?.filter((i) => i.interest_type === "going").length ?? 0;
 
   // Friends going
-  const { data: friendIds } = await supabase.rpc("accepted_friend_ids");
-  const friendIdSet = new Set(
-    Array.isArray(friendIds)
-      ? friendIds.map((f: any) => f.friend_id ?? f)
-      : [],
-  );
+  const { data: friendRows } = await supabase
+    .from("friendships")
+    .select("user_a, user_b")
+    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
+    .eq("state", "accepted");
+  // There is no accepted_friend_ids RPC in any migration; the call returned
+  // 404 for every request, so "friends going" was always empty.
+  const friendIds = (friendRows ?? []).map((f) => (f.user_a === user.id ? f.user_b : f.user_a));
+  const friendIdSet = new Set(friendIds);
   const friendsGoing = (interests ?? [])
     .filter((i) => i.interest_type === "going" && friendIdSet.has(i.user_id))
     .map((i) => i.user_id);

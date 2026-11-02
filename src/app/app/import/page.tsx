@@ -1,3 +1,4 @@
+import { SHOW_UNLAUNCHED } from "@/lib/flags";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Download } from "lucide-react";
@@ -32,6 +33,9 @@ export default async function ImportHubPage() {
   const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  // Hidden behind the launch flag: the nav only stopped LINKING to this page,
+  // the URL still served it to any signed-in user.
+  if (!SHOW_UNLAUNCHED) redirect("/app");
 
   const [{ data: integrations }, { data: jobs }] = await Promise.all([
     supabase.from("integrations").select("source").eq("user_id", user.id),

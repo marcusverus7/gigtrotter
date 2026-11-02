@@ -220,6 +220,9 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | N12 | 🔒 POST junk to /api/stripe/webhook | 400 bad signature; nothing changes |
 | N13 | Abandon checkout, then run the nightly cron (or wait for 04:00) | Pending orders past their window flip to expired and stock returns, even if the Stripe webhook never fired |
 | N14 | (offline, already green) `pnpm test:logic` ticketing block | Fulfilment issues one signed ticket per admission, replay is a no-op, expiry releases stock once, signed webhook verifies and tampered/wrong-secret/unsigned are refused |
+| N15 | Buyer A: item page of a bought ticket -> Sell at face value | Listing appears; Send this ticket hides; anyone on the want-one list gets a Resale alert (needs migration 0030) |
+| N16 | Buyer B: event page -> Fan resale -> Buy, pay with 4242 | B's order page shows a fresh QR; A's wallet item archived and A's old code scans CANCELLED; Stripe shows A refunded face value with the promoter transfer reversed by the same amount |
+| N17 | Buyer B abandons the resale checkout, wait 30 min | Listing back to open on the event page; A can still withdraw it |
 
 ## Known-not-ready (don't file these as bugs)
 

@@ -215,6 +215,8 @@ export interface OrderRow {
   created_at: string;
   paid_at: string | null;
   expires_at: string | null;
+  /** Set on a face-value resale order (migration 0030). */
+  listing_id: string | null;
 }
 
 export interface OrderItemRow {
@@ -238,6 +240,23 @@ export interface TicketRow {
   transferred_from: string | null;
   issued_as: string;
   created_at: string;
+}
+
+export type ListingStatus = "open" | "reserved" | "sold" | "withdrawn";
+
+export interface TicketListingRow {
+  id: string;
+  ticket_id: string;
+  seller_id: string;
+  event_id: string;
+  tier_id: string;
+  price_cents: number;
+  currency: string;
+  status: ListingStatus;
+  buyer_order_id: string | null;
+  reserved_until: string | null;
+  created_at: string;
+  sold_at: string | null;
 }
 
 export interface EventWaitlistRow {
@@ -329,7 +348,9 @@ export type AlertKind =
   | "doors_tonight"
   /** Added in migration 0027. */
   | "anniversary"
-  | "friend_request";
+  | "friend_request"
+  /** Added in migration 0030. */
+  | "resale";
 export type AlertState = "unread" | "read" | "dismissed";
 
 export interface WishlistRow {
@@ -513,6 +534,11 @@ export interface Database {
         Row: TicketRow;
         Insert: Partial<TicketRow> & { event_id: string; tier_id: string; owner_id: string; code: string };
         Update: Partial<TicketRow>;
+      };
+      ticket_listings: {
+        Row: TicketListingRow;
+        Insert: Partial<TicketListingRow> & { ticket_id: string; seller_id: string; event_id: string; tier_id: string; price_cents: number };
+        Update: Partial<TicketListingRow>;
       };
     };
     Views: Record<string, never>;

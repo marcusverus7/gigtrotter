@@ -26,6 +26,7 @@ const KIND_LABEL: Record<string, string> = {
   tour_announce: "Tour announced",
   anniversary: "On this day",
   friend_request: "Friends",
+  resale: "Resale",
 };
 
 const KIND_VARIANT: Record<
@@ -39,6 +40,7 @@ const KIND_VARIANT: Record<
   tour_announce: "inner",
   anniversary: "open",
   friend_request: "friends",
+  resale: "open",
 };
 
 export default async function AlertsPage() {

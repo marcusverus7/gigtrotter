@@ -437,6 +437,13 @@ export async function transferTicket(ticketId: string, username: string) {
   if (row.status !== "valid") throw new Error("This ticket can no longer be transferred.");
   if (row.events?.starts_at && new Date(row.events.starts_at).getTime() < Date.now())
     throw new Error("The event has started.");
+  const { data: live } = await service
+    .from("ticket_listings")
+    .select("id")
+    .eq("ticket_id", row.id)
+    .in("status", ["open", "reserved"])
+    .maybeSingle();
+  if (live) throw new Error("This ticket is listed for resale. Withdraw the listing first.");
 
   // The old code dies with the transfer; the new holder gets a fresh one.
   const { data: voided } = await service

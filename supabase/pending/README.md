@@ -1,5 +1,13 @@
 # Migration pack
 
+## Pending: 0030 (added 2026-11-02) — face-value resale
+
+`APPLY-ME-0030.sql` — `ticket_listings` (one live listing per ticket, buyers
+read open ones, sellers their own, writes service-only), `orders.listing_id`,
+and the `resale` alert kind for the want-one list. Apply AFTER 0029. Until
+applied, the resale controls on a ticket say so and event pages show no
+resale box.
+
 ## Pending: 0029 (added 2026-11-02) — ticketing
 
 `APPLY-ME-0029.sql` — the tables behind selling tickets through GigTrotter:

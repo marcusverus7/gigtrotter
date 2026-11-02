@@ -1,4 +1,5 @@
 import { BuyTickets, type TierView } from "@/features/ticketing/buy-tickets";
+import { ResaleList, type ListingView } from "@/features/ticketing/resale-list";
 import { stripeConfigured } from "@/lib/stripe/client";
 import { DEFAULT_FEES } from "@/lib/tickets/pricing";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -154,6 +155,20 @@ export default async function EventDetailPage({
       .maybeSingle();
     if (acct) fees = { bps: acct.fee_bps, fixedCents: acct.fee_fixed_cents };
   }
+  // Face-value resale listings (migration 0030). Absent table -> empty.
+  const { data: listingRows } = await supabase
+    .from("ticket_listings")
+    .select("id, price_cents, currency, tier_id")
+    .eq("event_id", id)
+    .eq("status", "open")
+    .order("created_at");
+  const tierNameById = new Map(tiers.map((t) => [t.id, t.name]));
+  const listings: ListingView[] = ((listingRows ?? []) as Array<{ id: string; price_cents: number; currency: string; tier_id: string }>).map((l) => ({
+    id: l.id,
+    tierName: tierNameById.get(l.tier_id) ?? "Ticket",
+    priceCents: l.price_cents,
+    currency: l.currency,
+  }));
   const isPromoter = !!event.promoter_id && event.promoter_id === user.id;
 
   // Waitlist (sold-out events only) — tolerant of the table not existing yet.
@@ -418,6 +433,9 @@ export default async function EventDetailPage({
           {/* Sold here: the buy box comes first, the outbound links after. */}
           {isFuture && tiers.length > 0 ? (
             <BuyTickets eventId={id} tiers={tiers} fees={fees} paymentsOn={stripeConfigured()} />
+          ) : null}
+          {isFuture && listings.length > 0 ? (
+            <ResaleList listings={listings} fees={fees} paymentsOn={stripeConfigured()} />
           ) : null}
           {isPromoter ? (
             <Button asChild variant="outline" size="sm">

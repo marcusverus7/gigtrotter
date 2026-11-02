@@ -890,6 +890,8 @@ function fakeDb(seed: Record<string, Row[]>) {
       upsert: (v: unknown) => chain(() => void ((st.op = "insert"), (st.vals = v))),
       eq: (k: string, v: unknown) => chain(() => void st.filters.push((r) => r[k] === v)),
       lt: (k: string, v: string) => chain(() => void st.filters.push((r) => String(r[k]) < v)),
+      in: (k: string, vs: unknown[]) => chain(() => void st.filters.push((r) => vs.includes(r[k]))),
+      order: () => b,
       maybeSingle: () => chain(() => void (st.one = true)),
       single: () => chain(() => void (st.one = true)),
       then: (res: (x: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise.resolve().then(run).then(res, rej),
@@ -1011,9 +1013,77 @@ async function testTicketing() {
   check("webhook: unrelated event ignored", d4.action === "ignored" && calls.length === 2);
 }
 
+/* ── resale: hand-over, seller refund, stale-ticket refund, listing release ── */
+
+async function testResale() {
+  const { fulfilOrder, expireOrder } = await import("../src/lib/tickets/fulfil");
+  const secret = "test-master-key";
+  const starts = new Date(Date.now() + 7 * 86_400_000).toISOString();
+  const seed = () => ({
+    orders: [
+      { id: "o-seller", user_id: "seller", event_id: "e1", status: "paid", stripe_payment_intent_id: "pi_seller", total_cents: 1595 },
+      { id: "o-buyer", user_id: "buyer", event_id: "e1", status: "pending", listing_id: "L1", total_cents: 1595, stripe_payment_intent_id: null, expires_at: new Date(Date.now() - 3_600_000).toISOString() },
+    ],
+    ticket_listings: [{ id: "L1", ticket_id: "T1", seller_id: "seller", event_id: "e1", tier_id: "t1", price_cents: 1500, currency: "GBP", status: "reserved" }],
+    tickets: [{ id: "T1", order_id: "o-seller", event_id: "e1", tier_id: "t1", owner_id: "seller", wallet_item_id: "W1", code: "GT-OLD", status: "valid" }],
+    wallet_items: [{ id: "W1", user_id: "seller", status: "upcoming" }],
+    ticket_tiers: [{ id: "t1", name: "Day" }],
+    events: [{ id: "e1", title: "Belfast Blues", headliner: null, venue_id: null, venue_name: "Limelight", venue_city: "Belfast", starts_at: starts, ends_at: null }],
+  });
+  const buyerPaid = { sessionId: "cs_r", paymentIntentId: "pi_buyer", email: "buyer@example.com" };
+
+  const refunds: Array<{ paymentIntentId: string; amountCents: number }> = [];
+  const refund = async (r: { paymentIntentId: string; amountCents: number }) => {
+    refunds.push(r);
+  };
+  const db = fakeDb(seed());
+  const r = await fulfilOrder("o-buyer", buyerPaid, { service: db as never, secret, refund });
+  check("resale: one ticket handed over", r.issued === 1 && !r.already, JSON.stringify(r));
+  const old = db.tables.tickets.find((t) => t.id === "T1");
+  check("resale: seller ticket voided", old?.status === "transferred");
+  check("resale: seller wallet item archived", db.tables.wallet_items.find((w) => w.id === "W1")?.status === "archived");
+  const fresh = db.tables.tickets.find((t) => t.id !== "T1");
+  check(
+    "resale: buyer gets a new ticket under the resale order",
+    !!fresh && fresh.owner_id === "buyer" && fresh.order_id === "o-buyer" && fresh.issued_as === "resale" && fresh.transferred_from === "seller",
+    JSON.stringify(fresh),
+  );
+  check("resale: new code is signed and differs from the old", !!fresh && fresh.code !== "GT-OLD" && verifyTicketCode(String(fresh.code), secret));
+  const buyerWallet = db.tables.wallet_items.find((w) => w.user_id === "buyer");
+  check(
+    "resale: buyer wallet item carries the new code",
+    !!buyerWallet && (buyerWallet.meta as { gigtrotter_ticket_code?: string }).gigtrotter_ticket_code === fresh?.code && fresh?.wallet_item_id === buyerWallet.id,
+  );
+  const listing = db.tables.ticket_listings[0];
+  check("resale: listing sold, linked to buyer order", listing.status === "sold" && listing.buyer_order_id === "o-buyer" && !!listing.sold_at);
+  check("resale: seller refunded exactly face from their own payment", refunds.length === 1 && refunds[0].paymentIntentId === "pi_seller" && refunds[0].amountCents === 1500, JSON.stringify(refunds));
+  check("resale: no stock committed", !db.rpcs.some((x) => x.fn === "commit_tier"));
+  check("resale: buyer marked going", (db.tables.event_interests ?? []).some((i) => i.user_id === "buyer" && i.interest_type === "going"));
+  const again = await fulfilOrder("o-buyer", buyerPaid, { service: db as never, secret, refund });
+  check("resale: replay is a no-op, no second refund", again.already && refunds.length === 1 && db.tables.tickets.length === 2);
+
+  // Seller's ticket was scanned at the door between listing and payment.
+  const refunds2: Array<{ paymentIntentId: string; amountCents: number }> = [];
+  const db2 = fakeDb(seed());
+  db2.tables.tickets[0].status = "used";
+  const r2 = await fulfilOrder("o-buyer", buyerPaid, { service: db2 as never, secret, refund: async (x) => void refunds2.push(x) });
+  check("resale: stale seller ticket issues nothing", r2.issued === 0 && !r2.already);
+  check("resale: buyer refunded in full instead", refunds2.length === 1 && refunds2[0].paymentIntentId === "pi_buyer" && refunds2[0].amountCents === 1595, JSON.stringify(refunds2));
+  check("resale: order refunded, listing withdrawn", db2.tables.orders[1].status === "refunded" && db2.tables.ticket_listings[0].status === "withdrawn");
+  check("resale: no ticket created for the buyer", db2.tables.tickets.length === 1);
+
+  // Buyer walked away: the listing goes back on sale, nothing else moves.
+  const db3 = fakeDb(seed());
+  await expireOrder("o-buyer", { service: db3 as never });
+  check("resale: expiry reopens the listing", db3.tables.orders[1].status === "expired" && db3.tables.ticket_listings[0].status === "open" && db3.tables.ticket_listings[0].reserved_until === null);
+  check("resale: expiry releases no tier stock", db3.rpcs.length === 0 && db3.tables.tickets[0].status === "valid");
+  await expireOrder("o-buyer", { service: db3 as never });
+  check("resale: second expiry is a no-op", db3.tables.ticket_listings[0].status === "open");
+}
+
 /* ── report ─────────────────────────────────────────────────────────────── */
 
-Promise.all([testPdfRejection(), testTicketing()]).then(() => {
+Promise.all([testPdfRejection(), testTicketing(), testResale()]).then(() => {
   const total = passed + failures.length;
   console.log(`\ncapture logic tests: ${passed}/${total} passed`);
   for (const f of failures) console.error(f);

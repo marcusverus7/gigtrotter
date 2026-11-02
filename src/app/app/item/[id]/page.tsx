@@ -1,4 +1,5 @@
 import { TicketQr } from "@/features/ticketing/ticket-qr";
+import { ResaleControls } from "@/features/ticketing/resale-controls";
 import { TransferTicket } from "@/features/ticketing/transfer-ticket";
 import { CantGo } from "@/features/wallet/cant-go";
 import { SetlistPanel } from "@/features/wallet/setlist-panel";
@@ -148,6 +149,10 @@ export default async function WalletItemDetail({
   const ownTicket = ownTicketCode
     ? ((await supabase.from("tickets").select("id, status, used_at").eq("wallet_item_id", id).eq("owner_id", user.id).maybeSingle()).data as { id: string; status: string; used_at: string | null } | null)
     : null;
+  // A live resale listing on that ticket (migration 0030); absent table -> null.
+  const ownListing = ownTicket
+    ? ((await supabase.from("ticket_listings").select("id, price_cents, currency, status").eq("ticket_id", ownTicket.id).in("status", ["open", "reserved"]).maybeSingle()).data as { id: string; price_cents: number; currency: string; status: string } | null)
+    : null;
   const isFuture = startsAt ? startsAt.getTime() > Date.now() : false;
   const isLive =
     startsAt &&
@@ -295,8 +300,18 @@ export default async function WalletItemDetail({
               </div>
               {ownTicket && ownTicket.status === "valid" && isFuture ? (
                 <div className="mt-4 border-t border-border pt-4">
-                  <p className="mb-2 text-xs text-muted-foreground">Can&apos;t go? Send it to a friend — their wallet gets a fresh QR and yours stops working.</p>
-                  <TransferTicket ticketId={ownTicket.id} />
+                  {!ownListing ? (
+                    <>
+                      <p className="mb-2 text-xs text-muted-foreground">Can&apos;t go? Send it to a friend — their wallet gets a fresh QR and yours stops working.</p>
+                      <TransferTicket ticketId={ownTicket.id} />
+                    </>
+                  ) : null}
+                  <div className="mt-3">
+                    <ResaleControls
+                      ticketId={ownTicket.id}
+                      listing={ownListing ? { id: ownListing.id, priceCents: ownListing.price_cents, currency: ownListing.currency, status: ownListing.status } : null}
+                    />
+                  </div>
                 </div>
               ) : ownTicket?.status === "used" ? (
                 <p className="mt-3 text-xs text-muted-foreground">Checked in{ownTicket.used_at ? " — enjoy the show." : "."}</p>

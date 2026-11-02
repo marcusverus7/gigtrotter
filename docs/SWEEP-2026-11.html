@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GigTrotter November Sweep</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+:root{
+  --bg:#f7f5f0;--ink:#1c1a17;--muted:#5f5a52;--line:#d9d3c7;--card:#ffffff;
+  --accent:#6d3fd9;--accent-ink:#ffffff;--good:#1f7a4d;--warn:#b25e09;--bad:#b3261e;--soft:#efe9df;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121014;--ink:#ece7df;--muted:#a59e92;--line:#2c2731;--card:#1a1720;
+  --accent:#a78bfa;--accent-ink:#17121f;--good:#5ccd8f;--warn:#f0a850;--bad:#ff8a80;--soft:#221d2a;}}
+:root[data-theme="dark"]{
+  --bg:#121014;--ink:#ece7df;--muted:#a59e92;--line:#2c2731;--card:#1a1720;
+  --accent:#a78bfa;--accent-ink:#17121f;--good:#5ccd8f;--warn:#f0a850;--bad:#ff8a80;--soft:#221d2a;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Public Sans",system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:40px 16px 80px}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;text-wrap:balance;margin:0 0 .4em}
+h1{font-size:2.4rem;line-height:1.1}
+h2{font-size:1.5rem;margin-top:2.4em;padding-top:.6em;border-top:1px solid var(--line)}
+h3{font-size:1.1rem;margin-top:1.6em}
+p{max-width:68ch}
+.eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lede{font-size:1.1rem;color:var(--muted);max-width:62ch}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:24px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.kpi b{display:block;font-family:Fraunces,serif;font-size:1.7rem;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:.85rem}
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin:12px 0}
+th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--line)}
+th{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.wrap{overflow-x:auto}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.75rem;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.has{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.partial{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.missing{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.tag{background:var(--soft);color:var(--muted)}
+.done{color:var(--good);font-weight:600}
+.open{color:var(--warn);font-weight:600}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.86em}
+.callout{background:var(--card);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;margin:20px 0}
+ol li,ul li{margin:.35em 0}
+.rank{display:grid;grid-template-columns:2.2rem 1fr;gap:10px;margin:14px 0;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.rank .n{font-family:Fraunces,serif;font-size:1.5rem;color:var(--accent);line-height:1}
+.rank h4{margin:0 0 .3em;font-size:1.02rem}
+.rank p{margin:.25em 0;font-size:.93rem}
+.meta{color:var(--muted);font-size:.82rem}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<p class="eyebrow">GigTrotter · 2 November 2026</p>
+<h1>GigTrotter November Sweep</h1>
+<p class="lede">Two months since anyone touched it. A competitive read of the live-music app space, a fresh review of every screen, and the first real walk through the app on a phone-sized screen with a test account. Fixes were shipped as they were found; features are ranked below for you to choose from.</p>
+
+<div class="kpis">
+  <div class="kpi"><b>4</b><span>commits pushed, all CI-green</span></div>
+  <div class="kpi"><b>19 → 0</b><span>known vulnerabilities (one was an unauthenticated RCE)</span></div>
+  <div class="kpi"><b>13</b><span>confirmed bugs, 12 fixed</span></div>
+  <div class="kpi"><b>129</b><span>competitive findings across 5 sweeps</span></div>
+  <div class="kpi"><b>3</b><span>profiles in production — nobody has tested yet</span></div>
+</div>
+
+<div class="callout">
+<strong>The one thing to take from this.</strong> The capture-from-a-ticket pitch is no longer unique — Gigs (iOS 26, April 2026) does it on-device for free, and Google Wallet does it natively on Android. What nobody else has is the layer after capture: flights and stays clustered into trips, a private life map with a real privacy model, a cross-ticketer friends graph, and one deploy to web, iOS and Android. Lead with that. And the social tier at the centre of it was, until today, impossible to join.
+</div>
+
+<h2>What shipped today</h2>
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td class="mono">7617931</td><td><strong>Dependencies.</strong> Next.js 15.5.21 → 15.5.28: the version in production had an unauthenticated remote-code-execution bug in the image optimiser, which this app has enabled. Capacitor 8.4 → 8.6, zod 3 → 4, seven transitive overrides. <code>pnpm audit --prod</code> is clean.</td></tr>
+<tr><td class="mono">9d4a4d5</td><td><strong>The sweep batch</strong> — fourteen confirmed bugs, below, plus the phone-UX fixes.</td></tr>
+<tr><td class="mono">8c867a8</td><td>Public "going / interested" counts via aggregate RPC so they survive migration 0026.</td></tr>
+</table>
+
+<h2>What was tested, by hand, on a 375px viewport</h2>
+<p>With a throwaway account (<span class="mono">sweeptester</span>, created in the production Supabase, credentials in your gitignored <span class="mono">.env.local</span>).</p>
+<table>
+<tr><th>Flow</th><th>Result</th></tr>
+<tr><td>Sign in → onboarding (name, username, skip) → wallet</td><td class="done">Pass</td></tr>
+<tr><td>Capture a real corpus ticket through <span class="mono">/api/captures</span></td><td class="done">Pass — 0.93 confidence, every field right, 1.2 s</td></tr>
+<tr><td>Confirm one card, discard the other</td><td class="done">Pass — wallet shows the gig as Attended</td></tr>
+<tr><td>Item page for an attended gig</td><td class="done">Pass after fix — rating, review and photo editor now visible</td></tr>
+<tr><td>Artist page → Follow</td><td class="done">Pass after fix — button added; follower count updates</td></tr>
+<tr><td>Hidden routes by URL (<span class="mono">/app/merch</span>, <span class="mono">/app/marketplace</span>)</td><td class="done">Pass after fix — bounced to wallet</td></tr>
+<tr><td>Empty wallet on a phone</td><td class="done">Fixed — the Feedback button was covering "Add one manually"</td></tr>
+<tr><td>Map, memories, night, trips, alerts, settings, public board</td><td class="open">Not walked — ran out of session before these</td></tr>
+</table>
+<p class="meta">A lesson that cost an hour: the desktop app's browser pane does not hydrate a page while the pane is hidden, so clicks silently do nothing and a working feature looks broken. Show the pane before testing anything interactive.</p>
+
+<h2>Confirmed bugs</h2>
+<p>Each was found by one reader and then confirmed by two adversarial readers told to refute it. Seventeen more findings had their verifiers die on the usage limit and are listed as unverified further down.</p>
+<div class="wrap"><table>
+<tr><th>Bug</th><th>Why it mattered</th><th>Status</th></tr>
+<tr><td>Inner Circle could not be populated</td><td>Every pin defaults to the Inner tier and the time-shift rule shows a friend's future plans only to inner-circle members — but nothing ever wrote a membership row. The default privacy tier behaved as Vault; "who else is going" could never match a future gig.</td><td class="done">Fixed — heart toggle on People</td></tr>
+<tr><td>"Friends going" called an RPC that does not exist</td><td>404 on every request; the rail and the panel were always empty.</td><td class="done">Fixed</td></tr>
+<tr><td>Date-only tickets became UTC midnight</td><td>"Tonight" the afternoon before; attended, with a map pin, at 5am on the day.</td><td class="done">Fixed — 19:00 local placeholder</td></tr>
+<tr><td>Confirm-card audience dropped for upcoming tickets</td><td>Choose Vault, get an Inner pin once the gig passes.</td><td class="done">Fixed</td></tr>
+<tr><td>Full-size phone photos rejected</td><td>Vercel refuses bodies over 4.5MB with an HTML 413, which the dropzone misread as "Couldn't read this one". iPhone photos are 3–8MB.</td><td class="done">Fixed — shrunk in the browser first</td></tr>
+<tr><td>Rating/review/photo editor hidden on most attended gigs</td><td>Gated on an end time almost no ticket has.</td><td class="done">Fixed</td></tr>
+<tr><td>Rating a feed or hand-added gig never counted for achievements</td><td>The pin stayed "unverified" however many times it was rated.</td><td class="done">Fixed</td></tr>
+<tr><td>Data export returned every user's profile</td><td><span class="mono">profiles</span> is read-all; "my data" carried everyone's anon handles and friends' pins.</td><td class="done">Fixed</td></tr>
+<tr><td>Same screenshot twice → two cards, two wallet items</td><td></td><td class="done">Fixed</td></tr>
+<tr><td>Hand-added venues put the building on the public board</td><td>Same bug the feed had in September.</td><td class="done">Fixed</td></tr>
+<tr><td>Flag-hidden routes served to anyone by URL</td><td>The guard compared a client <em>reference</em>, not <code>false</code> — typecheck cannot see that.</td><td class="done">Fixed</td></tr>
+<tr><td>iOS "Take photo" would be killed by the OS</td><td>No camera purpose string in Info.plist.</td><td class="open">Fixed in repo — needs a native build</td></tr>
+<tr><td>"Going" to a future event was world-readable</td><td>Anyone with the anon key could list who is going where, and Add-to-wallet enrolled people silently.</td><td class="open">Migration 0026 — needs the SQL editor</td></tr>
+<tr><td>Any signed-in user could publish merch to the global store</td><td>Published rows render on launched venue, artist and event pages.</td><td class="open">Migration 0026</td></tr>
+<tr><td>Marketplace buyers see an empty grid</td><td>The listing embeds <span class="mono">wallet_items</span>, which is owner-only; every other seller's card renders nothing. Behind the flag; see "Do not build".</td><td class="open">Not fixed — design decision</td></tr>
+<tr><td>Discussions are view-only for everyone</td><td>Posting requires a purchase flag nothing ever sets.</td><td class="open">Not fixed — decide the gate</td></tr>
+</table></div>
+
+<h3>Unverified (worth a look, not confirmed)</h3>
+<ul>
+<li><strong>"Continue with Google" inside the iOS/Android shell</strong> — Google blocks OAuth in embedded WebViews (403 <span class="mono">disallowed_useragent</span>). Very likely real. Fix is the Capacitor Browser plugin or Supabase's PKCE flow via the system browser — a native build. Apple also requires Sign in with Apple when any social login is offered (Guideline 4.8).</li>
+<li>Second avatar change fails — no UPDATE policy on the avatars bucket. Included in migration 0026 regardless.</li>
+<li>Geofence "I'm here" always reports permission denied in the shells.</li>
+<li>Typed venue silently discarded on manual add unless a Mapbox suggestion is tapped.</li>
+<li>Server-action error messages are redacted in production — users see React's generic blurb instead of "Username already taken".</li>
+<li>No way to change email address.</li>
+</ul>
+
+<h2>Where GigTrotter sits</h2>
+<p>Five parallel research sweeps — the big discovery apps, the 2026 gig-diary wave, ticket wallets and face-value resale, user complaints, pricing and market — then a synthesis against what is actually in the repo.</p>
+<div class="wrap"><table>
+<tr><th>Capability</th><th>GigTrotter</th><th>Best in class</th></tr>
+<tr><td>Ticket capture from screenshot / photo / camera roll</td><td><span class="pill has">has</span> 97.9% on the corpus</td><td>Gigs (on-device, free, iOS only); Google Wallet (Android native)</td></tr>
+<tr><td>Email-forward capture</td><td><span class="pill partial">partial</span> proven, no domain</td><td>Gigs; Google Wallet Gmail import</td></tr>
+<tr><td>Flights + stays + trip clustering</td><td><span class="pill has">has</span></td><td><strong>GigTrotter — nobody else does this</strong></td></tr>
+<tr><td>Private life map with per-pin privacy</td><td><span class="pill has">has</span> DB-enforced</td><td>GigTrotter; Afterlight proves the privacy-first segment exists</td></tr>
+<tr><td>Night mode (countdown, barcode, meet spot)</td><td><span class="pill partial">partial</span> shows the barcode for every issuer</td><td>Ticketmaster's enhanced Wallet pass</td></tr>
+<tr><td>Issuer-aware entry (static / rotating / app-locked)</td><td><span class="pill missing">missing</span></td><td>Nobody does it explicitly — an open lane</td></tr>
+<tr><td>Setlist on past gigs + "relive" playlist</td><td><span class="pill missing">missing</span></td><td>Every 2026 diary app (setlist.fm API)</td></tr>
+<tr><td>History import (setlist.fm, CSV)</td><td><span class="pill missing">missing</span> nine "Coming soon" cards</td><td>Table stakes across the diary category</td></tr>
+<tr><td>Year-in-review share card</td><td><span class="pill partial">partial</span> button disabled "(V1)"</td><td>Banded, Gigvault, Rail; Bandsintown's December email</td></tr>
+<tr><td>Post-gig rating / review / photos</td><td><span class="pill has">has</span></td><td>Parity; competitors split artist vs venue rating</td></tr>
+<tr><td>Anniversaries / On this day</td><td><span class="pill has">has</span> as a card, not an alert</td><td>Rail, GigLog, Concert Archives</td></tr>
+<tr><td>Cross-ticketer friends graph, who-else-is-going</td><td><span class="pill has">has</span> (now that the tier can be joined)</td><td>GigTrotter; DICE only inside DICE</td></tr>
+<tr><td>Push notifications</td><td><span class="pill missing">missing</span> in-app only</td><td>Everyone</td></tr>
+<tr><td>Discovery / tour alerts</td><td><span class="pill has">has</span> Ticketmaster + Bandsintown</td><td>Spotify, Apple Music and Ticketmaster have absorbed this — hygiene, not a reason to install</td></tr>
+<tr><td>Face-value resale</td><td><span class="pill partial">partial</span> built, hidden, broken for buyers</td><td>Twickets; UK Ticket Tout Ban Bill makes platforms liable</td></tr>
+</table></div>
+
+<h3>Threats worth knowing about</h3>
+<ul>
+<li><strong>Rotating barcodes.</strong> Ticketmaster SafeTix rotates every 15 s, AXS every ~60 s, DICE withholds the QR until near doors. A captured barcode will not scan at the door for most UK arena and club tickets. If night mode keeps showing it as if it will, the first review says "turned away".</li>
+<li><strong>Gigs</strong> has the same pitch, on-device, free, from a known indie developer, with setlist import and a Wrapped card already shipped. iOS-only, no travel, no social, no Android.</li>
+<li><strong>Single-source feed.</strong> Ticketmaster's API terms could change after the April 2026 antitrust verdict.</li>
+<li><strong>Songkick is now owned by Suno</strong>, and users were told their data moved to an AI-music company. A "never trained on" pledge plus a Songkick import is a cheap, pointed differentiator.</li>
+<li><strong>Reliability is the review-killer</strong> across this category: duplicates, lost gigs, un-editable fields. One data-loss report in a 13-rating app is fatal.</li>
+</ul>
+
+<h2>What to build next — ranked by impact per effort</h2>
+<p class="meta">Effort is for one developer working with an assistant. "Native build" means the iOS and Android shells must be rebuilt; a web deploy is not enough.</p>
+
+<div class="rank"><div class="n">1</div><div><h4>Issuer-aware night mode</h4><p>Have the parser classify the issuer and entry mode (static barcode / rotating in-app / app-locked). Night mode then shows the captured barcode only for static issuers, and a one-tap deep link into the Ticketmaster, AXS or DICE app for the rest — "Open in DICE, your QR appears there". Store the order number for the box office.</p><p class="meta">Days · additive migration · no native build · turns the biggest threat into a feature</p></div></div>
+<div class="rank"><div class="n">2</div><div><h4>Shareable Wrapped card, before early December</h4><p>Enable the disabled Share button on year-in-review: a 1080×1920 story card from stats the page already computes, through the PNG pipeline that <span class="mono">/api/countdown</span> already has. Bandsintown emails its recap mid-December; fans built an unofficial RA Wrapped app because demand is that strong.</p><p class="meta">Days · no migration · no native build · the January growth loop</p></div></div>
+<div class="rank"><div class="n">3</div><div><h4>Setlist on every past gig</h4><p>Morning after a gig, query setlist.fm by artist + date + city, attach it to the pin, show it on the item page and in memories, offer a one-tap "open as a playlist" search. The single most-wanted enrichment in competitor reviews; GigTrotter has none.</p><p class="meta">Days · additive migration · free API, key already scaffolded</p></div></div>
+<div class="rank"><div class="n">4</div><div><h4>History import: setlist.fm + CSV</h4><p>Turn the first two "Coming soon" cards on Import into real ones. The serious gig-goer's incumbent is a spreadsheet, and an empty map on day one is the cold-start killer.</p><p class="meta">Days · no migration if imports write ordinary wallet items</p></div></div>
+<div class="rank"><div class="n">5</div><div><h4>Spotify connect at onboarding</h4><p>Finish the OAuth scaffold: pull top artists, auto-follow with a review list, and the next nightly Bandsintown pass fills "For you". Every competitor's step one. Today the app has zero follows in production.</p><p class="meta">Days · needs SPOTIFY_CLIENT_ID/SECRET</p></div></div>
+<div class="rank"><div class="n">6</div><div><h4>Push notifications</h4><p>Alerts that only appear when you open the app are not alerts. The four kinds already exist and dedupe; this needs a device-token table, a send route, APNs/FCM, and a native build. It is also the cleanest answer to Apple's "just a website" guideline.</p><p class="meta">Weeks · migration · <strong>native build</strong></p></div></div>
+<div class="rank"><div class="n">7</div><div><h4>Fix sign-in inside the shells</h4><p>Google OAuth in an embedded WebView is blocked by Google; Apple requires Sign in with Apple alongside any social login. Until both are done, email + password is the only route that works on a phone.</p><p class="meta">Days · <strong>native build</strong> · unverified but very likely</p></div></div>
+<div class="rank"><div class="n">8</div><div><h4>"Can't go?" + want-a-ticket waitlist</h4><p>One button on every ticket that routes by issuer (DICE Return, Ticketmaster Transfer, give to a friend). On the other side, "Want one" on sold-out feed events, notifying inner circle first when a spare appears. DICE's waiting list is its most-praised feature.</p><p class="meta">Days · additive migration · builds on item 1</p></div></div>
+<div class="rank"><div class="n">9</div><div><h4>Anniversary and "you were both there" alerts</h4><p>Promote the On-this-day card to an alert kind; surface shared past gigs on the item page. Pure additions to the alert generator.</p><p class="meta">Hours</p></div></div>
+<div class="rank"><div class="n">10</div><div><h4>Skiddle as a third feed source</h4><p>The grassroots and club tier Ticketmaster under-indexes, with an affiliate scheme. One more mapper against the existing contract.</p><p class="meta">Days · ranked low because discovery is hygiene, not the reason to install</p></div></div>
+
+<h3>Smaller improvements from the review (hours each)</h3>
+<ul>
+<li>Staged progress during the 5–15 s parse, with a realistic time expectation.</li>
+<li>Show the screenshot on the confirm card — the encrypted blob is write-only today, so a 20-card backfill queue is 20 identical-looking forms.</li>
+<li>"Confirm all ≥ 80%" for backfill.</li>
+<li>Make the globe usable on a phone: one-finger drag rotates it instead of scrolling the page.</li>
+<li>Notify on friend request and acceptance — today a request is only visible if the other person opens People.</li>
+<li>A Share button on the public board; a link preview for <span class="mono">/b/&lt;handle&gt;</span>.</li>
+<li>Browse events is 30-and-done: add load-more and a date filter.</li>
+<li>"Going" interest and "Add to wallet" are two disconnected ways to say the same thing; Wishlist and Follows likewise.</li>
+<li>Swipe-back in the iOS shell (one line of Capacitor config, native build).</li>
+<li>Reconsider the five bottom tabs: "Tonight" is empty 29 days a month; Events and Alerts are buried.</li>
+<li>A minimal offline story for gig night: a global online/offline banner at least.</li>
+</ul>
+
+<h2>Do not build</h2>
+<ul>
+<li>A recommendation engine or any attempt to out-discover Spotify, Apple Music or Bandsintown. Seed follows from Spotify and stop.</li>
+<li>Reconstructing rotating barcodes. Impossible without the issuer's secret; deep-link instead.</li>
+<li>Unhiding the marketplace for screenshot-listed tickets. You cannot prove a ticket is real or unique, and the draft UK law makes the platform liable with fines up to 10% of turnover. If it ever opens: issuer-transfer flows only, Stripe escrow, a written guarantee.</li>
+<li>The merch store and perks club now. DICE sells merch inside its own checkout and GigTrotter has no supply or audience yet.</li>
+<li>Venue-ops tooling. Opendate and GigPig own it; the venue angle is audience-side only.</li>
+<li>Streaks or compulsory gamification. Afterlight sells "no streaks" as a feature.</li>
+<li>A $9.99 Plus tier or gating social behind it. The market clears at £2.99–3.99 a month, gating storage, exports, imports and deep stats only.</li>
+<li>A native rewrite. One deploy to three platforms is the one thing the ten iOS-only diary apps cannot match.</li>
+</ul>
+
+<h2>What needs you</h2>
+<ol>
+<li><strong>Apply migration 0026 first</strong>, then 0024 and 0025 — all in <span class="mono">supabase/pending/</span> with verification queries. 0026 closes the "who is going where" disclosure; it needs the SQL editor because it changes policies.</li>
+<li><strong>Cut a native build</strong> when convenient. It picks up the Capacitor security patch and the camera permission string. Nothing else in today's work needs it.</li>
+<li><strong>Check the Supabase Auth email template</strong> uses <span class="mono">{{ .TokenHash }}</span>. If it still uses the default, confirming an email in a different browser from the signup shows "Sign-in failed" while the account is actually confirmed.</li>
+<li><strong>Delete the test account</strong> when you are done with it: sign in as <span class="mono">sweeptester</span> locally and use Settings → Delete account, which now actually removes its files.</li>
+<li><strong>Decide the discussion gate</strong> (any ticket holder can post, or hide the composer) and whether the marketplace is ever opened.</li>
+</ol>
+
+<p class="meta">Testing rows for everything above are in <span class="mono">TEST-CHECKLIST.md</span>, sections J and K. The two workflow transcripts, with every finding and citation, are in the session's workflow directory.</p>
+</main>
+</body>
+</html>

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PendingButton } from "@/components/pending-button";
+import { getPrivateProfile } from "@/lib/profile/private";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { DeleteAccountButton } from "@/features/auth/delete-account-button";
 import {
@@ -37,13 +38,17 @@ export default async function SettingsPage({
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  const [{ data: publicProfile }, privateProfile] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url, created_at, updated_at")
+      .eq("id", user.id)
+      .single(),
+    getPrivateProfile(supabase, user.id),
+  ]);
 
-  if (!profile) redirect("/login");
+  if (!publicProfile || !privateProfile) redirect("/login");
+  const profile = { ...publicProfile, ...privateProfile };
 
   const anonUrl = `${publicEnv.siteUrl}/b/${profile.anon_handle}`;
   const forwardingDomain =

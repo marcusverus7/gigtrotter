@@ -686,6 +686,18 @@ export interface Database {
         Returns: Record<string, unknown>;
       };
       can_check_in: { Args: { target_event: string }; Returns: boolean };
+      /** 0033: the owner's private profile columns (anonymous-board handle, plan). */
+      my_profile_private: {
+        Args: Record<string, never>;
+        Returns: Array<{
+          anon_handle: string;
+          anon_hash: string;
+          anon_revoked: boolean;
+          anon_views: number;
+          plan: "free" | "plus";
+          last_alert_scan_at: string | null;
+        }>;
+      };
       tier_availability: { Args: { target_event: string }; Returns: Array<{ tier_id: string; remaining: number }> };
       event_interest_counts_for: {
         Args: { target_events: string[] };

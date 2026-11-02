@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { getPrivateProfile } from "@/lib/profile/private";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
   regenerateAnonHandle,
@@ -28,11 +29,7 @@ export default async function AnonBoardSettingsPage() {
   const user = await getSessionUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("anon_handle, anon_revoked, anon_views")
-    .eq("id", user.id)
-    .single();
+  const profile = await getPrivateProfile(supabase, user.id);
 
   // Count how many experiences would be visible on the anon board.
   const { count: openCount } = await supabase

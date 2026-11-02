@@ -247,6 +247,7 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | O10 | After Stripe keys: resale a ticket; check `/app/admin/orders` and the Stripe dashboard | One seller refund of face with the transfer reversed; refund row succeeded with the Stripe id; seller order still paid; buyer has one valid ticket, seller's scans CANCELLED |
 | O11 | After Stripe keys: admin → Refund whole order | Tickets scan CANCELLED immediately; order shows refunded only once Stripe accepts; one refund in Stripe |
 | O12 | Signed out: open `/events`, an event page, click Sign in to buy, sign in | Lands back on that event in the app |
+| O13 | 🔒 After 0033: anonymous `GET /rest/v1/profiles?select=username,anon_handle&limit=1` | 42501 permission denied; `select=username` still 200; signed-in Settings page still shows your own board handle and plan |
 
 ## Results
 

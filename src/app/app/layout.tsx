@@ -6,6 +6,7 @@ import { GigTrotterMark } from "@/components/brand";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { generateAlerts } from "@/lib/alerts/generate";
+import { getPrivateProfile } from "@/lib/profile/private";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { signOut } from "@/features/auth/actions";
@@ -52,15 +53,17 @@ export default async function AppLayout({
   // and stays idempotent, so it does not need to finish before the badge is
   // counted; on the one navigation per hour where it mints something, the
   // badge catches up on the next.
-  const [{ data: profile }, , { data: unreadCount }] = await Promise.all([
+  const [{ data: publicProfile }, privateProfile, , { data: unreadCount }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("username, display_name, avatar_url, anon_handle")
+      .select("username, display_name, avatar_url")
       .eq("id", user.id)
       .single(),
+    getPrivateProfile(supabase, user.id),
     generateAlerts(supabase, user.id),
     supabase.rpc("unread_alert_count", { target_user: user.id }),
   ]);
+  const profile = publicProfile ? { ...publicProfile, anon_handle: privateProfile?.anon_handle ?? "" } : null;
 
   const initials =
     (profile?.display_name ?? profile?.username ?? user.email ?? "?")

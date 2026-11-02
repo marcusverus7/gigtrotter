@@ -142,6 +142,14 @@ async function main() {
   const counts = await as(null, (tx) => tx`select * from public.event_interest_counts(${futureEvent})`);
   check("SEC-03 counts: aggregate only (no names/ids)", counts.length === 1 && Object.keys(counts[0]).sort().join(",") === "going,interested" && Number(counts[0].going) >= 1);
 
+  // ── 0033: the anonymous board must not be linkable to a username ─────────
+  check("0033 profiles: anon cannot read anon_handle", !!(await denied(as(null, (tx) => tx`select anon_handle from public.profiles limit 1`))));
+  check("0033 profiles: a signed-in user cannot read others' anon_handle/plan", !!(await denied(as(users.stranger, (tx) => tx`select anon_handle, plan from public.profiles where id = ${users.owner}`))));
+  check("0033 profiles: usernames still resolve for anon", (await as(null, (tx) => tx`select username from public.profiles where id = ${users.owner}`)).length === 1);
+  const mine = await as(users.owner, (tx) => tx`select * from public.my_profile_private()`);
+  check("0033 my_profile_private: owner gets exactly their row", mine.length === 1 && typeof mine[0].anon_handle === "string");
+  check("0033 my_profile_private: anon gets nothing", !!(await denied(as(null, (tx) => tx`select * from public.my_profile_private()`))) || (await as(null, (tx) => tx`select * from public.my_profile_private()`).catch(() => [])).length === 0);
+
   // ── G4: capacity under contention ────────────────────────────────────────
   const [{ id: tier }] = await sql`insert into public.ticket_tiers (event_id, name, price_cents, quantity, max_per_order) values (${futureEvent}, 'GA', 1500, 10, 6) returning id`;
   const attempts = await Promise.all(Array.from({ length: 100 }, () => sql`select public.reserve_tier(${tier}, 1) as ok`.then((r) => !!r[0].ok)));

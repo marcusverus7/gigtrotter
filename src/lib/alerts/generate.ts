@@ -20,6 +20,7 @@ import {
 import { pgTextArray } from "@/lib/supabase/filters";
 import type { createClient } from "@/lib/supabase/server";
 import { reconcileWalletLifecycle } from "@/lib/wallet/reconcile";
+import { getPrivateProfile } from "@/lib/profile/private";
 
 /**
  * Turn things the app already knows into alerts.
@@ -155,17 +156,13 @@ export async function generateAlerts(
 }
 
 async function dueForScan(supabase: Client, userId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("last_alert_scan_at")
-    .eq("id", userId)
-    .single();
+  // Private column since 0033: read it through the owner RPC (falls back to
+  // the table before the migration). Missing entirely → skip quietly rather
+  // than scanning on every single navigation.
+  const data = await getPrivateProfile(supabase as never, userId).catch(() => null);
+  if (!data) return false;
 
-  // Column missing (migration not applied) — skip quietly rather than
-  // scanning on every single navigation.
-  if (error) return false;
-
-  const last = data?.last_alert_scan_at;
+  const last = data.last_alert_scan_at;
   if (!last) return true;
   return Date.now() - new Date(last).getTime() > SCAN_INTERVAL_MS;
 }

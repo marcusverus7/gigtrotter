@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { getPrivateProfile } from "@/lib/profile/private";
 import { createClient } from "@/lib/supabase/server";
 
 const ADJECTIVES = [
@@ -109,7 +110,7 @@ export async function regenerateAnonHandle() {
         anon_revoked: false,
       })
       .eq("id", user.id)
-      .select()
+      .select("id")
       .single();
     if (!error) {
       revalidatePath("/app/settings");
@@ -129,20 +130,18 @@ export async function toggleAnonRevoked() {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const { data: current } = await supabase
-    .from("profiles")
-    .select("anon_revoked")
-    .eq("id", user.id)
-    .single();
+  const current = await getPrivateProfile(supabase, user.id);
 
   if (!current) throw new Error("Profile missing");
 
   // .select() so RLS silent-fails surface as zero rows, not silent success.
+  // "id" rather than the private column: since 0033 the client role has no
+  // SELECT on anon_revoked, and a returning clause needs it.
   const { data, error } = await supabase
     .from("profiles")
     .update({ anon_revoked: !current.anon_revoked })
     .eq("id", user.id)
-    .select("anon_revoked");
+    .select("id");
 
   if (error || !data || data.length === 0) {
     redirect("/app/settings?e=toggle");

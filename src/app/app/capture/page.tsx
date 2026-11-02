@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CaptureDropzone } from "@/features/capture/dropzone";
 import { PendingCaptures } from "@/features/capture/pending-captures";
+import { getPrivateProfile } from "@/lib/profile/private";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env";
 
@@ -22,11 +23,7 @@ export default async function CapturePage() {
   const user = await getSessionUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("anon_handle")
-    .eq("id", user.id)
-    .single();
+  const profile = await getPrivateProfile(supabase, user.id);
 
   // Only show an address when inbound email genuinely exists — the fallback
   // domain is a reserved-TLD placeholder that bounces (NXDOMAIN).

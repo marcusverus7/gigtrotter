@@ -3,7 +3,15 @@
 **APPLIED 2026-11-02: 0024 through 0030 are live in production** (run as one pack,
 `RUN-ME-0024-to-0030.sql`, verified via PostgREST: tables answer, RPCs respond, stock
 functions are denied to anon). The sections below are kept as the record of what each
-file did. **Pending now: 0031 then 0032.**
+file did. **Pending now: 0031, then 0032, then 0033.**
+
+## Pending: 0033 (added 2026-11-02) -- anonymous board de-anonymisation (apply AFTER 0032)
+
+`APPLY-ME-0033.sql` -- `profiles: read all` exposed `anon_handle` (the
+/b/<handle> board URL) beside `username` to the anonymous key, so any board
+could be named. Table SELECT is withdrawn from anon/authenticated and
+re-granted on the public columns only; the owner reads their private fields
+through `my_profile_private()`. Code falls back to the table until applied.
 
 ## Pending: 0031 (added 2026-11-02) -- pilot hardening (apply BEFORE 0032)
 

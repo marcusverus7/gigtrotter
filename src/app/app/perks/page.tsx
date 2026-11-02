@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getPrivateProfile } from "@/lib/profile/private";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
@@ -28,8 +29,8 @@ export default async function PerksPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: perks }] = await Promise.all([
-    supabase.from("profiles").select("plan").eq("id", user.id).single(),
+  const [profile, { data: perks }] = await Promise.all([
+    getPrivateProfile(supabase, user.id),
     supabase
       .from("pro_perks")
       .select("*")

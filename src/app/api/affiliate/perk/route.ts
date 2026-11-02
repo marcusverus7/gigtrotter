@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getPrivateProfile } from "@/lib/profile/private";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -54,8 +55,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const [{ data: profile }, { data: perk }] = await Promise.all([
-    supabase.from("profiles").select("plan").eq("id", user.id).single(),
+  const [profile, { data: perk }] = await Promise.all([
+    getPrivateProfile(supabase, user.id),
     supabase.from("pro_perks").select("*").eq("id", perkId).maybeSingle(),
   ]);
 

@@ -11,7 +11,7 @@ Code on `main` auto-deploys. Both migrations are additive and the code
 tolerates their absence (fallbacks are listed below), so the order is:
 
 1. **Apply `supabase/pending/APPLY-ME-0031.sql`** in the production SQL
-   editor (owner action). Then `APPLY-ME-0032.sql`.
+   editor (owner action). Then `APPLY-ME-0032.sql`, then `APPLY-ME-0033.sql`.
 2. Verify (SQL editor, as the project owner):
    ```sql
    select relname, reloptions from pg_class where relname = 'achievements';            -- {security_invoker=true}
@@ -41,6 +41,7 @@ tolerates their absence (fallbacks are listed below), so the order is:
 | Sales page door-staff section | empty list; adding says "needs migration 0031" | n/a |
 | Admin orders page | empty sections | n/a |
 | Capture | unchanged | count-based quota (logs once) |
+| Profiles (0033) | anonymous boards remain linkable to usernames via the anon key | n/a |
 | Views / RPC guards | still leaky (SEC-01/02/03 open) | n/a |
 
 ## 2. Rollback

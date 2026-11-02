@@ -37,9 +37,9 @@ Status words used below: *implemented* (code exists), *tested locally* (offline 
 | G1 data isolation | **blocked** (tests written) | `eval/db.test.ts` needs `STAGING_DATABASE_URL`; production probes confirm the pre-fix leak and will re-run after 0031 |
 | G2 primary sale (test mode) | **blocked** | no Stripe account/keys |
 | G3 recovery | **tested locally** (orchestration); **blocked** at database level | `eval/ticketing.test.ts`; `eval/db.test.ts` concurrent duplicate fulfilment |
-| G4 capacity/expiry | **tested locally** (expiry cases); 100-concurrent test **blocked** | `eval/db.test.ts` G4 section |
+| G4 capacity/expiry | **tested locally** (expiry cases); **100-concurrent reservation race verified on a real Postgres** (production DB, the test tier only, `pnpm test:race-live`): 100 simultaneous `reserve_tier` calls for 2 seats → exactly 2 wins, 0 errors, 570 ms, stock never over capacity, releases restore it. Isolated-environment repeat still pending staging | `eval/race-live.ts` output 2026-11-02; `eval/db.test.ts` G4 section |
 | G5 refunds/resale | **tested locally** (ledger + processor); Stripe test mode **blocked** | |
-| G6 door | **tested locally** (state mapping); race test **blocked** (db); device test **not run** | |
+| G6 door | **observed working** (live scan: IN / ALREADY USED / own-scan retry / NOT A TICKET); **two-scanner race verified on a real Postgres** (10 concurrent valid→used updates on one throwaway ticket → exactly one admission); device test and network-loss state **not run** | `eval/race-live.ts` 2026-11-02; checklist N6/O6 |
 | G7 capture | **tested locally** (budget); real fixtures **blocked** | |
 | G8 activation | **observed working on production** (deployed 766e9af) | curl checks recorded in this file under UX-01 |
 | G9 operating readiness | **partly**: runbook, migrations, rollback written; backups/support/legal facts **blocked** on owner | `docs/RUNBOOK-pilot.md`, `docs/OWNER_FACTS_NEEDED.md` |

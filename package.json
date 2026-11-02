@@ -19,7 +19,8 @@
     "test:db": "tsx --tsconfig eval/tsconfig.json eval/db.test.ts",
     "test": "pnpm test:logic && pnpm test:ticketing && pnpm test:entry && pnpm test:capture",
     "eval:real": "tsx --tsconfig eval/tsconfig.json eval/score-real.ts",
-    "staging:migrate": "node scripts/staging-migrate.mjs"
+    "staging:migrate": "node scripts/staging-migrate.mjs",
+    "test:race-live": "tsx --tsconfig eval/tsconfig.json eval/race-live.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

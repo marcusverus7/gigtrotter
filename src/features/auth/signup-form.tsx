@@ -11,8 +11,10 @@ import { createClient } from "@/lib/supabase/client";
 
 import { OAuthButtons, type OAuthProvider } from "./oauth-buttons";
 
-export function SignupForm() {
+export function SignupForm({ next }: { next?: string }) {
   const router = useRouter();
+  // Onboarding is always first; it hands the person on to `next` at the end.
+  const after = next ? `/app/onboarding?next=${encodeURIComponent(next)}` : "/app/onboarding";
   const supabase = createClient();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -35,7 +37,7 @@ export function SignupForm() {
         password,
         options: {
           data: { username: u },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/app/onboarding`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(after)}`,
         },
       });
       if (error) {
@@ -54,7 +56,7 @@ export function SignupForm() {
         setEmailSent(true);
         return;
       }
-      router.push("/app/onboarding");
+      router.push(after);
       router.refresh();
     });
   }
@@ -64,7 +66,7 @@ export function SignupForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/app/onboarding`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(after)}`,
       },
     });
     if (error) setError(error.message);

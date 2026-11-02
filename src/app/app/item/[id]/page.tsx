@@ -4,7 +4,7 @@ import { TransferTicket } from "@/features/ticketing/transfer-ticket";
 import { CantGo } from "@/features/wallet/cant-go";
 import { SetlistPanel } from "@/features/wallet/setlist-panel";
 import type { StoredSetlist } from "@/lib/setlistfm/map";
-import { classifyIssuer, type IssuerInfo } from "@/lib/tickets/issuer";
+import { classifyIssuer, entryInstructions, type IssuerInfo } from "@/lib/tickets/issuer";
 import { effectiveEnd } from "@/lib/wallet/lifecycle";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -424,57 +424,34 @@ function BarcodePanel({
   eventOver: boolean;
   issuer: IssuerInfo;
 }) {
-  // A rotating or app-locked issuer: the captured code will not scan, so say
-  // so here too, not only on the night the user finds out at the door.
-  if (!eventOver && issuer.entryMode !== "static" && issuer.entryMode !== "unknown") {
-    return (
-      <div className="rounded-lg border border-border bg-muted/30 p-5">
-        <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-          Getting in · {issuer.label}
-        </p>
-        <p className="mt-2 text-sm">{issuer.advice}</p>
-        {issuer.openUrl ? (
-          <a
-            href={issuer.openUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md border border-border px-4 text-sm font-medium"
-          >
-            Open in {issuer.label}
-          </a>
-        ) : null}
-      </div>
-    );
-  }
+  // ENTRY-01: nothing that looks like a scannable code is drawn here. The
+  // captured source stays encrypted server-side; the real pass lives with
+  // the issuer, and this panel says exactly where, per issuer.
+  const how = entryInstructions(issuer);
   return (
-    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
-      {hasBarcode ? (
-        <>
-          <div
-            className={eventOver ? "" : "select-none"}
-            aria-label="Ticket barcode"
-          >
-            <div
-              className="mx-auto h-24 w-full max-w-xs rounded bg-foreground/90"
-              style={{
-                maskImage:
-                  "linear-gradient(90deg, #000 1px, transparent 1px, transparent 4px, #000 4px, #000 5px, transparent 5px, transparent 9px, #000 9px, #000 12px, transparent 12px)",
-                WebkitMaskImage:
-                  "linear-gradient(90deg, #000 1px, transparent 1px, transparent 4px, #000 4px, #000 5px, transparent 5px, transparent 9px, #000 9px, #000 12px, transparent 12px)",
-              }}
-            />
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            {eventOver
-              ? "Barcode revealed (event has ended)."
-              : "Encrypted barcode. Shown live in the native app only."}
-          </p>
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          No live barcode captured for this item.
-        </p>
-      )}
+    <div className="rounded-lg border border-border bg-muted/30 p-5">
+      <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        Getting in{issuer.label ? ` · ${issuer.label}` : ""}
+      </p>
+      <p className="mt-2 text-sm font-medium">{how.heading}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{how.body}</p>
+      {how.url ? (
+        <a
+          href={how.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md border border-border px-4 text-sm font-medium"
+        >
+          {how.cta}
+        </a>
+      ) : null}
+      <p className="mt-3 text-xs text-muted-foreground">
+        {hasBarcode
+          ? eventOver
+            ? "The captured image is kept encrypted with this memory."
+            : "GigTrotter keeps the captured image encrypted and never shows it as a ticket; it would not scan from here."
+          : "No source image was captured for this item."}
+      </p>
     </div>
   );
 }

@@ -214,6 +214,16 @@ the three defects here made a correct parser look broken; the third made a broke
 corpus look healthy. Whenever a field scores badly across the board, suspect the
 labels before the model, and go and look at the actual image.
 
+## What the 97.9% is, and is not
+
+**233/238 scored fields on 42 fully synthetic samples** (36 generated tickets and
+6 generated travel artefacts), scored only on the fields the parser is designed to
+emit. It measures layout coverage and regression against invented vendors. It is
+**not** real-ticket accuracy: no Ticketmaster, Skiddle, DICE or Eventbrite ticket a
+fan actually holds has been scored. That number is unmeasured until
+`eval/score-real.ts` runs over the held-out set described in
+[`eval/real/README.md`](real/README.md), and its report keeps the two apart.
+
 ## Honest limitations
 
 - Layouts are *plausible*, not pixel-copies of real platforms. A parser tuned only

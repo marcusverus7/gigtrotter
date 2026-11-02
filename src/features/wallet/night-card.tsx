@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/card";
 
 import { TicketQr } from "@/features/ticketing/ticket-qr";
-import { barcodeScansAtDoor, classifyIssuer } from "@/lib/tickets/issuer";
+import { classifyIssuer, entryInstructions } from "@/lib/tickets/issuer";
 
 import { GeofenceCheckInButton } from "./geofence-button";
 
@@ -273,26 +273,28 @@ function fmtTime(ms: number): string {
 }
 
 function EntryPanel({ vendor, hints }: { vendor: string | null; hints: string[] }) {
+  // Nothing here may look like a scannable code. The only barcode the card
+  // ever draws is a GigTrotter-issued one (TicketQr above); a captured ticket
+  // from another seller is a record of the booking, not the admission, so the
+  // panel names where the real ticket lives and sends them there.
   const info = classifyIssuer(vendor, hints);
-  const scans = barcodeScansAtDoor(info);
+  const entry = entryInstructions(info);
   return (
     <div className="rounded-xl border border-border/60 bg-background/30 p-5 backdrop-blur">
       <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
         Getting in{info.label ? ` · ${info.label}` : ""}
       </p>
-      {scans ? (
-        <div className="mx-auto mt-3 h-16 w-full max-w-xs rounded bg-foreground/80 [mask-image:repeating-linear-gradient(90deg,_#000_0,_#000_1px,_transparent_1px,_transparent_4px,_#000_4px,_#000_5px,_transparent_5px,_transparent_9px,_#000_9px,_#000_12px,_transparent_12px)]" />
-      ) : null}
-      <p className="mt-3 text-sm">{info.advice}</p>
-      {info.openUrl ? (
+      <p className="mt-2 text-base font-medium">{entry.heading}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{entry.body}</p>
+      {entry.cta && entry.url ? (
         <a
-          href={info.openUrl}
+          href={entry.url}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground"
         >
           <ExternalLink className="h-4 w-4" />
-          {scans ? `Open my ${info.label} ticket` : `Open in ${info.label}`}
+          {entry.cta}
         </a>
       ) : null}
     </div>

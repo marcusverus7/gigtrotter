@@ -58,6 +58,11 @@ fastlane/test_output
 !/eval/captures/.gitkeep
 /eval/reports/
 
+# Held-out REAL ticket fixtures (CAP-02): permissioned, redacted, never committed.
+/eval/real/*
+!/eval/real/README.md
+!/eval/real/answers.example.json
+
 .vercel
 
 # Generated asset/report OUTPUTS. The scripts that produce them live in
@@ -71,3 +76,6 @@ fastlane/test_output
 /test-report.pdf
 /generate-test-report.py
 public/__sweep/
+
+# staging database (disposable, never commit)
+.env.staging

@@ -4,12 +4,14 @@ import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { GigTrotterMark } from "@/components/brand";
+import { LEGAL_ENTITY, supportEmail } from "@/lib/support";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
 };
 
 export default function TermsPage() {
+  const email = supportEmail();
   return (
     <main className="relative min-h-screen bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -52,7 +54,7 @@ export default function TermsPage() {
           plain English — we want you to actually read them.
         </p>
         <p className="mt-4 text-xs text-muted-foreground">
-          Effective date: 23 June 2026 &middot; Last updated: 23 June 2026
+          Effective date: 23 June 2026 &middot; Last updated: 2 November 2026 (draft changes for ticket sales; owner to confirm)
         </p>
       </section>
 
@@ -61,13 +63,13 @@ export default function TermsPage() {
           <DetailSection title="1. Acceptance of terms">
             <p className="text-sm">
               By accessing or using GigTrotter — whether through the website, the
-              iOS app, or any other interface we provide — you agree to be bound
+              iOS or Android app, or any other interface we provide — you agree to be bound
               by these Terms of Service and our{" "}
               <Link href="/privacy" className="text-secondary hover:underline">
                 Privacy Policy
               </Link>
               . If you do not agree, please do not use the service. These terms
-              form a legally binding agreement between you and GigTrotter Ltd.
+              form a legally binding agreement between you and {LEGAL_ENTITY}.
             </p>
           </DetailSection>
 
@@ -90,12 +92,15 @@ export default function TermsPage() {
               map and wallet of your live-experience history.
             </p>
             <p className="mt-3 text-sm leading-relaxed">
-              GigTrotter is <strong>not</strong> a ticket seller, primary-sale
-              marketplace, or booking agent. We do not sell tickets to events.
-              Any links to ticket providers are provided for convenience only
-              (see section 8). We reserve the right to modify, suspend, or
-              discontinue any part of the service at any time, with reasonable
-              notice where practicable.
+              GigTrotter also provides a ticketing platform that event promoters
+              can use to sell tickets to their own events (see section 9). For
+              those tickets the <strong>promoter is the seller</strong> and the
+              organiser of the event; GigTrotter issues the ticket on the
+              promoter&apos;s behalf and collects payment for them through Stripe
+              Connect. For every other ticket, links to third-party providers
+              are provided for convenience only (see section 8). We reserve the
+              right to modify, suspend, or discontinue any part of the service
+              at any time, with reasonable notice where practicable.
             </p>
           </DetailSection>
 
@@ -108,12 +113,13 @@ export default function TermsPage() {
               <li>
                 You must keep your login credentials secure and not share them
                 with anyone. Notify us immediately at{" "}
-                <a
-                  href="mailto:hello@gigtrotter.app"
-                  className="text-secondary hover:underline"
-                >
-                  hello@gigtrotter.app
-                </a>{" "}
+                {email ? (
+                <a href={`mailto:${email}`} className="text-secondary hover:underline">
+                  {email}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">[support contact to be confirmed by the owner]</span>
+              )}{" "}
                 if you suspect unauthorised access.
               </li>
               <li>
@@ -131,7 +137,7 @@ export default function TermsPage() {
               content you upload or submit to GigTrotter (&quot;Your Content&quot;).
             </p>
             <p className="mt-3 text-sm leading-relaxed">
-              By uploading Your Content, you grant GigTrotter Ltd a limited,
+              By uploading Your Content, you grant {LEGAL_ENTITY} a limited,
               non-exclusive, royalty-free, worldwide licence to store, process,
               and display Your Content solely for the purpose of providing the
               service to you. This licence ends when you delete the content or
@@ -212,11 +218,32 @@ export default function TermsPage() {
             </p>
           </DetailSection>
 
-          <DetailSection title="9. Subscriptions &amp; purchases">
+          <DetailSection title="9. Tickets sold through GigTrotter">
+            <p className="text-sm leading-relaxed">
+              Where an event shows ticket types sold on GigTrotter, the promoter
+              named on the event is the seller. The price you pay is the face
+              value set by the promoter plus a booking fee, both shown before you
+              confirm. Payment is taken by Stripe; the face value is paid to the
+              promoter and the booking fee to GigTrotter.
+            </p>
+            <ul className="mt-3 list-disc space-y-1 pl-6 text-sm leading-relaxed">
+              <li>Each ticket is a signed code shown in your wallet. One admission per code; the first scan at the door uses it.</li>
+              <li>You may send a ticket to another GigTrotter user before the event starts; your code is cancelled and a new one issued to them.</li>
+              <li>You may list a ticket you bought here for resale at exactly its face value, never above. If it sells, your face value is refunded to the card you paid with.</li>
+              <li>If the promoter cancels the event, the promoter refunds the face value through GigTrotter to the card you paid with. Whether the booking fee is refunded on cancellation: [owner to confirm]. Refunds for any other reason are at the promoter&apos;s discretion and under the promoter&apos;s own terms.</li>
+              <li>Entry to the event, the event itself and any changes to it are the promoter&apos;s responsibility. GigTrotter provides the ticketing platform and door scanner.</li>
+            </ul>
+            <p className="mt-3 text-sm leading-relaxed">
+              Your rights as a consumer, including under the Consumer Rights Act
+              2015, are not affected by anything in this section.
+            </p>
+          </DetailSection>
+
+          <DetailSection title="10. Subscriptions &amp; other purchases">
             <p className="text-sm leading-relaxed">
               The core GigTrotter service is currently provided free of charge.
               During any testing or beta period, all features remain free and no
-              payment is required.
+              payment is required beyond tickets you choose to buy.
             </p>
             <p className="mt-3 text-sm leading-relaxed">
               We may in the future offer an optional &quot;GigTrotter+&quot; subscription
@@ -232,17 +259,17 @@ export default function TermsPage() {
             </p>
           </DetailSection>
 
-          <DetailSection title="10. Intellectual property">
+          <DetailSection title="11. Intellectual property">
             <p className="text-sm leading-relaxed">
               The GigTrotter name, logo, brand assets, and software (including
               all source code, design, and content created by us) are owned by
-              or licensed to GigTrotter Ltd and are protected by intellectual
+              or licensed to {LEGAL_ENTITY} and are protected by intellectual
               property law. You may not use, reproduce, or distribute them
               without our prior written permission.
             </p>
           </DetailSection>
 
-          <DetailSection title="11. Disclaimers">
+          <DetailSection title="12. Disclaimers">
             <p className="text-sm leading-relaxed">
               The GigTrotter service is provided <strong>&quot;as is&quot;</strong> and{" "}
               <strong>&quot;as available&quot;</strong>, without warranty of any kind,
@@ -254,9 +281,9 @@ export default function TermsPage() {
             </p>
           </DetailSection>
 
-          <DetailSection title="12. Limitation of liability">
+          <DetailSection title="13. Limitation of liability">
             <p className="text-sm leading-relaxed">
-              To the fullest extent permitted by applicable law, GigTrotter Ltd
+              To the fullest extent permitted by applicable law, {LEGAL_ENTITY}
               shall not be liable for any indirect, incidental, special,
               consequential, or punitive losses — including loss of profits, data,
               goodwill, or other intangible losses — arising out of or in
@@ -272,7 +299,7 @@ export default function TermsPage() {
             </p>
           </DetailSection>
 
-          <DetailSection title="13. Termination">
+          <DetailSection title="14. Termination">
             <p className="text-sm leading-relaxed">
               You may delete your account at any time from within the app. On
               deletion, your personal data and content will be permanently
@@ -283,7 +310,7 @@ export default function TermsPage() {
               .
             </p>
             <p className="mt-3 text-sm leading-relaxed">
-              GigTrotter Ltd reserves the right to suspend or terminate your
+              {LEGAL_ENTITY} reserves the right to suspend or terminate your
               account, with or without notice, if we reasonably believe you have
               breached these terms, engaged in fraudulent activity, or used the
               service in a way that may cause harm to us, other users, or third
@@ -292,7 +319,7 @@ export default function TermsPage() {
             </p>
           </DetailSection>
 
-          <DetailSection title="14. Changes to these terms">
+          <DetailSection title="15. Changes to these terms">
             <p className="text-sm leading-relaxed">
               We may update these terms from time to time to reflect changes to
               our service, applicable law, or our business practices. We will
@@ -305,26 +332,28 @@ export default function TermsPage() {
             </p>
           </DetailSection>
 
-          <DetailSection title="15. Governing law">
+          <DetailSection title="16. Governing law">
             <p className="text-sm leading-relaxed">
               These terms are governed by and construed in accordance with the
-              laws of England and Wales. Any disputes arising out of or in
-              connection with these terms shall be subject to the exclusive
-              jurisdiction of the courts of England and Wales, without prejudice
+              laws of England and Wales [owner to confirm: the operator is in
+              Northern Ireland]. Any disputes arising out of or in connection
+              with these terms shall be subject to the exclusive jurisdiction of
+              the courts of England and Wales, without prejudice
               to any mandatory consumer protection rights you may have under the
               law of your country of residence.
             </p>
           </DetailSection>
 
-          <DetailSection title="16. Contact">
+          <DetailSection title="17. Contact">
             <p className="text-sm">
               For questions about these terms, please email{" "}
-              <a
-                href="mailto:hello@gigtrotter.app"
-                className="text-secondary hover:underline"
-              >
-                hello@gigtrotter.app
-              </a>
+              {email ? (
+                <a href={`mailto:${email}`} className="text-secondary hover:underline">
+                  {email}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">[support contact to be confirmed by the owner]</span>
+              )}
               .
             </p>
           </DetailSection>

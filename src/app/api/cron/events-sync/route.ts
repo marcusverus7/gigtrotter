@@ -7,7 +7,6 @@ import { syncBandsintown } from "@/lib/events/sync-bandsintown";
 import { syncSkiddle } from "@/lib/events/sync-skiddle";
 import { syncTicketmaster } from "@/lib/events/sync-ticketmaster";
 import { createServiceClient } from "@/lib/supabase/server";
-import { expireStaleOrders } from "@/lib/tickets/fulfil";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -78,17 +77,13 @@ export async function GET(request: NextRequest) {
   const ticketmaster = await syncTicketmaster();
   const bandsintown = await syncBandsintown();
   const skiddle = await syncSkiddle(); // no-op without SKIDDLE_API_KEY
-  // Ticket orders still pending past their checkout window give stock back
-  // here too, in case Stripe's checkout.session.expired never reached us.
-  const staleOrders = await expireStaleOrders({ service }).catch((err: unknown) => {
-    console.error("[events-sync] stale orders", err instanceof Error ? err.message : String(err));
-    return -1;
-  });
+  // Order recovery lives in /api/cron/orders-reconcile (PAY-03); it is not
+  // tied to the catalogue refresh any more.
   const ok =
     ticketmaster.upserted > 0 ||
     (ticketmaster.errors === 0 && bandsintown.errors === 0 && skiddle.errors === 0);
 
-  const summary = { ok, ticketmaster, bandsintown, skiddle, staleOrders, tookMs: Date.now() - now };
+  const summary = { ok, ticketmaster, bandsintown, skiddle, tookMs: Date.now() - now };
   if (ok) console.log("[events-sync] ok", JSON.stringify(summary));
   else console.error("[events-sync] run failed", JSON.stringify(summary));
 

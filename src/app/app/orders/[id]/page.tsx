@@ -8,7 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LocalDateTime } from "@/components/local-datetime";
 import { TicketQr } from "@/features/ticketing/ticket-qr";
 import { formatMoney } from "@/lib/tickets/pricing";
-import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { getStripe } from "@/lib/stripe/client";
+import { createClient, createServiceClient, getSessionUser } from "@/lib/supabase/server";
+import { fulfilOrder, issueForOrder } from "@/lib/tickets/fulfil";
 
 export const metadata: Metadata = { title: "Your order" };
 
@@ -23,13 +25,46 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const { data: order } = await supabase
-    .from("orders")
-    .select("id, status, total_cents, face_cents, fee_cents, currency, created_at, events(id, title, starts_at, venue_name, venue_city)")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const load = () =>
+    supabase
+      .from("orders")
+      .select("*, events(id, title, starts_at, venue_name, venue_city)")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+  let { data: order } = await load();
   if (!order) notFound();
+
+  // The buyer is looking at their own order before the webhook landed (or
+  // after it failed): nudge it along right now rather than making them
+  // refresh and hope. Same steps as the reconciler, scoped to this order;
+  // nothing moves unless Stripe says paid. Errors are swallowed here because
+  // the reconciler will try again on its schedule.
+  const nudge = order as unknown as { status: string; fulfilled_at?: string | null; stripe_checkout_session_id: string | null };
+  if (nudge.status === "pending" || (nudge.status === "paid" && !nudge.fulfilled_at)) {
+    try {
+      const service = createServiceClient();
+      if (nudge.status === "paid") await issueForOrder(id, { service });
+      else if (nudge.stripe_checkout_session_id) {
+        const stripe = getStripe();
+        const s = stripe ? await stripe.checkout.sessions.retrieve(nudge.stripe_checkout_session_id) : null;
+        if (s?.payment_status === "paid")
+          await fulfilOrder(
+            id,
+            {
+              sessionId: s.id,
+              paymentIntentId: typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent?.id ?? null),
+              email: s.customer_details?.email ?? null,
+            },
+            { service },
+          );
+      }
+      ({ data: order } = await load());
+      if (!order) notFound();
+    } catch (err) {
+      console.error("[order page] nudge failed", id, err instanceof Error ? err.message : String(err));
+    }
+  }
   const o = order as unknown as {
     id: string; status: string; total_cents: number; face_cents: number; fee_cents: number; currency: string;
     events: { id: string; title: string; starts_at: string | null; venue_name: string | null; venue_city: string | null } | null;

@@ -4,12 +4,14 @@ import { ArrowLeft, ArrowRight, LifeBuoy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { GigTrotterMark } from "@/components/brand";
+import { supportEmail } from "@/lib/support";
 
 export const metadata: Metadata = {
   title: "Support",
 };
 
 export default function SupportPage() {
+  const email = supportEmail();
   return (
     <main className="relative min-h-screen bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -50,13 +52,15 @@ export default function SupportPage() {
         <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
           Answers to the most common questions are below. If you can&apos;t find
           what you need, drop us a line at{" "}
-          <a
-            href="mailto:hello@gigtrotter.app"
-            className="text-secondary hover:underline"
-          >
-            hello@gigtrotter.app
-          </a>{" "}
-          — we usually reply within a couple of days.
+          {email ? (
+                <a href={`mailto:${email}`} className="text-secondary hover:underline">
+                  {email}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">[support contact to be confirmed by the owner]</span>
+              )}
+          . We are a small team; replies take a few days unless it is about a
+          gig that is happening tonight.
         </p>
       </section>
 
@@ -136,32 +140,50 @@ export default function SupportPage() {
             </ul>
           </DetailSection>
 
+          <DetailSection title="I bought a ticket here. What if something goes wrong?">
+            <p className="text-sm leading-relaxed">
+              Tickets sold on GigTrotter are sold by the event&apos;s promoter;
+              GigTrotter issues the ticket and takes the payment for them. Your
+              ticket is in your wallet as a QR code with a short code printed
+              under it.
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-6 text-sm leading-relaxed">
+              <li><strong>At the door:</strong> show the QR from your wallet or Night Mode. If the scanner cannot read it, the door staff can type the short code. Door staff can see every ticket for their event, so speak to them first on the night.</li>
+              <li><strong>Cancelled event:</strong> the promoter refunds the face value to the card you paid with, through GigTrotter. You do not need to ask.</li>
+              <li><strong>Can&apos;t go:</strong> send the ticket to a friend from the ticket page, or list it for resale at face value.</li>
+              <li><strong>Anything else:</strong> email us with the event name and the order; we will check with the promoter.</li>
+            </ul>
+          </DetailSection>
+
           <DetailSection title="What does GigTrotter cost?">
             <p className="text-sm leading-relaxed">
-              GigTrotter is free. An optional <strong>GigTrotter+</strong>{" "}
-              perks membership may come later, but the core capture-and-map
-              experience stays free. We&apos;re currently in testing — no payment
-              is required.
+              GigTrotter is free to use. The only thing you pay for is a ticket
+              you choose to buy, which carries a booking fee shown before you
+              pay. An optional <strong>GigTrotter+</strong> membership may come
+              later; the wallet and the map stay free.
             </p>
           </DetailSection>
 
           <DetailSection title="Which platforms are supported?">
             <p className="text-sm leading-relaxed">
-              The web app is available now. Native iOS and Android apps are on
-              the way — sign up to hear when they launch.
+              The web app is available now and works on any phone browser. The
+              iOS and Android apps load the same site and are in closed testing
+              (TestFlight and internal testing); they are not yet in the public
+              app stores.
             </p>
           </DetailSection>
 
           <DetailSection title="Still stuck?">
             <p className="text-sm">
               Email us at{" "}
-              <a
-                href="mailto:hello@gigtrotter.app"
-                className="text-secondary hover:underline"
-              >
-                hello@gigtrotter.app
-              </a>{" "}
-              and we&apos;ll get back to you within a couple of days.
+              {email ? (
+                <a href={`mailto:${email}`} className="text-secondary hover:underline">
+                  {email}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">[support contact to be confirmed by the owner]</span>
+              )}{" "}
+              and we will get back to you.
             </p>
           </DetailSection>
         </div>
@@ -176,9 +198,11 @@ export default function SupportPage() {
           stranger.
         </p>
         <div className="mt-8 flex justify-center gap-3">
-          <Button asChild variant="outline" size="lg">
-            <a href="mailto:hello@gigtrotter.app">Email us</a>
-          </Button>
+          {email ? (
+            <Button asChild variant="outline" size="lg">
+              <a href={`mailto:${email}`}>Email us</a>
+            </Button>
+          ) : null}
           <Button asChild size="lg">
             <Link href="/signup">
               Get started <ArrowRight />

@@ -141,3 +141,60 @@ export function classifyIssuer(
 export function barcodeScansAtDoor(info: IssuerInfo): boolean {
   return info.entryMode === "static";
 }
+
+/**
+ * What the night card says about getting in. The only barcode GigTrotter ever
+ * draws is one it issued itself; for everything else the ticket lives with
+ * the seller, and the card says exactly where. Pure, so the five shapes
+ * (static, rotating, app-locked, known forwarder, unknown seller) are tested.
+ */
+export type EntryInstructions = {
+  heading: string;
+  body: string;
+  /** Button label, or null when there is nowhere sensible to send them. */
+  cta: string | null;
+  url: string | null;
+};
+
+export function entryInstructions(info: IssuerInfo): EntryInstructions {
+  const name = info.label;
+  if (name && info.entryMode === "static") {
+    return {
+      heading: `Your ticket is with ${name}`,
+      body: `${name} barcodes are static, so the one on your original e-ticket, PDF or confirmation email scans at the door. GigTrotter keeps the details, not the barcode: open the original to show it.`,
+      cta: `Open my ${name} ticket`,
+      url: info.openUrl,
+    };
+  }
+  if (name && info.entryMode === "rotating") {
+    return {
+      heading: `Open the ${name} app at the door`,
+      body: info.advice,
+      cta: `Open in ${name}`,
+      url: info.openUrl,
+    };
+  }
+  if (name && info.entryMode === "app_locked") {
+    return {
+      heading: `Your code is in the ${name} app`,
+      body: info.advice,
+      cta: `Open in ${name}`,
+      url: info.openUrl,
+    };
+  }
+  if (name) {
+    // A known forwarder (Twickets) that passes on someone else's ticket.
+    return {
+      heading: `Your ticket came through ${name}`,
+      body: info.advice,
+      cta: `Open ${name}`,
+      url: info.openUrl,
+    };
+  }
+  return {
+    heading: "Your ticket is with the seller",
+    body: "GigTrotter does not hold this barcode. Have the seller's confirmation email, PDF or app ready at the door; if you are not sure where it is, search your inbox for the booking confirmation.",
+    cta: null,
+    url: null,
+  };
+}

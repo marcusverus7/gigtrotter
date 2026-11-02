@@ -6,11 +6,8 @@ import {
   ArrowRight,
   Camera,
   Check,
-  MapPin,
-  MessageSquare,
   Music,
   ScanLine,
-  Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,8 +16,11 @@ import { Label } from "@/components/ui/label";
 import { GigTrotterGlyph } from "@/components/brand";
 import { updateProfile } from "@/features/profile/edit-actions";
 
+// Two steps, not three: the welcome tour used to sit in front of the name
+// step, so the first useful thing (a gig, a ticket) was three screens away.
+// The name is still required (/app bounces nameless accounts back here), so
+// it is the first screen, with the pitch folded in beside it.
 const STEPS = [
-  { label: "Welcome", icon: Sparkles },
   { label: "Your name", icon: Check },
   { label: "Get started", icon: ArrowRight },
 ] as const;
@@ -28,9 +28,12 @@ const STEPS = [
 export function OnboardingWizard({
   currentName,
   currentUsername,
+  next = null,
 }: {
   currentName: string | null;
   currentUsername: string;
+  /** Where the person was heading before they signed up (an event, say). */
+  next?: string | null;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -52,7 +55,7 @@ export function OnboardingWizard({
           display_name: displayName.trim(),
           username: username.trim(),
         });
-        setStep(2);
+        setStep(1);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not save.");
       }
@@ -79,50 +82,15 @@ export function OnboardingWizard({
 
       {step === 0 && (
         <div className="space-y-6 text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
-            <GigTrotterGlyph className="h-12 w-10" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+            <GigTrotterGlyph className="h-10 w-8" />
           </div>
-          <div className="space-y-3">
-            <h1 className="text-3xl font-bold tracking-tight">
-              The gig never ends.
-            </h1>
-            <p className="mx-auto max-w-md text-muted-foreground">
-              Discover gigs, grab tickets, join the discussion, and build
-              a map of every live experience you&apos;ve ever had.
-            </p>
-          </div>
-          <div className="mx-auto grid max-w-sm gap-3 text-left">
-            <Feature
-              icon={Music}
-              title="Find your next gig"
-              desc="Discover events, see who's going, get hyped."
-            />
-            <Feature
-              icon={MessageSquare}
-              title="Join the conversation"
-              desc="Got your ticket? You're in the chat."
-            />
-            <Feature
-              icon={MapPin}
-              title="Build your map"
-              desc="Every gig becomes a pin. Watch your collection grow."
-            />
-          </div>
-          <Button size="lg" className="group" onClick={() => setStep(1)}>
-            Let&apos;s go
-            <ArrowRight className="transition-transform group-hover:translate-x-1" />
-          </Button>
-        </div>
-      )}
-
-      {step === 1 && (
-        <div className="space-y-6 text-center">
           <div className="space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              How should we call you?
+              What should we call you?
             </h1>
             <p className="text-sm text-muted-foreground">
-              This is how friends find you. Change it any time in settings.
+              One step and you are in: find a gig, or drop in a ticket. Friends find you by this name; change it any time in settings.
             </p>
           </div>
           <div className="mx-auto max-w-sm space-y-4 text-left">
@@ -170,7 +138,7 @@ export function OnboardingWizard({
         </div>
       )}
 
-      {step === 2 && (
+      {step === 1 && (
         <div className="space-y-6 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-secondary/10">
             <Check className="h-8 w-8 text-secondary" />
@@ -180,25 +148,43 @@ export function OnboardingWizard({
               You&apos;re in{displayName ? `, ${displayName.split(" ")[0]}` : ""}.
             </h1>
             <p className="text-muted-foreground">
-              The fastest way to light up your map: scan your camera roll for old
-              tickets. Or capture a single item to start.
+              {next
+                ? "Pick up where you left off, or start with a ticket."
+                : "Start with the gig you are going to next, or the ticket already on your phone."}
             </p>
           </div>
           <div className="mx-auto grid max-w-md gap-3">
+            {next ? (
+              <StartCard
+                icon={Music}
+                title="Back to what you were looking at"
+                desc="The event you opened before signing up."
+                href={next}
+                primary
+                onClick={() => router.push(next)}
+              />
+            ) : null}
             <StartCard
-              icon={Camera}
-              title="Backfill from camera roll"
-              desc="Scan years of ticket screenshots in minutes — your map fills fast."
-              href="/app/capture/backfill"
-              primary
-              onClick={() => router.push("/app/capture/backfill")}
+              icon={Music}
+              title="Find a gig"
+              desc="Browse what is on, save it, see who else is going."
+              href="/app/events"
+              primary={!next}
+              onClick={() => router.push("/app/events")}
             />
             <StartCard
               icon={ScanLine}
-              title="Capture your first item"
-              desc="Drop a screenshot or forward an email."
+              title="Add a ticket you already have"
+              desc="Drop in a screenshot of the ticket; it is read and goes in your wallet."
               href="/app/capture"
               onClick={() => router.push("/app/capture")}
+            />
+            <StartCard
+              icon={Camera}
+              title="Add old tickets in bulk"
+              desc="Pick the ticket screenshots already on your phone and your map fills in."
+              href="/app/capture/backfill"
+              onClick={() => router.push("/app/capture/backfill")}
             />
             <button
               onClick={() => router.push("/app")}
@@ -209,28 +195,6 @@ export function OnboardingWizard({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function Feature({
-  icon: Icon,
-  title,
-  desc,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg border border-border bg-card/40 p-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground">{desc}</p>
-      </div>
     </div>
   );
 }

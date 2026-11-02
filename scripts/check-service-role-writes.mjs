@@ -33,7 +33,10 @@ const ROOT = process.cwd();
 const SRC = join(ROOT, "src");
 
 /** Tables whose RLS permits reads but no client writes. */
-const SERVICE_ROLE_ONLY = ["venues", "vendor_fingerprints", "pro_perks", "promoter_accounts", "orders", "order_items", "tickets", "ticket_listings"];
+const SERVICE_ROLE_ONLY = ["venues", "vendor_fingerprints", "pro_perks", "promoter_accounts", "orders", "order_items", "tickets", "ticket_listings",
+  "refunds",
+  "stripe_events",
+  "ops_actions"];
 const WRITE_METHODS = ["insert", "update", "upsert", "delete"];
 
 function walk(dir) {

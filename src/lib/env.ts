@@ -79,6 +79,20 @@ export const serverEnv = {
   get captureMasterKey() {
     return required("CAPTURE_MASTER_KEY", process.env.CAPTURE_MASTER_KEY);
   },
+  /**
+   * Optional second capture key (CAP-03). When set, new captures are
+   * encrypted under version 2 and `captures.key_version` records it; v1 blobs
+   * keep decrypting with CAPTURE_MASTER_KEY. See docs/RUNBOOK-pilot.md.
+   */
+  get captureMasterKeyV2() {
+    const v = process.env.CAPTURE_MASTER_KEY_V2;
+    return v ? clean(v) : null;
+  },
+  /** Purpose-specific ticket signing key (CAP-03); falls back to CAPTURE_MASTER_KEY. */
+  get ticketSigningKey() {
+    const v = process.env.TICKET_SIGNING_KEY;
+    return v ? clean(v) : null;
+  },
   // ── events feed ───────────────────────────────────────────────────────────
   get ticketmasterApiKey() {
     return required("TICKETMASTER_API_KEY", process.env.TICKETMASTER_API_KEY);

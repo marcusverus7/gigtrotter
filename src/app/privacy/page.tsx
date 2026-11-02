@@ -13,6 +13,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GigTrotterMark } from "@/components/brand";
+import { LEGAL_ENTITY, supportEmail } from "@/lib/support";
+import { publicEnv } from "@/lib/env";
+import { stripeConfigured } from "@/lib/stripe/client";
 
 const circles = [
   {
@@ -55,7 +58,7 @@ const principles = [
   {
     icon: Lock,
     title: "Encrypted captures",
-    body: "Booking references, barcodes, and personal details are encrypted at rest. A redaction engine ensures sensitive data can never leak.",
+    body: "The ticket images you add are encrypted at rest with a per-user key, and only the structured details are ever shown to anyone else.",
   },
   {
     icon: Server,
@@ -65,6 +68,10 @@ const principles = [
 ];
 
 export default function PrivacyPage() {
+  const email = supportEmail();
+  const analytics = !!publicEnv.posthogKey;
+  const errors = !!publicEnv.sentryDsn;
+  const payments = stripeConfigured();
   return (
     <main className="relative min-h-screen bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -205,17 +212,21 @@ export default function PrivacyPage() {
       <section className="mx-auto max-w-4xl px-6 py-12">
         <h2 className="mb-6 text-2xl font-semibold">Privacy Policy</h2>
         <p className="mb-4 text-xs text-muted-foreground">
-          Effective date: 16 June 2026 &middot; Last updated: 16 June 2026
+          Effective date: 16 June 2026 &middot; Last updated: 2 November 2026
         </p>
         <div className="space-y-4">
           <DetailSection title="1. Who we are">
             <p className="text-sm">
               GigTrotter (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a live-music and event tracking
-              service operated by GigTrotter Ltd. Questions about this policy can
+              service operated by {LEGAL_ENTITY}. Questions about this policy can
               be sent to{" "}
-              <a href="mailto:privacy@gigtrotter.app" className="text-secondary hover:underline">
-                privacy@gigtrotter.app
-              </a>
+              {email ? (
+                <a href={`mailto:${email}`} className="text-secondary hover:underline">
+                  {email}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">[support contact to be confirmed by the owner]</span>
+              )}
               .
             </p>
           </DetailSection>
@@ -223,6 +234,7 @@ export default function PrivacyPage() {
             <ul className="list-disc space-y-1 pl-6 text-sm">
               <li>Account information: email, display name, avatar.</li>
               <li>Event data: captures you share with us (ticket screenshots, booking confirmations) and the structured metadata we parse from them (event name, date, venue).</li>
+              <li>If you buy a ticket sold through GigTrotter: the order (event, ticket type, amount, time), the email address used at checkout, and the ticket codes issued to you. Card details go to Stripe and are never stored by us.</li>
               <li>Usage data: pages viewed, features used, device type, and IP address (anonymised after 30 days).</li>
               <li>Optional data: profile bio, friend connections, venue reviews, discussion posts.</li>
             </ul>
@@ -238,7 +250,19 @@ export default function PrivacyPage() {
           <DetailSection title="4. Data sharing">
             <ul className="list-disc space-y-1 pl-6 text-sm">
               <li>With other users: only the data you explicitly share via your chosen audience circle (Vault, Inner Circle, Friends, or Open).</li>
-              <li>With service providers: hosting (Vercel), database (Supabase), authentication (Supabase Auth), file storage (Supabase Storage). All EU/UK GDPR-compliant.</li>
+              <li>Hosting: Vercel serves the website and apps.</li>
+              <li>Database, sign-in and file storage: Supabase, in its EU (Ireland) region.</li>
+              <li>Reading your tickets: the image you add is sent to Anthropic&apos;s API to extract the event details. It is used only to answer that request.</li>
+              <li>Maps: your browser loads map tiles from Mapbox when you open the map.</li>
+              {payments ? (
+                <li>Payments: Stripe processes card payments and pays promoters through Stripe Connect. Stripe receives your card details, name and email; we never see the card.</li>
+              ) : (
+                <li>Payments: when ticket sales are switched on, Stripe will process card payments and pay promoters through Stripe Connect. We will never see your card details.</li>
+              )}
+              {analytics ? <li>Product analytics: PostHog, to see which features are used.</li> : null}
+              {errors ? <li>Error reporting: Sentry, to be told when something breaks.</li> : null}
+              <li>With the promoter of an event you buy a ticket for: your name, the ticket type and the ticket code, so they can admit you at the door.</li>
+              <li>Each provider processes data under its own terms. Where the data goes and the legal basis for each transfer: [owner to confirm].</li>
               <li>With law enforcement: only when required by law.</li>
             </ul>
           </DetailSection>
@@ -252,10 +276,10 @@ export default function PrivacyPage() {
           </DetailSection>
           <DetailSection title="6. Security">
             <p className="text-sm">
-              All data is encrypted in transit (TLS 1.3) and at rest. Booking
-              references, barcodes, and personal details in captures are
-              additionally encrypted with per-user keys. We follow OWASP best
-              practices and enforce row-level security at the database layer.
+              Data is encrypted in transit and at rest. The ticket images you add
+              are additionally encrypted with a per-user key, and access to every
+              row in the database is restricted to its owner and the audience
+              they chose, enforced in the database itself.
             </p>
           </DetailSection>
           <DetailSection title="7. Your rights">
@@ -286,9 +310,13 @@ export default function PrivacyPage() {
           <DetailSection title="10. Contact">
             <p className="text-sm">
               For privacy-related questions, email{" "}
-              <a href="mailto:privacy@gigtrotter.app" className="text-secondary hover:underline">
-                privacy@gigtrotter.app
-              </a>
+              {email ? (
+                <a href={`mailto:${email}`} className="text-secondary hover:underline">
+                  {email}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">[support contact to be confirmed by the owner]</span>
+              )}
               .
             </p>
           </DetailSection>

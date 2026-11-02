@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { publicEnv, serverEnv } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { getStripe } from "@/lib/stripe/client";
-import { makeTicketCode, normaliseCode, verifyTicketCode } from "@/lib/tickets/codes";
+import { makeTicketCode, normaliseCode } from "@/lib/tickets/codes";
+import { currentSigningSecret, verifyTicketCodeAny } from "@/lib/tickets/keys";
 import { expireOrder } from "@/lib/tickets/fulfil";
 import { orderTotals, validateBasket, type FeeSchedule } from "@/lib/tickets/pricing";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -299,7 +300,7 @@ export async function issueCompTicket(
     .maybeSingle();
   if (!tier || tier.event_id !== eventId) throw new Error("That ticket type is not on this event.");
 
-  const code = makeTicketCode(serverEnv.captureMasterKey);
+  const code = makeTicketCode(currentSigningSecret());
   const { data: wallet } = await service
     .from("wallet_items")
     .insert({
@@ -341,20 +342,43 @@ export type CheckInResult =
   | { ok: true; title: string; tier: string | null; owner: string | null; usedAt: string }
   | {
       ok: false;
-      reason: "invalid" | "unknown" | "used" | "wrong_event" | "void";
+      reason: "invalid" | "unknown" | "used" | "wrong_event" | "void" | "forbidden";
       usedAt?: string | null;
       title?: string;
+      /** For "used": true when THIS operator scanned it in the last two minutes, i.e. a retry after a lost response, not a second entry. */
+      ownScan?: boolean;
     };
 
+/**
+ * Who may check in at this event: the promoter, or a named door operator
+ * from event_staff (PAY-04). Decided by the database (can_check_in, 0031)
+ * from trusted rows, never from user-editable metadata. Returns null rather
+ * than throwing so the scanner can show "forbidden" instead of "uncertain".
+ */
+export async function checkInRights(eventId: string): Promise<{ userId: string } | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data, error } = await supabase.rpc("can_check_in", { target_event: eventId });
+  if (!error) return data ? { userId: user.id } : null;
+  // RPC absent (0031 not applied): promoter only.
+  const { data: event } = await supabase.from("events").select("promoter_id").eq("id", eventId).maybeSingle();
+  return event?.promoter_id === user.id ? { userId: user.id } : null;
+}
+
 export async function checkInTicket(eventId: string, rawCode: string): Promise<CheckInResult> {
-  const { user } = await requirePromoterOf(eventId);
+  const rights = await checkInRights(eventId);
+  if (!rights) return { ok: false, reason: "forbidden" };
+  const user = { id: rights.userId };
   const code = normaliseCode(rawCode);
-  if (!verifyTicketCode(code, serverEnv.captureMasterKey)) return { ok: false, reason: "invalid" };
+  if (!verifyTicketCodeAny(code).ok) return { ok: false, reason: "invalid" };
   const service = createServiceClient();
   const { data: t } = await service
     .from("tickets")
     .select(
-      "id, event_id, status, used_at, tier_id, owner_id, events(title), ticket_tiers(name), profiles:owner_id(display_name, username)",
+      "id, event_id, status, used_at, checked_in_by, tier_id, owner_id, events(title), ticket_tiers(name), profiles:owner_id(display_name, username)",
     )
     .eq("code", code)
     .maybeSingle();
@@ -364,14 +388,23 @@ export async function checkInTicket(eventId: string, rawCode: string): Promise<C
     event_id: string;
     status: string;
     used_at: string | null;
+    checked_in_by: string | null;
     events: { title: string } | null;
     ticket_tiers: { name: string } | null;
     profiles: { display_name: string | null; username: string } | null;
   };
   if (row.event_id !== eventId)
     return { ok: false, reason: "wrong_event", title: row.events?.title };
-  if (row.status === "used")
-    return { ok: false, reason: "used", usedAt: row.used_at, title: row.events?.title };
+  if (row.status === "used") {
+    // The same operator re-submitting within two minutes is almost always a
+    // retry after a lost response (ENTRY-02): say so, instead of implying a
+    // second person is trying the code.
+    const ownScan =
+      row.checked_in_by === user.id &&
+      !!row.used_at &&
+      Date.now() - new Date(row.used_at).getTime() < 2 * 60 * 1000;
+    return { ok: false, reason: "used", usedAt: row.used_at, title: row.events?.title, ownScan };
+  }
   if (row.status !== "valid") return { ok: false, reason: "void", title: row.events?.title };
   const usedAt = new Date().toISOString();
   const { data: done } = await service
@@ -459,7 +492,7 @@ export async function transferTicket(ticketId: string, username: string) {
       .update({ status: "archived" } as never)
       .eq("id", row.wallet_item_id);
   }
-  const code = makeTicketCode(serverEnv.captureMasterKey);
+  const code = makeTicketCode(currentSigningSecret());
   const ev = row.events;
   const { data: wallet } = await service
     .from("wallet_items")
@@ -497,4 +530,41 @@ export async function transferTicket(ticketId: string, username: string) {
   } as never);
   revalidatePath("/app");
   if (row.wallet_item_id) revalidatePath(`/app/item/${row.wallet_item_id}`);
+}
+
+/* ── promoter: door staff (PAY-04) ──────────────────────────────────────── */
+
+export async function addDoorStaff(eventId: string, username: string): Promise<{ userId: string }> {
+  const { user } = await requirePromoterOf(eventId);
+  const supabase = await createClient();
+  const u = username.toLowerCase().trim().replace(/^@/, "");
+  const { data: target } = await supabase.from("profiles").select("id").eq("username", u).maybeSingle();
+  if (!target) throw new Error("No one with that username.");
+  if (target.id === user.id) throw new Error("You already run the door as the promoter.");
+  // RLS (event_staff: promoter manages) is the authority; the .select() guard
+  // makes a refused insert visible instead of silently doing nothing.
+  const { data, error } = await supabase
+    .from("event_staff")
+    .upsert({ event_id: eventId, user_id: target.id, role: "door", added_by: user.id } as never, {
+      onConflict: "event_id,user_id",
+    })
+    .select("user_id");
+  if (error) throw new Error(error.code === "42P01" ? "Door staff needs migration 0031." : error.message);
+  if (!data || data.length === 0) throw new Error("Not added: is this your event?");
+  revalidatePath(`/app/events/${eventId}/tickets`);
+  return { userId: target.id };
+}
+
+export async function removeDoorStaff(eventId: string, userId: string): Promise<void> {
+  await requirePromoterOf(eventId);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_staff")
+    .delete()
+    .eq("event_id", eventId)
+    .eq("user_id", userId)
+    .select("user_id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Not removed: is this your event?");
+  revalidatePath(`/app/events/${eventId}/tickets`);
 }

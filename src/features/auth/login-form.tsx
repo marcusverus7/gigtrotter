@@ -12,8 +12,11 @@ import { OAuthButtons, type OAuthProvider } from "./oauth-buttons";
 
 export function LoginForm({
   searchParams,
+  next = "/app",
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
+  /** Same-origin path to land on after sign-in; the page sanitises it. */
+  next?: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -56,7 +59,7 @@ export function LoginForm({
         setError(error.message);
         return;
       }
-      router.push("/app");
+      router.push(next);
       router.refresh();
     });
   }
@@ -66,7 +69,7 @@ export function LoginForm({
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/app`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
     if (error) setError(error.message);

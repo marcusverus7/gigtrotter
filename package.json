@@ -2,7 +2,7 @@
   "name": "gigtrotter",
   "version": "0.1.0",
   "private": true,
-  "description": "The wallet that remembers — a capture-first ticket & travel wallet that builds a private life map automatically.",
+  "description": "The wallet that remembers \u2014 a capture-first ticket & travel wallet that builds a private life map automatically.",
   "scripts": {
     "dev": "next dev --port 3002",
     "build": "next build",
@@ -12,7 +12,14 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "eval": "tsx --tsconfig eval/tsconfig.json eval/run.ts",
     "test:logic": "tsx --tsconfig eval/tsconfig.json eval/logic.test.ts",
-    "check:rls": "node scripts/check-service-role-writes.mjs"
+    "check:rls": "node scripts/check-service-role-writes.mjs",
+    "test:ticketing": "tsx --tsconfig eval/tsconfig.json eval/ticketing.test.ts",
+    "test:entry": "tsx --tsconfig eval/tsconfig.json eval/entry.test.ts",
+    "test:capture": "tsx --tsconfig eval/tsconfig.json eval/capture.test.ts",
+    "test:db": "tsx --tsconfig eval/tsconfig.json eval/db.test.ts",
+    "test": "pnpm test:logic && pnpm test:ticketing && pnpm test:entry && pnpm test:capture",
+    "eval:real": "tsx --tsconfig eval/tsconfig.json eval/score-real.ts",
+    "staging:migrate": "node scripts/staging-migrate.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -63,6 +70,7 @@
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.5.21",
     "postcss": "^8.4.49",
+    "postgres": "^4.0.0",
     "prettier": "^3.4.2",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",

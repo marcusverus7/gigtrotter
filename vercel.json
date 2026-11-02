@@ -17,6 +17,10 @@
     {
       "path": "/api/cron/events-sync",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/orders-reconcile",
+      "schedule": "30 4 * * *"
     }
   ]
 }

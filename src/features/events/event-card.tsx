@@ -69,7 +69,7 @@ function money(cents: number, currency: string) {
 /** Tags that describe the LISTING, not the music — never shown as genres. */
 const STATUS_TAGS = new Set(["time_tba", "postponed", "rescheduled"]);
 
-export function EventCard({ event }: { event: EventSummary }) {
+export function EventCard({ event, href }: { event: EventSummary; href?: string }) {
   const Icon = CATEGORY_ICONS[event.category] ?? Music;
   const place = [event.venue_name, event.venue_city]
     .filter(Boolean)
@@ -83,7 +83,7 @@ export function EventCard({ event }: { event: EventSummary }) {
   const genreTags = event.tags.filter((t) => !STATUS_TAGS.has(t));
 
   return (
-    <Link href={`/app/events/${event.id}`}>
+    <Link href={href ?? `/app/events/${event.id}`}>
       <Card className="group overflow-hidden transition-all hover:border-primary/40 hover:shadow-lg">
         {/* The sold-out and category badges sit OUTSIDE the image branch: they
             used to live inside it, so an event with no image_url — every

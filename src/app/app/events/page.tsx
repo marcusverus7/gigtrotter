@@ -30,9 +30,9 @@ export default async function EventsPage({
   searchParams: Promise<{ city?: string }>;
 }) {
   const supabase = await createClient();
-  const user = await getSessionUser();
-  if (!user) redirect("/login");
   const { city } = await searchParams;
+  const user = await getSessionUser();
+  if (!user) redirect(city ? `/events?city=${encodeURIComponent(city)}` : "/events");
 
   const nowIso = new Date().toISOString();
 

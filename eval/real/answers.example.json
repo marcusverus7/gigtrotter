@@ -1,0 +1,33 @@
+{
+  "provenance": "Example only. Replace with: who supplied these tickets, that they agreed, and when.",
+  "items": [
+    {
+      "file": "ticketmaster/01.png",
+      "split": "dev",
+      "issuer": "ticketmaster",
+      "expected": {
+        "title": "Example Headliner + Example Support",
+        "starts_at": "2026-11-20T19:30",
+        "venue": "Example Hall",
+        "city": "Belfast",
+        "vendor": "ticketmaster",
+        "entry_mode": "rotating"
+      },
+      "critical": ["starts_at", "venue", "entry_mode"]
+    },
+    {
+      "file": "skiddle/01.jpg",
+      "split": "heldout",
+      "issuer": "skiddle",
+      "expected": {
+        "title": "Example Club Night",
+        "starts_at": "2026-12-05T22:00",
+        "venue": "Example Warehouse",
+        "city": "Dublin",
+        "vendor": "skiddle",
+        "entry_mode": "static"
+      },
+      "critical": ["starts_at", "venue", "entry_mode"]
+    }
+  ]
+}

@@ -3,12 +3,16 @@ import Link from "next/link";
 import { GigTrotterMark } from "@/components/brand";
 import { LoginForm } from "@/features/auth/login-form";
 import { isSupabaseConfigured } from "@/lib/env";
+import { safeNext } from "@/lib/safe-next";
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
+  // Where to go afterwards: a public event page sends people here with the
+  // event in ?next so signing in does not lose it. Same-origin paths only.
+  const next = safeNext((await searchParams).next);
   return (
     <main className="relative flex min-h-screen flex-col overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -29,14 +33,14 @@ export default function LoginPage({
             </p>
           </div>
           {isSupabaseConfigured ? (
-            <LoginForm searchParams={searchParams} />
+            <LoginForm searchParams={searchParams} next={next} />
           ) : (
             <UnconfiguredNotice />
           )}
           <p className="text-center text-sm text-muted-foreground">
             No account yet?{" "}
             <Link
-              href="/signup"
+              href={next === "/app" ? "/signup" : `/signup?next=${encodeURIComponent(next)}`}
               className="font-medium text-primary hover:underline"
             >
               Make one

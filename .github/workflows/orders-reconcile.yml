@@ -1,0 +1,22 @@
+# Order recovery (PAY-03). The endpoint is idempotent, so an extra or missed
+# run is harmless; GitHub's schedule is best effort (it can be late by many
+# minutes or skip under load), which is fine for a 30-minute checkout hold
+# with a 5-minute grace. Vercel Cron also calls it daily (Hobby ceiling), and
+# the order page nudges its own order. Needs the CRON_SECRET repo secret
+# (same value as Vercel's).
+name: orders-reconcile
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the reconcile endpoint
+        run: |
+          # -f fails the job on a non-2xx: the endpoint answers 500 when an
+          # order or refund needs a human, so a red run IS the alarm.
+          curl -fsS --max-time 120 -o /dev/null -w "orders-reconcile answered HTTP %{http_code}\n" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://gigtrotter.vercel.app/api/cron/orders-reconcile

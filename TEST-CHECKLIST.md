@@ -231,6 +231,23 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 - Marketplace payments — Stripe not wired; surface hidden
 - Bandsintown "For you" dates only appear for artists someone follows — follow-driven by design
 
+## O — Pilot hardening (added 2026-11-02; needs 0031 + 0032 applied)
+
+| ID | Steps | Expected |
+|---|---|---|
+| O1 | 🔒 Anonymous `GET /rest/v1/achievements` and `/rest/v1/admin_provider_clicks` with the anon key | 401/403 for all four views; signed-in user gets only their own achievements row |
+| O2 | 🔒 Anonymous `POST /rest/v1/rpc/trip_assemble` with a nil uuid | Error `forbidden`, not 204 |
+| O3 | User A marks "going" on a future event; check as B (inner circle), C (plain friend), D (stranger), signed-out | Only A and B see it; after the event ends C sees it too; D and signed-out never |
+| O4 | `pnpm test:db` against staging | All db gates pass: 100 concurrent buyers → exactly 10 reservations; concurrent duplicate fulfilment → exactly N tickets; racing scanners admit one |
+| O5 | Promoter sales page → Door staff → add a test user; open `/app/events/<id>/scan` as them; remove them | Scanner opens for staff, no sales/payout data visible; after removal the scanner redirects away |
+| O6 | Scanner with Wi-Fi off, type a valid code | Amber "couldn't reach the server, retry"; never red; retry after reconnect shows IN (or "already in (your scan)" if the first attempt landed) |
+| O7 | Night mode / item page for an imported Ticketmaster, Eventbrite and unknown-seller ticket | Issuer instructions only; no barcode-looking block anywhere |
+| O8 | `/app/admin/orders` as the admin; `curl` the reconcile endpoint with `CRON_SECRET` | Page says Clean; endpoint 200 `"ok":true`; as a non-admin the page redirects |
+| O9 | After Stripe keys: buy 2 tickets, then kill the webhook (wrong secret) and buy again; wait for the 15-min workflow or press Reconcile now | Second order is fulfilled by the reconciler from Stripe's paid status; no duplicate tickets; stock exact |
+| O10 | After Stripe keys: resale a ticket; check `/app/admin/orders` and the Stripe dashboard | One seller refund of face with the transfer reversed; refund row succeeded with the Stripe id; seller order still paid; buyer has one valid ticket, seller's scans CANCELLED |
+| O11 | After Stripe keys: admin → Refund whole order | Tickets scan CANCELLED immediately; order shows refunded only once Stripe accepts; one refund in Stripe |
+| O12 | Signed out: open `/events`, an event page, click Sign in to buy, sign in | Lands back on that event in the app |
+
 ## Results
 
 | Item | Tester | Platform | Pass/Fail | Notes |

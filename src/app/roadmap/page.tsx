@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check, Circle, Clock, MapPin, ScanLine, Ticket, Users } from "lucide-react";
 
 import { GigTrotterMark } from "@/components/brand";
+import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
@@ -95,7 +96,16 @@ const PRINCIPLES = [
   },
 ];
 
-export default function RoadmapPage() {
+export default async function RoadmapPage() {
+  // The catalogue size comes from the database, never a number typed in here.
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .gte("starts_at", new Date().toISOString());
+  const upcoming = count ?? 0;
+  const upcomingLabel =
+    upcoming >= 1000 ? `${Math.floor(upcoming / 100) / 10}k` : upcoming.toLocaleString("en-GB");
   return (
     <main className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -130,12 +140,12 @@ export default function RoadmapPage() {
         <Section
           eyebrow="Today"
           title="What works right now"
-          blurb="Everything here is live in the beta, on web, iOS and Android."
+          blurb="Everything here is live in the web beta. The iOS and Android apps load the same site and are in closed testing, not yet in the public stores."
         >
           <Row
             status="live"
             title="Screenshot capture"
-            body="Drop a screenshot, photograph a paper ticket, or scan your camera roll in bulk. Reads tickets, boarding passes, hotel and restaurant confirmations — 97.9% field accuracy across a 42-image labelled test set."
+            body="Drop a screenshot, photograph a paper ticket, or scan your camera roll in bulk. Reads tickets, boarding passes, hotel and restaurant confirmations. On our 42-image synthetic test set the parser scores 97.9% of fields; accuracy on real tickets is being measured in the pilot, and every parse is shown to you before it is saved."
           />
           <Row
             status="live"
@@ -204,17 +214,17 @@ export default function RoadmapPage() {
           <Row
             status="live"
             title="Gig discovery"
-            body="Nearly five thousand upcoming shows across the UK and Ireland, refreshed nightly, with a city filter and a For-you rail built from the artists and venues you follow. Independent venues can list directly — the feed covers the big rooms, the submit flow covers everyone else."
+            body={`${upcomingLabel} upcoming shows across the UK and Ireland right now, refreshed nightly, with a city filter and a For-you rail built from the artists and venues you follow. Independent venues can list directly — the feed covers the big rooms, the submit flow covers everyone else.`}
           />
           <Row
-            status="later"
+            status="building"
             title="Face-value resale"
-            body="Sell a spare ticket at face value, never above. The price cap is a database constraint — but the declared face value still needs checking against the ticket itself before this can handle real money."
+            body="Sell a spare GigTrotter-issued ticket at face value, never above: the buyer pays face, you get your money back, the old code dies and a new one is issued. Built; switched on with card payments."
           />
           <Row
-            status="later"
-            title="Tickets direct from venues"
-            body="The long game: independent venues selling through GigTrotter, keeping more of the door and owning their own audience. Everything above exists to earn that audience first."
+            status="building"
+            title="Tickets direct from promoters"
+            body="Promoters set up ticket types, sell through GigTrotter at full face value, and scan a signed QR at the door. The pilot is a handful of Belfast gigs; card payments switch on once the Stripe account is connected."
           />
           <Row
             status="later"

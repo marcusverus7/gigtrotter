@@ -71,7 +71,7 @@ MVP is phases 0–7 (six-to-eight weeks of evenings, twenty users). Each phase e
 | 0 | Foundation — scaffold, design tokens, `/design`, CI | ✅ |
 | 1 | Auth, profile, circles + RLS (time-shift rule) | ✅ |
 | 2 | Capture pipeline — image → Claude vision → confirm card | ✅ |
-| 3 | The Wallet — countdowns, lifecycle, offline ticket | ✅ |
+| 3 | The Wallet — countdowns, lifecycle, issuer-aware entry panel (offline ticket display is NOT shipped on the web; see docs/ADR-0001-native-shell.md) | ✅ (web) |
 | 4 | The Travel Board — Mapbox globe, pin popover | ✅ |
 | 5 | Stats + anonymous board + share cards | ✅ |
 | 6 | Backfill scan + rapid manual add | ✅ |

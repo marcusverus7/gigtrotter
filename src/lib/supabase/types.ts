@@ -100,6 +100,8 @@ export interface CaptureRow {
   error: string | null;
   created_at: string;
   confirmed_at: string | null;
+  /** 0031 (CAP-03): which CAPTURE_MASTER_KEY version encrypted storage_ref. */
+  key_version: number;
 }
 
 export interface VendorFingerprintRow {
@@ -217,6 +219,13 @@ export interface OrderRow {
   expires_at: string | null;
   /** Set on a face-value resale order (migration 0030). */
   listing_id: string | null;
+  /** 0031: local fulfilment is a separate fact from Stripe's payment. */
+  fulfilled_at: string | null;
+  fulfilment_outcome: "issued" | "stale_listing_refund" | null;
+  fulfilment_error: string | null;
+  stock_committed_at: string | null;
+  last_reconciled_at: string | null;
+  reconcile_note: string | null;
 }
 
 export interface OrderItemRow {
@@ -239,10 +248,74 @@ export interface TicketRow {
   checked_in_by: string | null;
   transferred_from: string | null;
   issued_as: string;
+  /** 0031: 1..quantity within (order, tier); the idempotency boundary of fulfilment. */
+  unit_no: number | null;
+  created_at: string;
+}
+
+export type RefundStatus = "requested" | "pending" | "succeeded" | "failed";
+
+/** 0031: the refund ledger. Service-role writes; buyers read their own. */
+export interface RefundRow {
+  id: string;
+  order_id: string;
+  related_order_id: string | null;
+  reason: "resale_seller" | "resale_buyer_stale" | "promoter_refund" | "transfer_reversal" | "operator";
+  payment_intent_id: string | null;
+  amount_cents: number;
+  currency: string;
+  reverse_transfer: boolean;
+  status: RefundStatus;
+  idempotency_key: string;
+  stripe_refund_id: string | null;
+  attempts: number;
+  last_error: string | null;
+  requested_by: string | null;
+  created_at: string;
+  updated_at: string;
+  succeeded_at: string | null;
+}
+
+/** 0031: webhook inbox. Service-role only. */
+export interface StripeEventRow {
+  id: string;
+  type: string;
+  order_id: string | null;
+  received_at: string;
+  processed_at: string | null;
+  attempts: number;
+  last_error: string | null;
+  payload: Record<string, unknown>;
+}
+
+/** 0031: named door operators per event. */
+export interface EventStaffRow {
+  event_id: string;
+  user_id: string;
+  role: "door";
+  added_by: string | null;
+  created_at: string;
+}
+
+/** 0031: operator audit trail. Service-role only. */
+export interface OpsActionRow {
+  id: string;
+  actor: string | null;
+  action: string;
+  target: string | null;
+  detail: Record<string, unknown>;
   created_at: string;
 }
 
 export type ListingStatus = "open" | "reserved" | "sold" | "withdrawn";
+
+/** Migration 0032: per-user (and platform, nil uuid) daily capture budget. Service-role only. */
+export interface CaptureBudgetRow {
+  user_id: string;
+  day: string;
+  used: number;
+  updated_at: string;
+}
 
 export interface TicketListingRow {
   id: string;
@@ -535,10 +608,35 @@ export interface Database {
         Insert: Partial<TicketRow> & { event_id: string; tier_id: string; owner_id: string; code: string };
         Update: Partial<TicketRow>;
       };
+      capture_budget: {
+        Row: CaptureBudgetRow;
+        Insert: Partial<CaptureBudgetRow> & { user_id: string; day: string };
+        Update: Partial<CaptureBudgetRow>;
+      };
       ticket_listings: {
         Row: TicketListingRow;
         Insert: Partial<TicketListingRow> & { ticket_id: string; seller_id: string; event_id: string; tier_id: string; price_cents: number };
         Update: Partial<TicketListingRow>;
+      };
+      refunds: {
+        Row: RefundRow;
+        Insert: Partial<RefundRow> & { order_id: string; reason: RefundRow["reason"]; amount_cents: number };
+        Update: Partial<RefundRow>;
+      };
+      stripe_events: {
+        Row: StripeEventRow;
+        Insert: Partial<StripeEventRow> & { id: string; type: string; payload: Record<string, unknown> };
+        Update: Partial<StripeEventRow>;
+      };
+      event_staff: {
+        Row: EventStaffRow;
+        Insert: Partial<EventStaffRow> & { event_id: string; user_id: string };
+        Update: Partial<EventStaffRow>;
+      };
+      ops_actions: {
+        Row: OpsActionRow;
+        Insert: Partial<OpsActionRow> & { action: string };
+        Update: Partial<OpsActionRow>;
       };
     };
     Views: Record<string, never>;
@@ -569,9 +667,25 @@ export interface Database {
         Returns: Array<{ interested: number; going: number }>;
       };
       event_waitlist_count: { Args: { target_event: string }; Returns: number };
+      reserve_capture_slot: { Args: { target_user: string; daily_limit: number }; Returns: boolean };
+      release_capture_slot: { Args: { target_user: string }; Returns: void };
       reserve_tier: { Args: { target_tier: string; qty: number }; Returns: boolean };
       release_tier: { Args: { target_tier: string; qty: number }; Returns: void };
       commit_tier: { Args: { target_tier: string; qty: number }; Returns: void };
+      /** 0031: transactional issuance; see src/lib/tickets/fulfil.ts. */
+      fulfil_order_tx: {
+        Args: { target_order: string; units: Array<{ tier_id: string; unit_no: number; code: string }>; wallet_status: string };
+        Returns: Record<string, unknown>;
+      };
+      fulfil_resale_tx: {
+        Args: { target_order: string; new_code: string; wallet_status: string };
+        Returns: Record<string, unknown>;
+      };
+      request_order_refund_tx: {
+        Args: { target_order: string; actor: string; why: string };
+        Returns: Record<string, unknown>;
+      };
+      can_check_in: { Args: { target_event: string }; Returns: boolean };
       tier_availability: { Args: { target_event: string }; Returns: Array<{ tier_id: string; remaining: number }> };
       event_interest_counts_for: {
         Args: { target_events: string[] };

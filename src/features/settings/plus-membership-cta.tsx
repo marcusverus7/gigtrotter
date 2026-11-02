@@ -40,7 +40,7 @@ export function PlusMembershipCta() {
           </Button>
         )}
         <Button asChild size="sm" variant="ghost">
-          <Link href="/app/perks">View live perks</Link>
+          <Link href="/app/perks">See the perks catalogue (not open yet)</Link>
         </Button>
       </div>
     </div>

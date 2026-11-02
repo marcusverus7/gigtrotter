@@ -84,7 +84,8 @@ export default async function EventDetailPage({
   const { id } = await params;
   const supabase = await createClient();
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  // Signed out: the public page shows the facts and brings them back here.
+  if (!user) redirect(`/events/${id}`);
 
   const { data: event } = await supabase
     .from("events")

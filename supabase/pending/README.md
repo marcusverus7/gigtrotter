@@ -3,7 +3,32 @@
 **APPLIED 2026-11-02: 0024 through 0030 are live in production** (run as one pack,
 `RUN-ME-0024-to-0030.sql`, verified via PostgREST: tables answer, RPCs respond, stock
 functions are denied to anon). The sections below are kept as the record of what each
-file did. Nothing is pending.
+file did. **Pending now: 0031 then 0032.**
+
+## Pending: 0031 (added 2026-11-02) -- pilot hardening (apply BEFORE 0032)
+
+`APPLY-ME-0031.sql` -- security + money. Views: `achievements` runs as the
+caller and loses its anon grant; the three `admin_*` views become service-role
+only. RPC guards: `trip_assemble`, `on_this_day`, `who_else_going`,
+`unread_alert_count` reject a NULL caller (anon slipped through `<>`).
+`event_interests`: owner / Inner Circle / friends only after the event.
+Ticketing: `orders.fulfilled_at` and friends, `tickets.unit_no` (unique per
+order+tier), `stripe_events` inbox, `refunds` ledger, `event_staff` (door
+operators), `ops_actions` audit, `captures.key_version`, and the
+transactional `fulfil_order_tx` / `fulfil_resale_tx` /
+`request_order_refund_tx` / `can_check_in` functions. The code runs without
+it (promoter-only door, empty admin page, fulfilment retried by Stripe) but
+the security fixes only take effect once applied. Verify queries are at the
+bottom of the file; the release order is in docs/RUNBOOK-pilot.md.
+
+## Pending: 0032 (added 2026-11-02) -- atomic capture budget
+
+`APPLY-ME-0032.sql` -- `capture_budget` table plus `reserve_capture_slot` /
+`release_capture_slot` (service-role only). Replaces the count-then-proceed
+quota in `src/lib/capture/pipeline.ts`, which overshoots under concurrency.
+Until applied the pipeline logs once and falls back to the old count check,
+so nothing breaks; after applying, the platform-wide cap can be tuned with
+`CAPTURE_PLATFORM_DAILY_LIMIT` (default 2000/day).
 
 ## Pending: 0030 (added 2026-11-02) — face-value resale
 

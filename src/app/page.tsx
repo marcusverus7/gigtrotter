@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { GigTrotterMark } from "@/components/brand";
 import { GlobeLoader } from "@/features/landing/globe-loader";
+import { serverEnv } from "@/lib/env";
 
 const lifecycle = [
   {
@@ -36,7 +37,7 @@ const lifecycle = [
   },
   {
     stage: "Be there",
-    blurb: "Share photos, join the discussion, grab merch.",
+    blurb: "Share photos, join the discussion, meet your mates.",
     icon: MessageSquare,
   },
   {
@@ -59,13 +60,13 @@ const features = [
   },
   {
     icon: ShoppingBag,
-    title: "Exclusive merch",
-    body: "Limited drops, presales, and venue collection. The good stuff, direct from the artist.",
+    title: "Tickets from any seller",
+    body: "Bought on Ticketmaster, DICE, Skiddle, or at the door? It all goes in the same wallet, with the right way in at the door for each.",
   },
   {
     icon: Heart,
     title: "The purple tick",
-    body: "Buy through GigTrotter and unlock full discussion access, badges, and priority on drops.",
+    body: "Buy through GigTrotter and unlock full discussion access and a verified-attendee badge.",
   },
   {
     icon: MapPin,
@@ -75,29 +76,38 @@ const features = [
   {
     icon: Camera,
     title: "Zero typing",
-    body: "Screenshot your ticket. Forward your confirmation email. Your wallet fills itself.",
+    body: "Add a screenshot of your ticket and the details are read for you. Nothing to type.",
   },
 ];
 
-const captureRoutes = [
+// Only routes that work as configured are advertised. Email forwarding needs
+// a real inbound domain (FORWARDING_DOMAIN); until then it is not listed.
+const captureRoutes: Array<{
+  icon: typeof ScanLine;
+  title: string;
+  body: string;
+  requiresForwarding?: boolean;
+}> = [
   {
     icon: ScanLine,
-    title: "Screenshot it",
-    body: "Share any ticket or booking screenshot. AI extracts the details and drops it in your wallet.",
+    title: "Add a screenshot",
+    body: "Share any ticket or booking screenshot. The details are read and checked with you before anything is saved.",
   },
   {
     icon: Forward,
     title: "Forward it",
-    body: "Forward any confirmation email to your personal capture address. Parsed instantly.",
+    body: "Forward any confirmation email to your personal capture address and it is parsed the same way.",
+    requiresForwarding: true,
   },
   {
     icon: Camera,
-    title: "Backfill it",
-    body: "On-device detection finds ticket screenshots already on your phone. Your map fills in minutes.",
+    title: "Add old tickets in bulk",
+    body: "Pick the ticket screenshots already on your phone and add them together. Your map fills in minutes.",
   },
 ];
 
 export default function LandingPage() {
+  const routes = captureRoutes.filter((r) => !r.requiresForwarding || serverEnv.isForwardingConfigured);
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
       {/* Ambient aurora */}
@@ -258,8 +268,8 @@ export default function LandingPage() {
             <h2 className="mt-2 mb-8 text-3xl font-semibold tracking-tight md:text-4xl">
               Your wallet fills itself.
             </h2>
-            <div className="grid gap-6 md:grid-cols-3">
-              {captureRoutes.map((r) => (
+            <div className={`grid gap-6 ${routes.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+              {routes.map((r) => (
                 <div key={r.title} className="flex gap-4">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <r.icon className="h-5 w-5" />

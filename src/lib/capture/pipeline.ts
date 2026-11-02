@@ -5,9 +5,16 @@ import {
   createServiceClient,
 } from "@/lib/supabase/server";
 import {
+  currentCaptureKeyVersion,
   encryptBytes,
   templateHash,
 } from "@/lib/capture/encryption";
+import {
+  DAILY_CAPTURE_LIMIT,
+  reserveBudget,
+  shouldReleaseOn,
+  type BudgetStage,
+} from "@/lib/capture/budget";
 import { ParseError, parseCaptureBytes } from "@/lib/capture/parser";
 import {
   KNOWN_VENDORS,
@@ -18,24 +25,49 @@ import {
 const STORAGE_BUCKET = "captures";
 
 /**
- * Per-user daily ceiling on captures. Every capture is real money — a vision
- * call plus an encrypted storage write — signup is open, and the Anthropic
- * account has run dry once already. The fingerprint cache only suppresses
- * byte-identical re-uploads, so without a count-based ceiling a script
- * flipping one pixel per request has an open-ended tap on the bill.
+ * Daily ceilings on captures. Every capture is real money -- a vision call
+ * plus an encrypted storage write -- signup is open, and the Anthropic account
+ * has run dry once already. The fingerprint cache only suppresses
+ * byte-identical re-uploads, so without a ceiling a script flipping one pixel
+ * per request has an open-ended tap on the bill.
  *
  * Enforced HERE, not in the routes, because both /api/captures and the
- * inbound-email webhook funnel through this function — one quota covers every
- * way bytes can arrive, including ones added later. 100/day is far above any
- * honest use (a big backfill session) while capping the worst day at pennies.
+ * inbound-email webhook funnel through this function -- one budget covers
+ * every way bytes can arrive, including ones added later.
+ *
+ * The budget is an atomic reservation (migration 0032, src/lib/capture/budget.ts):
+ * a slot is taken BEFORE any storage or model work, and the Postgres statement
+ * serialises concurrent callers so a burst cannot overshoot. Until 0032 is
+ * applied the RPC is absent and this falls back to the old "count today's
+ * rows" check, which is correct in series and only overshoots under
+ * concurrency.
  */
-const DAILY_CAPTURE_LIMIT = 100;
-
 export class CaptureQuotaError extends Error {
-  constructor() {
-    super("Daily capture limit reached — try again tomorrow.");
+  readonly scope: "user" | "platform";
+  constructor(scope: "user" | "platform" = "user") {
+    super(
+      scope === "platform"
+        ? "GigTrotter has hit its capture limit for today -- try again tomorrow."
+        : "Daily capture limit reached -- try again tomorrow.",
+    );
     this.name = "CaptureQuotaError";
+    this.scope = scope;
   }
+}
+
+let warnedMissingBudgetRpc = false;
+
+/** The pre-0032 check, kept only as the fallback while the migration is pending. */
+async function legacyCountQuota(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<void> {
+  const { count: recentCount } = await supabase
+    .from("captures")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  if ((recentCount ?? 0) >= DAILY_CAPTURE_LIMIT) throw new CaptureQuotaError("user");
 }
 
 /**
@@ -69,19 +101,39 @@ export async function ingestCapture(opts: {
   // every re-upload of a byte-identical image paid for a fresh vision call.
   const fingerprintWriter = createServiceClient();
 
-  // 0) Quota, before a single byte is stored or sent anywhere. Counting rows
-  //    is one indexed query and needs no new infrastructure; the row is
-  //    written before the vision call, so even a request that later fails
-  //    still counts against the day.
-  const { count: recentCount } = await supabase
-    .from("captures")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", opts.userId)
-    .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-  if ((recentCount ?? 0) >= DAILY_CAPTURE_LIMIT) {
-    throw new CaptureQuotaError();
+  // 0) Budget, before a single byte is stored or sent anywhere. One atomic
+  //    slot for the user and one for the platform (service client: the
+  //    functions are revoked from clients). The slot goes back on every path
+  //    that costs nothing; a model call keeps it whatever the outcome.
+  const reservation = await reserveBudget(
+    (fn, args) => fingerprintWriter.rpc(fn, args as never),
+    opts.userId,
+  );
+  if (reservation.status === "denied") throw new CaptureQuotaError(reservation.scope);
+  if (reservation.status === "unavailable") {
+    if (!warnedMissingBudgetRpc) {
+      warnedMissingBudgetRpc = true;
+      console.error("[capture] reserve_capture_slot missing -- apply migration 0032; using the count fallback");
+    }
+    await legacyCountQuota(supabase, opts.userId);
   }
+  let stage: BudgetStage = "no_cost";
+  try {
+    return await ingestReserved(opts, supabase, fingerprintWriter, (s) => {
+      stage = s;
+    });
+  } finally {
+    if (reservation.status === "reserved" && shouldReleaseOn(stage)) await reservation.release();
+  }
+}
 
+/** Everything after the budget is held. `setStage` flips to model_called the moment the parser is invoked. */
+async function ingestReserved(
+  opts: { userId: string; source: "screenshot" | "email" | "extension" | "manual"; bytes: Uint8Array },
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fingerprintWriter: ReturnType<typeof createServiceClient>,
+  setStage: (s: BudgetStage) => void,
+): Promise<{ captureId: string; parsed: ParsedCapture }> {
   // 1) Fingerprint first, then store. The hash used to be computed AFTER the
   //    upload, so a cache-hit duplicate skipped the vision call but still
   //    wrote a fresh blob under a new UUID every time. Deriving the storage
@@ -150,6 +202,7 @@ export async function ingestCapture(opts: {
     confidence = parsed.confidence ?? 0.95;
   } else {
     try {
+      setStage("model_called");
       parsed = await parseCaptureBytes(opts.bytes);
       confidence = parsed.confidence;
 
@@ -238,6 +291,8 @@ export async function ingestCapture(opts: {
       user_id: opts.userId,
       source: opts.source,
       storage_ref: key,
+      // Omitted at v1 so the insert still works before migration 0031 adds the column.
+      ...(currentCaptureKeyVersion() > 1 ? { key_version: currentCaptureKeyVersion() } : {}),
       parse_json: parsed as never,
       confidence,
       vendor: inferredVendor,

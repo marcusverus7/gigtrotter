@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompForm } from "@/features/ticketing/comp-form";
+import { StaffManager, type StaffRow } from "@/features/ticketing/staff-manager";
 import { TierManager, type TierRow } from "@/features/ticketing/tier-manager";
 import { stripeConfigured } from "@/lib/stripe/client";
 import { DEFAULT_FEES, formatMoney } from "@/lib/tickets/pricing";
@@ -29,12 +30,18 @@ export default async function SellTicketsPage({ params }: { params: Promise<{ id
   if (!event) notFound();
   if (event.promoter_id !== user.id) redirect(`/app/events/${id}`);
 
-  const [{ data: tiers, error: tiersErr }, { data: account }, { data: orders }, { data: tickets }] = await Promise.all([
+  const [{ data: tiers, error: tiersErr }, { data: account }, { data: orders }, { data: tickets }, { data: staffRows }] = await Promise.all([
     supabase.from("ticket_tiers").select("id, name, description, price_cents, quantity, sold, reserved, max_per_order, status").eq("event_id", id).order("sort_order"),
     supabase.from("promoter_accounts").select("charges_enabled, payouts_enabled, details_submitted, fee_bps, fee_fixed_cents").eq("user_id", user.id).maybeSingle(),
     supabase.from("orders").select("face_cents, fee_cents, status").eq("event_id", id).eq("status", "paid"),
     supabase.from("tickets").select("status, issued_as").eq("event_id", id),
+    supabase.from("event_staff").select("user_id, profiles:user_id(username, display_name)").eq("event_id", id),
   ]);
+  const staff: StaffRow[] = ((staffRows ?? []) as unknown as Array<{ user_id: string; profiles: { username: string | null; display_name: string | null } | null }>).map((r) => ({
+    user_id: r.user_id,
+    username: r.profiles?.username ?? null,
+    display_name: r.profiles?.display_name ?? null,
+  }));
   const notReady = !!tiersErr; // migration 0029 not applied
   const fees = account ? { bps: account.fee_bps, fixedCents: account.fee_fixed_cents } : DEFAULT_FEES;
   const revenue = (orders ?? []).reduce((n, o) => n + o.face_cents, 0);
@@ -125,10 +132,15 @@ export default async function SellTicketsPage({ params }: { params: Promise<{ id
           <CardTitle className="flex items-center gap-2 text-base"><ScanLine className="h-4 w-4 text-primary" /> On the door</CardTitle>
           <CardDescription>Scan QR codes or type the code. Works on any phone that can open the app.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Button asChild>
             <Link href={`/app/events/${id}/scan`}>Open the scanner</Link>
           </Button>
+          <div>
+            <p className="text-sm font-medium">Door staff</p>
+            <p className="mb-2 text-xs text-muted-foreground">People you name here can open the scanner for this event only. They see no sales, payouts or buyer details, and lose access the moment you remove them.</p>
+            <StaffManager eventId={id} staff={staff} />
+          </div>
         </CardContent>
       </Card>
     </div>

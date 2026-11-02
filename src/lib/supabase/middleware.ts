@@ -35,8 +35,30 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Refresh the auth token; the call's side-effect is what we want.
-  await supabase.auth.getUser();
+  // Refresh the auth token; the user is also what the redirects below need.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Signed out and heading for the app: a public event has a public page, so
+  // go there rather than to a login wall; anything else goes to login with
+  // the destination kept, so signing in lands where the person was going.
+  // The app layout's own redirect("/login") stays as the backstop.
+  if (!user) {
+    const { pathname, search } = request.nextUrl;
+    const publicEvent = /^\/app\/events(\/[0-9a-f-]{36})?\/?$/i.exec(pathname);
+    if (publicEvent) {
+      const url = request.nextUrl.clone();
+      url.pathname = publicEvent[1] ? `/events${publicEvent[1]}` : "/events";
+      return NextResponse.redirect(url);
+    }
+    if (pathname.startsWith("/app")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = `?next=${encodeURIComponent(pathname + search)}`;
+      return NextResponse.redirect(url);
+    }
+  }
 
   return response;
 }

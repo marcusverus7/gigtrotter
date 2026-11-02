@@ -3,8 +3,14 @@ import Link from "next/link";
 import { GigTrotterMark } from "@/components/brand";
 import { SignupForm } from "@/features/auth/signup-form";
 import { isSupabaseConfigured } from "@/lib/env";
+import { safeNext } from "@/lib/safe-next";
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const next = safeNext((await searchParams).next, "");
   return (
     <main className="relative flex min-h-screen flex-col overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -27,7 +33,7 @@ export default function SignupPage() {
             </p>
           </div>
           {isSupabaseConfigured ? (
-            <SignupForm />
+            <SignupForm next={next || undefined} />
           ) : (
             <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
               Configure Supabase first — see <code>.env.example</code>.
@@ -35,7 +41,7 @@ export default function SignupPage() {
           )}
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="text-foreground underline">
+            <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} className="text-foreground underline">
               Sign in
             </Link>
           </p>

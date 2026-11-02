@@ -33,6 +33,8 @@ const ConfirmInput = z.object({
   price_total_cents: z.number().int().min(0).nullable().optional(),
   currency: z.string().length(3).nullable().optional(),
   audience: z.enum(["vault", "inner", "friends", "open"]).default("inner"),
+  /** Parser's canonical vendor, e.g. "ticketmaster" — drives the entry-mode advice. */
+  vendor: z.string().max(60).nullable().optional(),
   venue: z
     .object({
       name: z.string(),
@@ -173,6 +175,9 @@ export async function confirmCapture(input: ConfirmCaptureInput) {
         // honours the choice made on the confirm card; it used to be read
         // only in the already-attended branch and dropped otherwise.
         audience: parsed.audience,
+        // The issuer decides whether the captured barcode scans at the door
+        // (see lib/tickets/issuer.ts); night mode reads it from here.
+        ...(parsed.vendor ? { vendor: parsed.vendor } : {}),
         ...(parsed.details.length > 0 ? { details: parsed.details } : {}),
         ...(parsed.price_total_cents != null
           ? { price_total_cents: parsed.price_total_cents, currency: parsed.currency ?? null }

@@ -1,6 +1,8 @@
 import "server-only";
 
 import {
+  anniversaryDedupeKey,
+  anniversaryTitle,
   describeFriends,
   describeNewDates,
   doorsDedupeKey,
@@ -79,7 +81,7 @@ const DOORS_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 type NewAlert = {
   user_id: string;
-  kind: "doors_tonight" | "friend_going" | "tour_announce" | "on_sale";
+  kind: "doors_tonight" | "friend_going" | "tour_announce" | "on_sale" | "anniversary";
   title: string;
   body: string | null;
   url?: string | null;
@@ -113,7 +115,21 @@ export async function generateAlerts(
     ];
 
     await markScanned(supabase, userId);
-    if (candidates.length === 0) return 0;
+
+    // Anniversaries go in their OWN upsert: the kind arrives with migration
+    // 0027, and an enum the database does not know yet would fail the whole
+    // batch, taking tonight's doors alert with it.
+    const anniversaries = await onThisDay(supabase, userId);
+    let extra = 0;
+    if (anniversaries.length > 0) {
+      const { data } = await supabase
+        .from("alerts")
+        .upsert(anniversaries as never, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true })
+        .select("id");
+      extra = data?.length ?? 0;
+    }
+
+    if (candidates.length === 0) return extra;
 
     // One upsert, one round trip. ignoreDuplicates compiles to
     // ON CONFLICT DO NOTHING against the dedupe index, which is exactly the
@@ -131,7 +147,7 @@ export async function generateAlerts(
       console.error("[alerts] upsert failed", error.code, error.message);
       return 0;
     }
-    return data?.length ?? 0;
+    return (data?.length ?? 0) + extra;
   } catch (err) {
     console.error("[alerts] generation failed", err);
     return 0;
@@ -214,14 +230,39 @@ async function friendsGoing(
 
   const rows = (data ?? []) as Overlap[];
 
+  const now = Date.now();
   return [...groupOverlapsByGig(rows).entries()].map(([walletItemId, group]) => ({
     user_id: userId,
     kind: "friend_going" as const,
     title: group[0].title,
-    body: describeFriends(group.map(friendLabel)),
+    // The overlap RPC also returns PAST gigs you both have — "is going too"
+    // read wrong for a night that already happened.
+    body: describeFriends(group.map(friendLabel), new Date(group[0].starts_at).getTime() < now),
     event_at: group[0].starts_at,
     dedupe_key: friendDedupeKey(walletItemId, group.length),
   }));
+}
+
+/**
+ * "One year ago tonight" — the On-this-day card as an alert, once a year
+ * per pin. on_this_day already applies the "at least six months old" rule.
+ */
+async function onThisDay(supabase: Client, userId: string): Promise<NewAlert[]> {
+  const { data, error } = await supabase.rpc("on_this_day", { target_user: userId });
+  if (error) return [];
+  const year = new Date().getFullYear();
+  return ((data ?? []) as Array<{ id: string; wallet_item_id: string | null; title: string; starts_at: string; subtitle: string | null }>)
+    .filter((e) => e.wallet_item_id)
+    .slice(0, 3)
+    .map((e) => ({
+      user_id: userId,
+      kind: "anniversary" as const,
+      title: `${anniversaryTitle(e.starts_at)}: ${e.title}`,
+      body: e.subtitle ? `${e.subtitle}. Open the pin to relive it.` : "Open the pin to relive it.",
+      url: `/app/item/${e.wallet_item_id}`,
+      event_at: e.starts_at,
+      dedupe_key: anniversaryDedupeKey(e.id, year),
+    }));
 }
 
 /**

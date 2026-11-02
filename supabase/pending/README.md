@@ -1,5 +1,15 @@
 # Migration pack
 
+## Pending: 0027 (added 2026-11-02)
+
+`APPLY-ME-0027.sql` — two enum values: `anniversary` ("One year ago tonight",
+the On-this-day card as a real alert) and `friend_request` (a request or an
+acceptance used to be visible only if the other person opened People). The
+app inserts these kinds in their own statements, so until this is applied
+they are rejected quietly and every other alert still works.
+
+Verify: `select unnest(enum_range(null::alert_kind));` lists both.
+
 ## Pending: 0026 (added 2026-11-02) — apply this one first
 
 `APPLY-ME-0026.sql`. Three policy gaps from the November review:

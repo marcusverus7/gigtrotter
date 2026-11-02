@@ -173,6 +173,19 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | K15 | 🔒 Apply migration 0026, then `GET /rest/v1/event_interests?select=user_id` with the anon key | Only your own and friends' rows |
 | K16 | 🔒 iOS: Take photo (needs a NEW native build) | Camera opens with a permission prompt instead of the app being killed |
 
+## L — November build (added 2026-11-02)
+
+| # | Check | Expected |
+|---|---|---|
+| L1 | Night mode for a Ticketmaster or AXS ticket | No barcode drawn; "Open in Ticketmaster" button and a line saying screenshots don't scan |
+| L2 | Night mode for a See Tickets / Skiddle / Eventbrite ticket | Barcode strip shown; "Open my See Tickets ticket" link |
+| L3 | Item page for an upcoming DICE ticket | "Getting in · DICE" panel instead of the barcode placeholder |
+| L4 | /app/review/2026 → Share | On a phone the system share sheet opens with a 1080×1920 card; on desktop the PNG downloads |
+| L5 | Open the card URL with the token changed | 404 |
+| L6 | 🔒 Apply 0027. A pin from exactly one year ago today, open the app | "One year ago tonight: …" alert linking to the pin |
+| L7 | 🔒 Send a friend request | The other account gets a "wants to be friends" alert; accepting sends one back |
+| L8 | A friend overlap on a PAST gig | Alert says "was there too", not "is going too" |
+
 ## Known-not-ready (don't file these as bugs)
 
 - Push to lock screen — alerts appear on app open only; push needs a native build

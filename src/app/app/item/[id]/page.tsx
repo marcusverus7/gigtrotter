@@ -1,3 +1,4 @@
+import { classifyIssuer, type IssuerInfo } from "@/lib/tickets/issuer";
 import { effectiveEnd } from "@/lib/wallet/lifecycle";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -268,6 +269,10 @@ export default async function WalletItemDetail({
             <BarcodePanel
               hasBarcode={!!item.barcode_ref}
               eventOver={gigOver}
+              issuer={classifyIssuer(
+                ((item.meta as { vendor?: string } | null)?.vendor) ?? null,
+                [item.title, ...((((item.meta as { details?: string[] } | null)?.details) ?? []))],
+              )}
             />
           ) : null}
 
@@ -344,10 +349,34 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
 function BarcodePanel({
   hasBarcode,
   eventOver,
+  issuer,
 }: {
   hasBarcode: boolean;
   eventOver: boolean;
+  issuer: IssuerInfo;
 }) {
+  // A rotating or app-locked issuer: the captured code will not scan, so say
+  // so here too, not only on the night the user finds out at the door.
+  if (!eventOver && issuer.entryMode !== "static" && issuer.entryMode !== "unknown") {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 p-5">
+        <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+          Getting in · {issuer.label}
+        </p>
+        <p className="mt-2 text-sm">{issuer.advice}</p>
+        {issuer.openUrl ? (
+          <a
+            href={issuer.openUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md border border-border px-4 text-sm font-medium"
+          >
+            Open in {issuer.label}
+          </a>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
       {hasBarcode ? (

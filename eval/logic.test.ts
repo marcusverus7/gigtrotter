@@ -29,6 +29,9 @@ import {
 } from "../src/lib/alerts/phrasing";
 import { pgTextArray, stripLikeWildcards } from "../src/lib/supabase/filters";
 import { deriveStatus, effectiveEnd, nextStatus } from "../src/lib/wallet/lifecycle";
+import { barcodeScansAtDoor, classifyIssuer } from "../src/lib/tickets/issuer";
+import { computeYearStats } from "../src/lib/review/year-stats";
+import { anniversaryTitle } from "../src/lib/alerts/phrasing";
 import {
   bandsintownArtistPath,
   cityCentroid,
@@ -605,6 +608,44 @@ check("stripLikeWildcards leaves an ordinary city alone", stripLikeWildcards("Mi
   check("reconcile: archived never moves", nextStatus("archived", at(-6), null, now) === null);
   check("reconcile: undated going stays", nextStatus("going", null, null, now) === null);
 }
+
+/* ── issuer / entry mode ────────────────────────────────────────────────── */
+// Ticketmaster SafeTix and AXS rotate the barcode; DICE shows it only in-app.
+// A captured code for those will be refused at the door, so night mode must
+// not present it as the ticket.
+check("issuer: ticketmaster rotates", classifyIssuer("ticketmaster").entryMode === "rotating");
+check("issuer: captured TM barcode does not scan", !barcodeScansAtDoor(classifyIssuer("ticketmaster")));
+check("issuer: dice is app-locked", classifyIssuer("dice").entryMode === "app_locked");
+check("issuer: see tickets is static and scans", barcodeScansAtDoor(classifyIssuer("seetickets")));
+check("issuer: alias 'See Tickets' resolves", classifyIssuer("See Tickets").issuer === "seetickets");
+check("issuer: found in ticket text when vendor missing", classifyIssuer(null, ["Order 123", "Ticketmaster UK"]).issuer === "ticketmaster");
+check("issuer: unknown vendor is honest", classifyIssuer("gigsrus").entryMode === "unknown" && classifyIssuer("gigsrus").openUrl === null);
+check("issuer: every known issuer has an open link", ["ticketmaster","axs","dice","seetickets","skiddle","eventbrite"].every((v) => !!classifyIssuer(v).openUrl));
+
+/* ── year in review stats ──────────────────────────────────────────────── */
+{
+  const row = (o: Partial<Parameters<typeof computeYearStats>[1][number]> & { id: string }) => ({
+    wallet_item_id: "w", kind: "ticket", title: "IDLES + Support", starts_at: "2026-03-10T20:00:00Z", ends_at: null,
+    city: "Bristol", country: "GB", venue: "Marble Factory", lat: 51.45, lng: -2.59, ...o,
+  });
+  const stats = computeYearStats(2026, [
+    row({ id: "a" }),
+    row({ id: "b", starts_at: "2026-03-12T20:00:00Z" }),
+    row({ id: "c", title: "Fontaines D.C.", starts_at: "2026-07-01T19:00:00Z", city: "Dublin", country: "IE", venue: "3Arena", lat: 53.35, lng: -6.23 }),
+    row({ id: "d", kind: "flight", title: "FR123 BRS→DUB", starts_at: "2026-06-30T08:00:00Z", venue: null }),
+  ]);
+  check("review: counts gigs and flights", stats.gigs === 3 && stats.flights === 1);
+  check("review: headliner wins (support stripped)", stats.topArtist === "IDLES" && stats.topArtistCount === 2);
+  check("review: top venue", stats.topVenue === "Marble Factory");
+  check("review: cities and countries", stats.cities.length === 2 && stats.countries.length === 2);
+  check("review: busiest month is March", stats.busiestMonth === 2);
+  check("review: three hours per gig with no end", stats.liveHours === 9);
+  check("review: travelled some distance", stats.km > 300 && stats.km < 400);
+  check("review: empty year is all zeros", computeYearStats(2025, []).gigs === 0 && computeYearStats(2025, []).topArtist === null);
+}
+check("anniversary: one year", anniversaryTitle("2025-11-02T20:00:00Z", Date.parse("2026-11-02T20:00:00Z")) === "One year ago tonight");
+check("anniversary: three years", anniversaryTitle("2023-11-02T20:00:00Z", Date.parse("2026-11-02T20:00:00Z")) === "Three years ago tonight");
+check("friends: past tense", describeFriends(["Ana"], true) === "Ana was there too.");
 
 /* ── feed normalisers ───────────────────────────────────────────────────── */
 

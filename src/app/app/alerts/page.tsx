@@ -24,6 +24,8 @@ const KIND_LABEL: Record<string, string> = {
   on_sale: "On sale",
   price_drop: "Price drop",
   tour_announce: "Tour announced",
+  anniversary: "On this day",
+  friend_request: "Friends",
 };
 
 const KIND_VARIANT: Record<
@@ -35,6 +37,8 @@ const KIND_VARIANT: Record<
   on_sale: "open",
   price_drop: "verified",
   tour_announce: "inner",
+  anniversary: "open",
+  friend_request: "friends",
 };
 
 export default async function AlertsPage() {
@@ -66,7 +70,7 @@ export default async function AlertsPage() {
       <header>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Bell className="h-4 w-4 text-primary" />
-          Doors tonight, and who else is going.
+          Doors tonight, who else is going, and what happened a year ago.
         </div>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">Alerts</h1>
       </header>
@@ -132,7 +136,11 @@ export default async function AlertsPage() {
                   {a.body ? (
                     <p className="text-sm text-muted-foreground">{a.body}</p>
                   ) : null}
-                  {a.url ? (
+                  {a.url && a.url.startsWith("/") ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={a.url}>Open</Link>
+                    </Button>
+                  ) : a.url ? (
                     <Button asChild size="sm" variant="outline">
                       <a
                         href={`/api/affiliate/${a.id}`}

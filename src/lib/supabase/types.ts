@@ -241,7 +241,10 @@ export type AlertKind =
   | "tour_announce"
   | "friend_going"
   /** Added in migration 0017 — the only kind we can raise without a feed. */
-  | "doors_tonight";
+  | "doors_tonight"
+  /** Added in migration 0027. */
+  | "anniversary"
+  | "friend_request";
 export type AlertState = "unread" | "read" | "dismissed";
 
 export interface WishlistRow {

@@ -1,10 +1,13 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Share2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { YearInReview } from "@/features/review/year-in-review";
+import { ReviewShare } from "@/features/review/review-share";
+import { computeYearStats, REVIEW_SELECT, toReviewRows } from "@/lib/review/year-stats";
+import { reviewToken } from "@/lib/share/review-token";
 
 /**
  * /app/review/[year] — Year-in-Review cinematic.
@@ -33,64 +36,17 @@ export default async function YearInReviewPage({
 
   const { data: experiences } = await supabase
     .from("experiences")
-    .select(
-      "id, wallet_item_id, kind, title, subtitle, starts_at, ends_at, venues(name, city, country, lat, lng)",
-    )
+    .select(REVIEW_SELECT)
     .eq("user_id", user.id)
     .gte("starts_at", start)
     .lt("starts_at", end)
     .order("starts_at", { ascending: true });
 
-  const rows = (experiences ?? []).map((e) => {
-    const venuesRaw = (e as { venues: unknown }).venues;
-    const v = (Array.isArray(venuesRaw) ? venuesRaw[0] : venuesRaw) as {
-      name: string | null;
-      city: string | null;
-      country: string | null;
-      lat: number | null;
-      lng: number | null;
-    } | null;
-    return {
-      id: e.id,
-      wallet_item_id: e.wallet_item_id ?? null,
-      kind: e.kind as string,
-      title: e.title as string,
-      starts_at: e.starts_at as string,
-      city: v?.city ?? null,
-      country: v?.country ?? null,
-      venue: v?.name ?? null,
-      lat: v?.lat ?? null,
-      lng: v?.lng ?? null,
-    };
-  });
-
-  // Aggregates
-  const cities = Array.from(new Set(rows.map((r) => r.city).filter(Boolean) as string[]));
-  const countries = Array.from(new Set(rows.map((r) => r.country).filter(Boolean) as string[]));
-  const gigs = rows.filter((r) => r.kind === "ticket").length;
-  const flights = rows.filter((r) => r.kind === "flight").length;
-  const stays = rows.filter((r) => r.kind === "stay").length;
-
-  // Distance: sum great-circle distances between consecutive geo points.
-  const km = (() => {
-    const geo = rows.filter((r) => r.lat != null && r.lng != null);
-    let total = 0;
-    for (let i = 1; i < geo.length; i++) {
-      total += haversine(geo[i - 1].lat!, geo[i - 1].lng!, geo[i].lat!, geo[i].lng!);
-    }
-    return Math.round(total);
-  })();
-
-  // Top "artist" — for ticket kind, group by title; not perfect but it reads.
-  const topArtist = (() => {
-    const counts: Record<string, number> = {};
-    for (const r of rows) {
-      if (r.kind !== "ticket") continue;
-      counts[r.title] = (counts[r.title] ?? 0) + 1;
-    }
-    const list = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    return list[0]?.[0] ?? null;
-  })();
+  const rows = toReviewRows(experiences as Array<Record<string, unknown>> | null);
+  const stats = computeYearStats(y, rows);
+  const cities = stats.cities;
+  const countries = stats.countries;
+  const { gigs, flights, stays, km, topArtist } = stats;
 
   // Cluster pins by city for the map flyover
   const cityPins = (() => {
@@ -139,9 +95,10 @@ export default async function YearInReviewPage({
             <ArrowLeft /> Back
           </Link>
         </Button>
-        <Button variant="outline" size="sm" disabled>
-          <Share2 /> Share (V1)
-        </Button>
+        <ReviewShare
+          year={y}
+          cardUrl={`/api/review/${y}?u=${encodeURIComponent(user.id)}&t=${reviewToken(user.id, y)}`}
+        />
       </div>
 
       <YearInReview
@@ -160,15 +117,4 @@ export default async function YearInReviewPage({
       />
     </div>
   );
-}
-
-function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

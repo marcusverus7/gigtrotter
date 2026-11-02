@@ -68,6 +68,7 @@ export function ConfirmCard({
       try {
         await confirmCapture({
           captureId,
+          vendor: parsed.vendor ?? null,
           kind,
           title,
           subtitle: city || venueName || null,

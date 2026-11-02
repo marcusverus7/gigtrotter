@@ -42,14 +42,26 @@ export function friendLabel(row: Overlap): string {
  * Naming everyone gets unreadable past two, and "and 1 others" is the kind of
  * detail that makes an app feel unfinished.
  */
-export function describeFriends(names: string[]): string {
+export function describeFriends(names: string[], past = false): string {
   if (names.length === 0) return "";
-  if (names.length === 1) return `${names[0]} is going too.`;
-  if (names.length === 2) return `${names[0]} and ${names[1]} are going too.`;
+  const one = past ? "was there too." : "is going too.";
+  const many = past ? "were there too." : "are going too.";
+  if (names.length === 1) return `${names[0]} ${one}`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} ${many}`;
   const rest = names.length - 2;
-  return `${names[0]}, ${names[1]} and ${rest} other${
-    rest === 1 ? "" : "s"
-  } are going too.`;
+  return `${names[0]}, ${names[1]} and ${rest} other${rest === 1 ? "" : "s"} ${many}`;
+}
+
+/** "One year ago tonight" / "Three years ago tonight". */
+export function anniversaryTitle(startsAt: string, now: number = Date.now()): string {
+  const years = Math.max(1, Math.round((now - new Date(startsAt).getTime()) / (365.25 * 86400_000)));
+  const words = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+  const n = years <= 10 ? words[years - 1] : String(years);
+  return `${n} year${years === 1 ? "" : "s"} ago tonight`;
+}
+
+export function anniversaryDedupeKey(experienceId: string, year: number): string {
+  return `anniv:${experienceId}:${year}`;
 }
 
 /**

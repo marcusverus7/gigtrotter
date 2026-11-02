@@ -9,6 +9,7 @@ import {
   Ticket as TicketIcon,
   Train,
   Users,
+  ExternalLink,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,6 +18,8 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
+
+import { barcodeScansAtDoor, classifyIssuer } from "@/lib/tickets/issuer";
 
 import { GeofenceCheckInButton } from "./geofence-button";
 
@@ -176,14 +179,19 @@ export function NightCard({ item }: { item: NightItem }) {
           </div>
         ) : null}
 
-        {/* Barcode placeholder — the actual encrypted barcode renders only
-            in the native app per the security model. Web shows a stylised
-            placeholder so the share-sheet can't lift the live code. */}
-        {item.kind === "ticket" || item.kind === "flight" ? (
+        {/* Getting in. For Ticketmaster and AXS the barcode rotates and for
+            DICE it lives only in the app, so a captured code would be refused
+            at the door — the one moment this card exists for. The issuer
+            decides what is shown. */}
+        {item.kind === "ticket" ? (
+          <EntryPanel
+            vendor={(item.meta?.vendor as string | undefined) ?? null}
+            hints={[item.title, ...(((item.meta?.details as string[] | undefined) ?? []))]}
+          />
+        ) : item.kind === "flight" ? (
           <div className="rounded-xl border border-dashed border-border/60 bg-background/30 p-6 text-center backdrop-blur">
-            <div className="mx-auto h-20 w-full max-w-xs rounded bg-foreground/80 [mask-image:repeating-linear-gradient(90deg,_#000_0,_#000_1px,_transparent_1px,_transparent_4px,_#000_4px,_#000_5px,_transparent_5px,_transparent_9px,_#000_9px,_#000_12px,_transparent_12px)]" />
-            <p className="mt-3 text-xs text-muted-foreground">
-              Encrypted ticket — open in the native app to scan.
+            <p className="text-xs text-muted-foreground">
+              Boarding pass — use the airline&apos;s app or the PDF at the gate.
             </p>
           </div>
         ) : null}
@@ -256,4 +264,31 @@ function fmtTime(ms: number): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(ms));
+}
+
+function EntryPanel({ vendor, hints }: { vendor: string | null; hints: string[] }) {
+  const info = classifyIssuer(vendor, hints);
+  const scans = barcodeScansAtDoor(info);
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/30 p-5 backdrop-blur">
+      <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        Getting in{info.label ? ` · ${info.label}` : ""}
+      </p>
+      {scans ? (
+        <div className="mx-auto mt-3 h-16 w-full max-w-xs rounded bg-foreground/80 [mask-image:repeating-linear-gradient(90deg,_#000_0,_#000_1px,_transparent_1px,_transparent_4px,_#000_4px,_#000_5px,_transparent_5px,_transparent_9px,_#000_9px,_#000_12px,_transparent_12px)]" />
+      ) : null}
+      <p className="mt-3 text-sm">{info.advice}</p>
+      {info.openUrl ? (
+        <a
+          href={info.openUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground"
+        >
+          <ExternalLink className="h-4 w-4" />
+          {scans ? `Open my ${info.label} ticket` : `Open in ${info.label}`}
+        </a>
+      ) : null}
+    </div>
+  );
 }

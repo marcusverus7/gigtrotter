@@ -1,429 +1,537 @@
--- APPLY-ME.sql — migrations 0014 through 0019, in order.
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 0024 — trip clustering window
 --
--- Paste the whole file into the Supabase SQL editor and run it once.
--- 0015 closes live authorisation holes and should go first if you split it up.
+-- trip_assemble's look-ahead window was asymmetric with its attach window: a
+-- flight on day 0 could see a gig on day 5 and open a trip, but the gig could
+-- only attach within 18h of the trip's end — so the flight sat in a one-item
+-- trip and the gig in none, which is exactly the "solo flights don't deserve
+-- a trip" case the original comment said it avoided.
 --
--- Everything here is narrowing, corrective or additive. Nothing drops a table,
--- a column or a row. 0016 rewrites three counter columns that are currently
--- wrong.
+-- Both windows are 7 days now, a trip must contain travel (two gigs a week
+-- apart at home are not a trip), wishlist items never cluster, and trips left
+-- empty by a deletion or a date edit are dropped. The app now calls this RPC
+-- after every wallet insert, date edit and delete rather than only when the
+-- Re-cluster button is pressed.
+-- ─────────────────────────────────────────────────────────────────────────────
 
--- ═══ 0014_venue_attendance_stats.sql ═══
--- Venue attendance stats
---
--- A venue page today can only show the viewer their OWN history there, because
--- experiences RLS (correctly) hides other people's pins. But the number a venue
--- manager actually wants — "how many regulars have been here" — is exactly the
--- artefact that turns a consumer app into a conversation with a venue.
---
--- This returns AGGREGATES ONLY: two integers, never rows. Nothing identifies a
--- person, so it leaks nothing the pin-level policies protect.
---
--- Past events only (`ends_at < now()`), which keeps it consistent with the
--- time-shift rule in migration 0002: future attendance is never disclosed
--- beyond a user's inner circle, not even in aggregate. That also matches what
--- a venue cares about — who has actually turned up.
---
--- security definer so it can read across users; `set search_path = public`
--- prevents search-path hijacking, and it is granted to authenticated callers
--- only (not anon).
+create or replace function public.trip_assemble(target_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  slack interval := interval '18 hours';
+  reach interval := interval '7 days';
+  item record;
+  matched_trip_id uuid;
+  cluster_starts timestamptz;
+  cluster_ends timestamptz;
+begin
+  if target_user <> auth.uid() then
+    raise exception 'forbidden';
+  end if;
 
-create or replace function public.venue_attendance_stats(target_venue uuid)
-returns table (
-  attendees integer,
-  gigs_logged integer
-)
+  for item in
+    select w.id, w.starts_at, w.ends_at, w.kind, w.title
+      from wallet_items w
+     where w.user_id = target_user
+       and w.trip_id is null
+       and w.starts_at is not null
+       and w.status <> 'wishlist'
+       and w.kind in ('flight', 'stay', 'ticket')
+     order by w.starts_at asc
+  loop
+    matched_trip_id := null;
+
+    -- Attach to an existing trip within reach of its end, or overlapping it.
+    select t.id, t.starts_at, t.ends_at
+      into matched_trip_id, cluster_starts, cluster_ends
+      from trips t
+     where t.user_id = target_user
+       and t.auto_assembled = true
+       and item.starts_at <= (t.ends_at + reach)
+       and coalesce(item.ends_at, item.starts_at) >= (t.starts_at - slack)
+     order by t.starts_at desc
+     limit 1;
+
+    if matched_trip_id is not null then
+      update trips
+         set starts_at = least(starts_at, item.starts_at),
+             ends_at = greatest(ends_at, coalesce(item.ends_at, item.starts_at + interval '4 hours'))
+       where id = matched_trip_id;
+
+      update wallet_items set trip_id = matched_trip_id where id = item.id;
+    else
+      -- Open a trip only when there is travel in it: a ticket needs a flight
+      -- or stay within reach; a flight or stay needs any other clusterable
+      -- item. Two gigs a week apart at home are not a trip.
+      if exists (
+        select 1 from wallet_items o
+         where o.user_id = target_user
+           and o.id <> item.id
+           and o.starts_at is not null
+           and o.status <> 'wishlist'
+           and (
+             (item.kind = 'ticket' and o.kind in ('flight', 'stay'))
+             or (item.kind in ('flight', 'stay') and o.kind in ('flight', 'stay', 'ticket'))
+           )
+           and o.starts_at between (item.starts_at - reach)
+                              and (coalesce(item.ends_at, item.starts_at) + reach)
+      ) then
+        insert into trips (user_id, title, starts_at, ends_at, auto_assembled)
+          values (
+            target_user,
+            'Trip · ' || to_char(item.starts_at, 'Mon YYYY'),
+            item.starts_at,
+            coalesce(item.ends_at, item.starts_at + interval '1 day'),
+            true
+          )
+          returning id into matched_trip_id;
+        update wallet_items set trip_id = matched_trip_id where id = item.id;
+      end if;
+    end if;
+  end loop;
+
+  -- Trips emptied by deletions or date edits: drop them.
+  delete from trips t
+   where t.user_id = target_user
+     and t.auto_assembled = true
+     and not exists (select 1 from wallet_items w where w.trip_id = t.id);
+end;
+$$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 0025 — bound follows.name in the database
+--
+-- `FollowInput` in src/features/follows/actions.ts caps the name at 120
+-- characters, but that check only runs in the server action. The Supabase anon
+-- key ships inside the client bundle by design, and the row-owner policy on
+-- `follows` grants a signed-in user full insert rights — so anyone can POST
+-- straight to /rest/v1/follows and store a multi-kilobyte name, bypassing the
+-- action entirely.
+--
+-- Those names are not inert. They are interpolated into a Bandsintown URL path
+-- by the nightly sync (a huge path 414s, and the error text lands in
+-- feed_sync_runs.notes), and they build the PostgREST array filters behind the
+-- events "For you" rail and the tour/on-sale alerts. The sync also draws one
+-- global 200-artist budget from a single 1,000-row select, so one account's
+-- rows can crowd out everyone else's followed artists.
+--
+-- The code re-applies the bound as well (dedupeNames skips over-long names);
+-- this is the half that holds regardless of which client wrote the row.
+--
+-- Existing rows are truncated first so the constraint can be added validated.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+update public.follows
+   set name = left(name, 120)
+ where char_length(name) > 120;
+
+alter table public.follows
+  drop constraint if exists follows_name_len;
+
+alter table public.follows
+  add constraint follows_name_len
+  check (char_length(name) between 1 and 120);
+
+-- Same exposure, same shape: wishlist.name feeds the on-sale alert filters.
+update public.wishlist
+   set name = left(name, 120)
+ where char_length(name) > 120;
+
+alter table public.wishlist
+  drop constraint if exists wishlist_name_len;
+
+alter table public.wishlist
+  add constraint wishlist_name_len
+  check (char_length(name) between 1 and 120);
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 0026 — three policy gaps found by the November 2026 review
+--
+-- 1) event_interests was `for select using (true)`, and profiles is read-all,
+--    so anyone holding the anon key (it ships in the bundle; no session
+--    needed) could list "user X is GOING to event Y on date Z" for every
+--    future event — exactly the disclosure the experiences time-shift rule
+--    exists to prevent. Worse, Add-to-wallet auto-enrolled the user as going.
+--    Rows are now visible to their owner and their accepted friends; the
+--    public "N going" numbers come from an aggregate RPC instead.
+--
+-- 2) merch_items / merch_variants / merch_drops let any signed-in user publish
+--    to the global store (`seller manages own` is `for all`), and published
+--    rows render on LAUNCHED pages — venue, artist and event rails. There is
+--    no seller UI, so client writes are revoked; seeding is service-role only.
+--
+-- 3) The avatars bucket had an INSERT policy but no UPDATE policy, so the
+--    second avatar change (upsert: true) was denied.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- ── 1) event_interests ───────────────────────────────────────────────────────
+
+drop policy if exists "event_interests: public read" on public.event_interests;
+
+create policy "event_interests: own and friends read" on public.event_interests
+  for select using (
+    auth.uid() = user_id
+    or public.are_friends(user_id, auth.uid())
+  );
+
+create or replace function public.event_interest_counts(target_event uuid)
+returns table (interested bigint, going bigint)
 language sql
 stable
 security definer
 set search_path = public
 as $$
   select
-    count(distinct e.user_id)::int as attendees,
-    count(*)::int                  as gigs_logged
-  from public.experiences e
-  where e.venue_id = target_venue
-    and e.ends_at < now();
+    count(*) filter (where interest_type = 'interested') as interested,
+    count(*) filter (where interest_type = 'going') as going
+  from public.event_interests
+  where event_id = target_event;
 $$;
 
-revoke all on function public.venue_attendance_stats(uuid) from public, anon;
-grant execute on function public.venue_attendance_stats(uuid) to authenticated;
+grant execute on function public.event_interest_counts(uuid) to authenticated, anon;
 
-
--- ═══ 0015_rpc_auth_guards.sql ═══
--- Authorisation holes in SECURITY DEFINER RPCs and two over-broad policies
---
--- SECURITY DEFINER functions run with the definer's rights, so RLS does not
--- apply inside them. That is the point — but it means the function itself has
--- to do the authorisation the policies would otherwise have done. Four of ours
--- took a `target_user uuid` straight from the caller and never compared it to
--- `auth.uid()`.
---
--- `trip_assemble` in the same migration file as `on_this_day` does this
--- correctly: `if target_user <> auth.uid() then raise exception 'forbidden'`.
--- The others simply did not, so any authenticated caller could pass somebody
--- else's id. Profile ids are trivially enumerable (`profiles` is readable by
--- everyone), so this was not a theoretical hole.
---
--- Worst of the four: `on_this_day` returns `setof experiences` — whole rows,
--- including `audience = 'vault'` pins, future pins, ratings, reviews and
--- photos. It defeated the entire time-shift rule in one call.
---
--- All four are self-only features by design, so the fix is a guard, not a
--- redesign of what they return.
-
--- ── on_this_day ────────────────────────────────────────────────────────────
-create or replace function public.on_this_day(target_user uuid)
-returns setof experiences
-language plpgsql
+-- Batch variant for the events grid.
+create or replace function public.event_interest_counts_for(target_events uuid[])
+returns table (event_id uuid, interested bigint, going bigint)
+language sql
 stable
 security definer
 set search_path = public
 as $$
-begin
-  if target_user is distinct from auth.uid() then
-    raise exception 'forbidden';
-  end if;
-
-  return query
-    select *
-      from experiences
-     where user_id = target_user
-       and extract(month from starts_at) = extract(month from now())
-       and extract(day from starts_at) = extract(day from now())
-       and starts_at < now() - interval '6 months'
-     order by starts_at desc
-     limit 20;
-end;
+  select
+    event_id,
+    count(*) filter (where interest_type = 'interested') as interested,
+    count(*) filter (where interest_type = 'going') as going
+  from public.event_interests
+  where event_id = any(target_events)
+  group by event_id;
 $$;
 
--- ── who_else_going ─────────────────────────────────────────────────────────
--- Wrap the existing body rather than restate it: the original stays the source
--- of truth for the join logic, and this only adds the caller check. Renaming
--- the inner function keeps the public entry point at the same name and grant.
-do $$
-begin
-  if not exists (
-    select 1 from pg_proc p
-      join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'public' and p.proname = 'who_else_going_unguarded'
-  ) then
-    alter function public.who_else_going(uuid) rename to who_else_going_unguarded;
-  end if;
-end
-$$;
+grant execute on function public.event_interest_counts_for(uuid[]) to authenticated;
 
-revoke all on function public.who_else_going_unguarded(uuid) from public, anon, authenticated;
+-- ── 2) merch: no client writes until there is a seller flow ──────────────────
 
-create or replace function public.who_else_going(target_user uuid)
-returns table (
-  wallet_item_id uuid,
-  title text,
-  starts_at timestamptz,
-  friend_id uuid,
-  friend_username text,
-  friend_display_name text
-)
-language plpgsql
+revoke insert, update, delete on public.merch_items from authenticated, anon;
+revoke insert, update, delete on public.merch_variants from authenticated, anon;
+revoke insert, update, delete on public.merch_drops from authenticated, anon;
+
+-- ── 3) avatars: allow replacing your own ─────────────────────────────────────
+
+drop policy if exists "avatars: owner update" on storage.objects;
+create policy "avatars: owner update" on storage.objects
+  for update using (
+    bucket_id = 'avatars'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  )
+  with check (
+    bucket_id = 'avatars'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- Verify:
+--   select policyname from pg_policies where tablename = 'event_interests';
+--   select privilege_type from information_schema.role_table_grants
+--     where table_name = 'merch_items' and grantee = 'authenticated';   -- SELECT only
+--   select * from public.event_interest_counts('<any event id>');
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 0027 — two more alert kinds
+--
+-- anniversary     "One year ago tonight" — the On-this-day card promoted to a
+--                 real alert, which is what Rail, GigLog and Concert Archives
+--                 all lead with.
+-- friend_request  A request or an acceptance used to be visible only if the
+--                 other person happened to open the People page.
+--
+-- The generator inserts these in their own upsert, so until this is applied
+-- the enum rejects them without touching the other kinds.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+alter type alert_kind add value if not exists 'anniversary';
+alter type alert_kind add value if not exists 'friend_request';
+
+-- Verify: select unnest(enum_range(null::alert_kind));
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 0028 — setlists on pins, a want-a-ticket waitlist, and CSV import
+--
+-- 1) experiences.setlist — the songs played, fetched from setlist.fm the
+--    morning after (or when the pin is opened), with the id and the public
+--    URL the API's terms ask us to credit. setlist_checked_at stops a pin
+--    with no setlist being looked up on every open.
+--
+-- 2) event_waitlist — "Want one" on a sold-out feed event. Owner-only rows;
+--    the public count comes from an aggregate RPC, same pattern as 0026.
+--
+-- 3) import_source gains 'csv' so a pasted spreadsheet gets an import_jobs
+--    row like every other source.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+alter table public.experiences
+  add column if not exists setlist jsonb,
+  add column if not exists setlistfm_id text,
+  add column if not exists setlist_checked_at timestamptz;
+
+create table if not exists public.event_waitlist (
+  user_id    uuid not null references auth.users on delete cascade,
+  event_id   uuid not null references public.events on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, event_id)
+);
+
+alter table public.event_waitlist enable row level security;
+
+drop policy if exists "event_waitlist: owner only" on public.event_waitlist;
+create policy "event_waitlist: owner only" on public.event_waitlist
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create index if not exists event_waitlist_event_idx on public.event_waitlist (event_id);
+
+create or replace function public.event_waitlist_count(target_event uuid)
+returns bigint
+language sql
 stable
 security definer
 set search_path = public
 as $$
-begin
-  if target_user is distinct from auth.uid() then
-    raise exception 'forbidden';
-  end if;
+  select count(*) from public.event_waitlist where event_id = target_event;
+$$;
 
-  return query select * from public.who_else_going_unguarded(target_user);
+grant execute on function public.event_waitlist_count(uuid) to authenticated, anon;
+
+alter type import_source add value if not exists 'csv';
+
+-- Verify:
+--   select column_name from information_schema.columns
+--     where table_name = 'experiences' and column_name like 'setlist%';
+--   select * from public.event_waitlist_count('<any event id>');
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 0029 — primary ticketing
+--
+-- A promoter who submits an event sells tickets through GigTrotter. Stripe
+-- Connect (Express) pays the promoter the full face value; the buyer pays a
+-- small fee on top that covers Stripe and the platform; the ticket is a
+-- static, signed code we issue, shown as a QR in the wallet and scanned at
+-- the door from /app/scan. Because WE issued it, resale and transfer are
+-- safe — the code is re-issued on transfer, so the old one dies.
+--
+-- Tables:
+--   promoter_accounts  one row per promoter: Stripe connected account + state
+--   ticket_tiers       "General £15", "Early bird £12" per event, with capacity
+--   orders             one Checkout Session; pending until the webhook confirms
+--   order_items        tier × quantity on an order
+--   tickets            one row per admission; the code is what the door scans
+--
+-- Capacity is reserved atomically by reserve_tier() when Checkout starts and
+-- released by release_tier() when the session expires, so two buyers cannot
+-- both take the last ticket.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+create table if not exists public.promoter_accounts (
+  user_id            uuid primary key references auth.users on delete cascade,
+  stripe_account_id  text unique,
+  charges_enabled    boolean not null default false,
+  payouts_enabled    boolean not null default false,
+  details_submitted  boolean not null default false,
+  /** Buyer-side fee in basis points on face value, covering Stripe + platform. */
+  fee_bps            integer not null default 500 check (fee_bps between 0 and 2000),
+  fee_fixed_cents    integer not null default 20 check (fee_fixed_cents between 0 and 500),
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+alter table public.promoter_accounts enable row level security;
+drop policy if exists "promoter_accounts: owner reads" on public.promoter_accounts;
+create policy "promoter_accounts: owner reads" on public.promoter_accounts
+  for select using (auth.uid() = user_id);
+-- Writes come from the Stripe Connect routes through the service client only.
+
+create type ticket_tier_status as enum ('draft', 'on_sale', 'paused', 'sold_out', 'ended');
+
+create table if not exists public.ticket_tiers (
+  id               uuid primary key default gen_random_uuid(),
+  event_id         uuid not null references public.events on delete cascade,
+  name             text not null,
+  description      text,
+  price_cents      integer not null check (price_cents >= 0),
+  currency         text not null default 'GBP',
+  quantity         integer not null check (quantity >= 0),
+  sold             integer not null default 0 check (sold >= 0),
+  reserved         integer not null default 0 check (reserved >= 0),
+  max_per_order    integer not null default 6 check (max_per_order between 1 and 20),
+  sales_start      timestamptz,
+  sales_end        timestamptz,
+  status           ticket_tier_status not null default 'on_sale',
+  sort_order       integer not null default 0,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create index if not exists ticket_tiers_event_idx on public.ticket_tiers (event_id, sort_order);
+alter table public.ticket_tiers enable row level security;
+drop policy if exists "ticket_tiers: public read" on public.ticket_tiers;
+create policy "ticket_tiers: public read" on public.ticket_tiers
+  for select using (true);
+drop policy if exists "ticket_tiers: promoter manages own" on public.ticket_tiers;
+create policy "ticket_tiers: promoter manages own" on public.ticket_tiers
+  for all using (
+    exists (select 1 from public.events e where e.id = ticket_tiers.event_id and e.promoter_id = auth.uid())
+  ) with check (
+    exists (select 1 from public.events e where e.id = ticket_tiers.event_id and e.promoter_id = auth.uid())
+  );
+
+create type order_status as enum ('pending', 'paid', 'expired', 'cancelled', 'refunded');
+
+create table if not exists public.orders (
+  id                          uuid primary key default gen_random_uuid(),
+  user_id                     uuid not null references auth.users on delete cascade,
+  event_id                    uuid not null references public.events on delete cascade,
+  status                      order_status not null default 'pending',
+  currency                    text not null default 'GBP',
+  face_cents                  integer not null default 0,
+  fee_cents                   integer not null default 0,
+  total_cents                 integer not null default 0,
+  stripe_checkout_session_id  text unique,
+  stripe_payment_intent_id    text,
+  buyer_email                 text,
+  created_at                  timestamptz not null default now(),
+  paid_at                     timestamptz,
+  expires_at                  timestamptz
+);
+create index if not exists orders_user_idx on public.orders (user_id, created_at desc);
+create index if not exists orders_event_idx on public.orders (event_id, status);
+alter table public.orders enable row level security;
+drop policy if exists "orders: owner reads" on public.orders;
+create policy "orders: owner reads" on public.orders
+  for select using (auth.uid() = user_id);
+drop policy if exists "orders: promoter reads for own events" on public.orders;
+create policy "orders: promoter reads for own events" on public.orders
+  for select using (
+    exists (select 1 from public.events e where e.id = orders.event_id and e.promoter_id = auth.uid())
+  );
+-- Inserts/updates: service client (checkout + webhook) only.
+
+create table if not exists public.order_items (
+  order_id         uuid not null references public.orders on delete cascade,
+  tier_id          uuid not null references public.ticket_tiers on delete restrict,
+  quantity         integer not null check (quantity > 0),
+  unit_price_cents integer not null,
+  primary key (order_id, tier_id)
+);
+alter table public.order_items enable row level security;
+drop policy if exists "order_items: via order" on public.order_items;
+create policy "order_items: via order" on public.order_items
+  for select using (
+    exists (select 1 from public.orders o where o.id = order_items.order_id
+            and (o.user_id = auth.uid()
+                 or exists (select 1 from public.events e where e.id = o.event_id and e.promoter_id = auth.uid())))
+  );
+
+create type ticket_status as enum ('valid', 'used', 'transferred', 'refunded', 'void');
+
+create table if not exists public.tickets (
+  id               uuid primary key default gen_random_uuid(),
+  order_id         uuid references public.orders on delete set null,
+  event_id         uuid not null references public.events on delete cascade,
+  tier_id          uuid not null references public.ticket_tiers on delete restrict,
+  owner_id         uuid not null references auth.users on delete cascade,
+  wallet_item_id   uuid references public.wallet_items on delete set null,
+  /** The signed code the door scans. Unique; re-issued on transfer. */
+  code             text not null unique,
+  status           ticket_status not null default 'valid',
+  used_at          timestamptz,
+  checked_in_by    uuid references auth.users on delete set null,
+  transferred_from uuid references auth.users on delete set null,
+  issued_as        text not null default 'purchase', -- purchase | comp | transfer
+  created_at       timestamptz not null default now()
+);
+create index if not exists tickets_owner_idx on public.tickets (owner_id);
+create index if not exists tickets_event_idx on public.tickets (event_id, status);
+alter table public.tickets enable row level security;
+drop policy if exists "tickets: owner reads" on public.tickets;
+create policy "tickets: owner reads" on public.tickets
+  for select using (auth.uid() = owner_id);
+drop policy if exists "tickets: promoter reads for own events" on public.tickets;
+create policy "tickets: promoter reads for own events" on public.tickets
+  for select using (
+    exists (select 1 from public.events e where e.id = tickets.event_id and e.promoter_id = auth.uid())
+  );
+-- Writes (issue, transfer, check-in): service client inside guarded actions.
+
+-- ── capacity, atomically ─────────────────────────────────────────────────────
+
+create or replace function public.reserve_tier(target_tier uuid, qty integer)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare ok boolean;
+begin
+  update public.ticket_tiers
+     set reserved = reserved + qty
+   where id = target_tier
+     and status = 'on_sale'
+     and sold + reserved + qty <= quantity
+     and (sales_start is null or sales_start <= now())
+     and (sales_end is null or sales_end > now())
+  returning true into ok;
+  return coalesce(ok, false);
 end;
 $$;
 
-grant execute on function public.who_else_going(uuid) to authenticated;
+create or replace function public.release_tier(target_tier uuid, qty integer)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.ticket_tiers set reserved = greatest(0, reserved - qty) where id = target_tier;
+$$;
 
--- ── unread_alert_count ─────────────────────────────────────────────────────
--- Leaks far less than the two above — a single integer — but there is no
--- reason for it to answer questions about another account. (`is_plus` has the
--- same missing guard and is left alone: it is currently called from nowhere,
--- and it only reports a column that `profiles: read all` already exposes.)
-create or replace function public.unread_alert_count(target_user uuid)
-returns integer
-language plpgsql
+create or replace function public.commit_tier(target_tier uuid, qty integer)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.ticket_tiers
+     set reserved = greatest(0, reserved - qty),
+         sold = sold + qty,
+         status = case when sold + qty >= quantity then 'sold_out'::ticket_tier_status else status end
+   where id = target_tier;
+$$;
+
+-- Service role only: these move stock.
+revoke all on function public.reserve_tier(uuid, integer) from public, anon, authenticated;
+revoke all on function public.release_tier(uuid, integer) from public, anon, authenticated;
+revoke all on function public.commit_tier(uuid, integer) from public, anon, authenticated;
+
+-- Public "tickets left" without exposing the sold/reserved split per tier.
+create or replace function public.tier_availability(target_event uuid)
+returns table (tier_id uuid, remaining integer)
+language sql
 stable
 security definer
 set search_path = public
 as $$
-declare
-  n integer;
-begin
-  if target_user is distinct from auth.uid() then
-    raise exception 'forbidden';
-  end if;
-
-  select count(*)::integer into n
-    from public.alerts
-   where user_id = target_user and state = 'unread';
-
-  return coalesce(n, 0);
-end;
+  select id, greatest(0, quantity - sold - reserved) from public.ticket_tiers
+   where event_id = target_event and status in ('on_sale', 'sold_out');
 $$;
+grant execute on function public.tier_availability(uuid) to authenticated, anon;
 
--- ── events: a promoter could approve their own submission ──────────────────
--- `events: promoter manages own` was `for all`, so a promoter could PATCH
--- their own row's `status` to 'approved' and skip review entirely. Migration
--- 0011's header claims a user "can no longer publish an event without review";
--- the policy it left in place said otherwise.
---
--- Moderation runs through `setEventModerationStatus`, which uses the service
--- client, so revoking the column from `authenticated` costs the admin path
--- nothing. The insert check pins new submissions to 'pending' so a promoter
--- cannot arrive pre-approved either.
-revoke update (status) on public.events from authenticated, anon;
-
-drop policy if exists "events: promoter manages own" on public.events;
-
-create policy "events: promoter reads own" on public.events
-  for select using (auth.uid() = promoter_id);
-create policy "events: promoter submits" on public.events
-  for insert with check (auth.uid() = promoter_id and status = 'pending');
-create policy "events: promoter edits own" on public.events
-  for update using (auth.uid() = promoter_id)
-  with check (auth.uid() = promoter_id);
-create policy "events: promoter deletes own" on public.events
-  for delete using (auth.uid() = promoter_id);
-
--- ── profiles: a user could grant themselves Plus ───────────────────────────
--- `profiles: update self` covers every column, `plan` included, so
--- `PATCH /profiles?id=eq.<self>` with `{"plan":"plus"}` defeated `is_plus()`
--- and every paid gate. Nothing in the app writes `plan` from a session client
--- (subscription state is server-side), so a column revoke is enough and needs
--- no code change. anon_handle is deliberately NOT revoked — regenerating the
--- board link is a real user action that runs on the session client.
-revoke update (plan) on public.profiles from authenticated, anon;
+-- Verify:
+--   select proname from pg_proc where proname in ('reserve_tier','release_tier','commit_tier','tier_availability');
+--   select policyname from pg_policies where tablename in ('tickets','orders','ticket_tiers');
 
 
--- ═══ 0016_counter_triggers.sql ═══
--- Denormalised counters that nothing ever incremented
---
--- Three columns are read as if they were maintained and were not:
---
---   discussion_posts.reply_count  — the app tried to write it from the client
---     after each reply, but discussion_posts UPDATE is `auth.uid() = author_id`,
---     so the write only landed when you replied to your own post. Every other
---     reply — the normal case — was denied silently and the count stayed put.
---
---   merch_variants.sold_count / merch_drops.total_sold — never written at all,
---     by anything. `placeMerchOrder` gates on `sold_count + qty > stock`, so
---     with the counter pinned at 0 a limited drop can be oversold without
---     limit, and the storefront cheerfully reports "10 of 10 remaining" after
---     the tenth sale.
---
--- Triggers rather than application code: they are atomic under concurrent
--- orders, they cannot be skipped by a future call site, and they are not
--- subject to the caller's RLS.
-
--- ── discussion reply counts ────────────────────────────────────────────────
-create or replace function public.sync_reply_count()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  update public.discussion_posts p
-     set reply_count = (
-       select count(*) from public.discussion_replies r
-        where r.post_id = p.id and r.is_hidden = false
-     )
-   where p.id = coalesce(new.post_id, old.post_id);
-  return null;
-end;
-$$;
-
-drop trigger if exists discussion_replies_count on public.discussion_replies;
-create trigger discussion_replies_count
-  after insert or delete or update of is_hidden on public.discussion_replies
-  for each row execute function public.sync_reply_count();
-
--- Backfill: every count in the table is currently wrong.
-update public.discussion_posts p
-   set reply_count = (
-     select count(*) from public.discussion_replies r
-      where r.post_id = p.id and r.is_hidden = false
-   );
-
--- ── merch stock counters ───────────────────────────────────────────────────
--- Counted from merch_order_items rather than incremented, so a cancelled or
--- deleted order releases its stock instead of stranding it.
-create or replace function public.sync_merch_sold()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_variant uuid := coalesce(new.variant_id, old.variant_id);
-  v_drop    uuid := coalesce(new.drop_id, old.drop_id);
-begin
-  if v_variant is not null then
-    update public.merch_variants v
-       set sold_count = (
-         select coalesce(sum(i.quantity), 0)
-           from public.merch_order_items i
-          where i.variant_id = v.id
-       )
-     where v.id = v_variant;
-  end if;
-
-  if v_drop is not null then
-    update public.merch_drops d
-       set total_sold = (
-         select coalesce(sum(i.quantity), 0)
-           from public.merch_order_items i
-          where i.drop_id = d.id
-       )
-     where d.id = v_drop;
-  end if;
-
-  return null;
-end;
-$$;
-
-drop trigger if exists merch_order_items_sold on public.merch_order_items;
-create trigger merch_order_items_sold
-  after insert or delete or update of quantity, variant_id, drop_id
-  on public.merch_order_items
-  for each row execute function public.sync_merch_sold();
-
-update public.merch_variants v
-   set sold_count = (
-     select coalesce(sum(i.quantity), 0)
-       from public.merch_order_items i
-      where i.variant_id = v.id
-   );
-
-update public.merch_drops d
-   set total_sold = (
-     select coalesce(sum(i.quantity), 0)
-       from public.merch_order_items i
-      where i.drop_id = d.id
-   );
-
-
--- ═══ 0017_alert_generation.sql ═══
--- Alerts that actually get created
---
--- The alerts table has existed since migration 0004, the nav shows a bell to
--- every user, and the page promises tour announcements, on-sale dates and
--- price drops. Nothing has ever written a row. Three of the four alert kinds
--- need an external events feed we do not have, so that page could only ever be
--- empty — a worse outcome than not having it.
---
--- Two kinds need nothing external, only data the app already holds: the gig in
--- your own wallet that is on tonight, and the friend who has the same gig in
--- theirs. This migration is what those need.
-
--- ── doors_tonight ──────────────────────────────────────────────────────────
--- Postgres allows ALTER TYPE ... ADD VALUE inside a transaction as long as the
--- new value is not USED in the same transaction. Nothing below inserts an
--- alert, so applying this file in one go is safe.
-alter type alert_kind add value if not exists 'doors_tonight';
-
--- ── idempotent generation ──────────────────────────────────────────────────
--- Alert generation runs whenever the user opens the app, so it has to be safe
--- to run repeatedly: the same gig must not produce a new alert on every
--- navigation. dedupe_key identifies the *thing being alerted about* rather
--- than the alert, and the unique index makes a second attempt a no-op at the
--- database rather than a race in application code.
---
--- Nullable, and the index is partial, so the pre-existing rows and any future
--- alert that genuinely should repeat are unaffected.
-alter table public.alerts
-  add column if not exists dedupe_key text;
-
-create unique index if not exists alerts_user_dedupe_idx
-  on public.alerts (user_id, dedupe_key)
-  where dedupe_key is not null;
-
--- ── generation throttle ────────────────────────────────────────────────────
--- Without this the scan would run on every page navigation. The owner updates
--- their own row through the existing "profiles: update self" policy, so this
--- needs no new grant. (`plan` remains revoked — see migration 0015.)
-alter table public.profiles
-  add column if not exists last_alert_scan_at timestamptz;
-
-
--- ═══ 0018_listing_face_value_provenance.sql ═══
--- Where a listing's face value came from
---
--- The anti-scalper rule is a real database constraint
--- (`asking_price_cents <= face_value_cents`, migration 0006), and
--- `createListing` now cross-checks the DECLARED face value against the price
--- the parser read off the seller's own ticket. But that check can only fire
--- when there is something to check against, and it is silent about itself:
---
---   * A manually added gig, or a ticket with no printed price, has no
---     evidence at all — the seller's number is taken on trust, and a buyer
---     cannot tell that apart from a verified one.
---   * `price_total_cents` is the total for the ORDER. Four tickets bought for
---     £200 currently permit one of them to be listed at £200.
---
--- Neither is fixed by hiding it. Recording where the number came from lets the
--- listing say so plainly, which is the difference between a guarantee and a
--- claim — and it means the strong copy can be earned by the listings that
--- deserve it rather than applied to all of them.
---
--- Purely additive. Existing rows become 'declared', which is what they are.
-
-alter table public.listings
-  add column if not exists face_value_source text not null default 'declared'
-  check (face_value_source in ('ticket', 'declared'));
-
--- What the artefact actually showed, when it showed anything. Kept alongside
--- the source so a buyer-facing surface can explain the number rather than just
--- assert it, and so the multi-ticket gap above is visible in the data rather
--- than buried in a comparison that already happened.
-alter table public.listings
-  add column if not exists face_value_evidence_cents integer
-  check (face_value_evidence_cents is null or face_value_evidence_cents >= 0);
-
-comment on column public.listings.face_value_source is
-  'ticket = cross-checked against the price parsed from the seller''s own capture; declared = no evidence available, seller''s number taken on trust.';
-
-
--- ═══ 0019_missing_indexes.sql ═══
--- Indexes for predicates the pages actually filter on
---
--- Cross-checking every page query against the existing indexes turned up four
--- lookups with no matching index. The worst is venue_attendance_stats
--- (migration 0014): it is SECURITY DEFINER, so it counts across ALL users'
--- experiences — `where venue_id = ? and ends_at < now()` — and the only
--- indexes on experiences lead with user_id or audience. Every venue page view
--- was a sequential scan of the whole table, and that table is the one that
--- grows with every confirmed ticket forever.
---
--- All additive; safe to apply any time.
-
--- venue_attendance_stats + any future venue-scoped read of experiences.
--- Partial: pins that never resolved a venue can't be counted anyway.
-create index if not exists experiences_venue_idx
-  on public.experiences (venue_id, ends_at)
-  where venue_id is not null;
-
--- Venue page "what's on here" — events is an ingested feed that grows
--- without bound, and its eight existing indexes cover everything but this.
-create index if not exists events_venue_starts_idx
-  on public.events (venue_id, starts_at)
-  where venue_id is not null;
-
--- Venue page merch rail.
-create index if not exists merch_items_venue_idx
-  on public.merch_items (venue_id)
-  where venue_id is not null;
-
--- Item page "merch for this gig": the lookup is by wallet_item_id alone, but
--- the only existing index is unique (merch_item_id, wallet_item_id) — wrong
--- leading column, unusable for this query.
-create index if not exists merch_gig_links_wallet_item_idx
-  on public.merch_gig_links (wallet_item_id);
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 0030: face-value resale of GigTrotter-issued tickets.
 --
@@ -443,7 +551,7 @@ create index if not exists merch_gig_links_wallet_item_idx
 -- ─────────────────────────────────────────────────────────────────────────────
 
 do $$ begin
-  create type listing_status as enum ('open', 'reserved', 'sold', 'withdrawn');
+  create type ticket_listing_status as enum ('open', 'reserved', 'sold', 'withdrawn');
 exception when duplicate_object then null; end $$;
 
 create table if not exists public.ticket_listings (
@@ -455,7 +563,7 @@ create table if not exists public.ticket_listings (
   /** Always the tier's face value at listing time; the action enforces it. */
   price_cents    integer not null check (price_cents > 0),
   currency       text not null default 'GBP',
-  status         listing_status not null default 'open',
+  status         ticket_listing_status not null default 'open',
   buyer_order_id uuid,
   reserved_until timestamptz,
   created_at     timestamptz not null default now(),

@@ -17,7 +17,7 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 
 do $$ begin
-  create type listing_status as enum ('open', 'reserved', 'sold', 'withdrawn');
+  create type ticket_listing_status as enum ('open', 'reserved', 'sold', 'withdrawn');
 exception when duplicate_object then null; end $$;
 
 create table if not exists public.ticket_listings (
@@ -29,7 +29,7 @@ create table if not exists public.ticket_listings (
   /** Always the tier's face value at listing time; the action enforces it. */
   price_cents    integer not null check (price_cents > 0),
   currency       text not null default 'GBP',
-  status         listing_status not null default 'open',
+  status         ticket_listing_status not null default 'open',
   buyer_order_id uuid,
   reserved_until timestamptz,
   created_at     timestamptz not null default now(),

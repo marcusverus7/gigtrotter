@@ -162,16 +162,23 @@ export default async function EventsPage({
   const upcomingIds = (upcoming ?? []).map((e) => e.id);
   const interestCounts: Record<string, { interested: number; going: number }> = {};
   if (upcomingIds.length > 0) {
-    const { data: interests } = await supabase
-      .from("event_interests")
-      .select("event_id, interest_type")
-      .in("event_id", upcomingIds);
-
-    if (interests) {
-      for (const i of interests) {
-        if (!interestCounts[i.event_id]) {
-          interestCounts[i.event_id] = { interested: 0, going: 0 };
-        }
+    // Aggregate RPC first (migration 0026 narrows event_interests to own +
+    // friends, so counting visible rows would undercount); fall back to the
+    // direct query until it is applied.
+    const { data: agg } = await supabase.rpc("event_interest_counts_for", {
+      target_events: upcomingIds,
+    });
+    if (Array.isArray(agg) && agg.length > 0) {
+      for (const row of agg) {
+        interestCounts[row.event_id] = { interested: Number(row.interested), going: Number(row.going) };
+      }
+    } else {
+      const { data: interests } = await supabase
+        .from("event_interests")
+        .select("event_id, interest_type")
+        .in("event_id", upcomingIds);
+      for (const i of interests ?? []) {
+        if (!interestCounts[i.event_id]) interestCounts[i.event_id] = { interested: 0, going: 0 };
         interestCounts[i.event_id][i.interest_type as "interested" | "going"]++;
       }
     }

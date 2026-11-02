@@ -1,5 +1,23 @@
 # Migration pack
 
+## Pending: 0026 (added 2026-11-02) — apply this one first
+
+`APPLY-ME-0026.sql`. Three policy gaps from the November review:
+
+1. **`event_interests` was world-readable.** With `profiles` read-all, anyone
+   holding the anon key could list who is GOING to which future event — the
+   disclosure the time-shift rule exists to prevent — and Add-to-wallet
+   auto-enrolled people as going. Now own + accepted friends only; the public
+   "N going" numbers come from two new aggregate RPCs the pages already call
+   (they fall back to the direct query until this is applied).
+2. **Merch tables accepted writes from any signed-in user** and published rows
+   render on launched venue/artist/event pages. Client writes revoked.
+3. **Avatars bucket had no UPDATE policy**, so a second avatar change failed.
+
+Verify: `select policyname from pg_policies where tablename='event_interests'`
+shows only "own and friends read"; `select * from
+event_interest_counts('<event id>')` returns two integers.
+
 ## Pending: 0025 (added 2026-09-06)
 
 `APPLY-ME-0025.sql` — a length check constraint on `follows.name` and

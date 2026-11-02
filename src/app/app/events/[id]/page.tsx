@@ -103,10 +103,18 @@ export default async function EventDetailPage({
     .select("interest_type, user_id")
     .eq("event_id", id);
 
+  // Public totals come from an aggregate RPC (migration 0026): the rows
+  // themselves are visible only to their owner and their friends, so counting
+  // what RLS returns would undercount. Until 0026 is applied the RPC is
+  // absent, and the visible rows are the best available number.
+  const { data: counts } = await supabase.rpc("event_interest_counts", { target_event: id });
+  const agg = Array.isArray(counts) ? counts[0] : counts;
   const interestedCount =
-    interests?.filter((i) => i.interest_type === "interested").length ?? 0;
+    Number(agg?.interested ?? NaN) ||
+    (interests?.filter((i) => i.interest_type === "interested").length ?? 0);
   const goingCount =
-    interests?.filter((i) => i.interest_type === "going").length ?? 0;
+    Number(agg?.going ?? NaN) ||
+    (interests?.filter((i) => i.interest_type === "going").length ?? 0);
 
   // Friends going
   const { data: friendRows } = await supabase

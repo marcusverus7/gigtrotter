@@ -419,6 +419,15 @@ export interface Database {
         Args: { owner: string; member: string };
         Returns: boolean;
       };
+      /** Migration 0026 — public totals now that rows are friends-only. */
+      event_interest_counts: {
+        Args: { target_event: string };
+        Returns: Array<{ interested: number; going: number }>;
+      };
+      event_interest_counts_for: {
+        Args: { target_events: string[] };
+        Returns: Array<{ event_id: string; interested: number; going: number }>;
+      };
       venue_attendance_stats: {
         Args: { target_venue: string };
         Returns: Array<{ attendees: number; gigs_logged: number }>;

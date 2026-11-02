@@ -375,13 +375,16 @@ export async function checkInTicket(eventId: string, rawCode: string): Promise<C
   const code = normaliseCode(rawCode);
   if (!verifyTicketCodeAny(code).ok) return { ok: false, reason: "invalid" };
   const service = createServiceClient();
-  const { data: t } = await service
+  // No `profiles` embed here: tickets.owner_id references auth.users, not
+  // profiles, so PostgREST cannot resolve that join and answered with an
+  // error that read as "not found" for every valid ticket (caught on the
+  // first real door scan, 2026-11-02). The holder's name is a second query.
+  const { data: t, error: lookupErr } = await service
     .from("tickets")
-    .select(
-      "id, event_id, status, used_at, checked_in_by, tier_id, owner_id, events(title), ticket_tiers(name), profiles:owner_id(display_name, username)",
-    )
+    .select("id, event_id, status, used_at, checked_in_by, tier_id, owner_id, events(title), ticket_tiers(name)")
     .eq("code", code)
     .maybeSingle();
+  if (lookupErr) throw new Error(`ticket lookup failed: ${lookupErr.message}`);
   if (!t) return { ok: false, reason: "unknown" };
   const row = t as unknown as {
     id: string;
@@ -389,9 +392,9 @@ export async function checkInTicket(eventId: string, rawCode: string): Promise<C
     status: string;
     used_at: string | null;
     checked_in_by: string | null;
+    owner_id: string;
     events: { title: string } | null;
     ticket_tiers: { name: string } | null;
-    profiles: { display_name: string | null; username: string } | null;
   };
   if (row.event_id !== eventId)
     return { ok: false, reason: "wrong_event", title: row.events?.title };
@@ -414,12 +417,16 @@ export async function checkInTicket(eventId: string, rawCode: string): Promise<C
     .eq("status", "valid")
     .select("id");
   if (!done || done.length === 0) return { ok: false, reason: "used", usedAt: row.used_at };
+  const { data: holder } = await service
+    .from("profiles")
+    .select("display_name, username")
+    .eq("id", row.owner_id)
+    .maybeSingle();
   return {
     ok: true,
     title: row.events?.title ?? "",
     tier: row.ticket_tiers?.name ?? null,
-    owner:
-      row.profiles?.display_name ?? (row.profiles?.username ? `@${row.profiles.username}` : null),
+    owner: holder?.display_name ?? (holder?.username ? `@${holder.username}` : null),
     usedAt,
   };
 }

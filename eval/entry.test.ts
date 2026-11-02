@@ -81,6 +81,8 @@ function testScanOutcomes() {
   const used = classifyScanOutcome({ ok: false, reason: "used", usedAt: "2026-11-16T20:00:00Z", title: "Gig" });
   check("used: red, headline ALREADY USED", used.state === "used" && used.tone === "red" && used.headline === "ALREADY USED" && !used.retry);
   check("used: detail carries the first scan time", /Scanned in at \d/.test(used.detail), used.detail);
+  const own = classifyScanOutcome({ ok: false, reason: "used", usedAt: "2026-11-16T20:00:00Z", ownScan: true });
+  check("used by own retry: amber ALREADY IN, no retry button", own.state === "used" && own.tone === "amber" && own.headline === "ALREADY IN" && /Not a second entry/.test(own.detail) && !own.retry, own.detail);
   const usedNoTime = classifyScanOutcome({ ok: false, reason: "used" });
   check("used without time: still says earlier", usedNoTime.detail === "Scanned in earlier", usedNoTime.detail);
 

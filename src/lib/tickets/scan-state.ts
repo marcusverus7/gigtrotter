@@ -19,6 +19,8 @@ export type ScanServerResult =
       reason: "invalid" | "unknown" | "used" | "wrong_event" | "void" | "forbidden";
       usedAt?: string | null;
       title?: string;
+      /** "used" only: this same operator scanned it in within the last two minutes, i.e. a retry whose first attempt landed. */
+      ownScan?: boolean;
     };
 
 export type ScanState =
@@ -79,6 +81,18 @@ export function classifyScanOutcome(resultOrError: unknown): ScanOutcome {
   switch (r.reason) {
     case "used": {
       const at = timeOf(r.usedAt);
+      if (r.ownScan) {
+        // The first attempt landed and this is the same operator retrying
+        // (lost response, double tap). The fan is in; nobody is being turned
+        // away and nobody got in twice.
+        return {
+          state: "used",
+          headline: "ALREADY IN",
+          detail: at ? `Your scan at ${at} landed. Not a second entry.` : "Your earlier scan landed. Not a second entry.",
+          tone: "amber",
+          retry: false,
+        };
+      }
       return {
         state: "used",
         headline: "ALREADY USED",

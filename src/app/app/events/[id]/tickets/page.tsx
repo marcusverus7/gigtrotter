@@ -35,13 +35,17 @@ export default async function SellTicketsPage({ params }: { params: Promise<{ id
     supabase.from("promoter_accounts").select("charges_enabled, payouts_enabled, details_submitted, fee_bps, fee_fixed_cents").eq("user_id", user.id).maybeSingle(),
     supabase.from("orders").select("face_cents, fee_cents, status").eq("event_id", id).eq("status", "paid"),
     supabase.from("tickets").select("status, issued_as").eq("event_id", id),
-    supabase.from("event_staff").select("user_id, profiles:user_id(username, display_name)").eq("event_id", id),
+    supabase.from("event_staff").select("user_id").eq("event_id", id),
   ]);
-  const staff: StaffRow[] = ((staffRows ?? []) as unknown as Array<{ user_id: string; profiles: { username: string | null; display_name: string | null } | null }>).map((r) => ({
-    user_id: r.user_id,
-    username: r.profiles?.username ?? null,
-    display_name: r.profiles?.display_name ?? null,
-  }));
+  // event_staff.user_id references auth.users, so profiles cannot be embedded; second query.
+  const staffIds = (staffRows ?? []).map((r) => r.user_id);
+  const { data: staffProfiles } = staffIds.length
+    ? await supabase.from("profiles").select("id, username, display_name").in("id", staffIds)
+    : { data: [] as Array<{ id: string; username: string | null; display_name: string | null }> };
+  const staff: StaffRow[] = staffIds.map((uid) => {
+    const prof = (staffProfiles ?? []).find((p) => p.id === uid);
+    return { user_id: uid, username: prof?.username ?? null, display_name: prof?.display_name ?? null };
+  });
   const notReady = !!tiersErr; // migration 0029 not applied
   const fees = account ? { bps: account.fee_bps, fixedCents: account.fee_fixed_cents } : DEFAULT_FEES;
   const revenue = (orders ?? []).reduce((n, o) => n + o.face_cents, 0);

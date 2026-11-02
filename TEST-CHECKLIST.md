@@ -252,6 +252,9 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 
 | Item | Tester | Platform | Pass/Fail | Notes |
 |---|---|---|---|---|
+| N5 | 2026-11-02 | Pass | Guest list → ticket issued to @sweeptester; item page shows the real QR and code (local dev server, production data). |
+| N6 | 2026-11-02 | Pass (after fix) | First attempt read NOT FOUND for a valid code (invalid profiles embed; fixed 2026-11-02). Now: IN with holder name; second scan ALREADY USED; junk NOT A TICKET; row used once. |
+| O6 | 2026-11-02 | Partial | Same-operator retry within two minutes shows amber ALREADY IN "your scan … not a second entry". Network-loss branch still needs a device with Wi-Fi off. |
 | O7 | 2026-11-02 | Pass (partial) | Item page for an RA ticket on the local dev server: issuer instructions, no barcode block. Night mode had nothing within 12h to check. |
 | O8 | 2026-11-02 | Pass (pre-0031) | Admin orders page renders Clean as the dev admin; reconcile endpoint 200 with CRON_SECRET, 401 without. Re-check after 0031. |
 | O5 | 2026-11-02 | Partial | Door staff section renders with its empty state; adding/removing needs 0031 in production. |

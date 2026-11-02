@@ -235,4 +235,7 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 
 | Item | Tester | Platform | Pass/Fail | Notes |
 |---|---|---|---|---|
-| | | | | |
+| N1 | Claude (test account sweeptester) | Web, Chrome, local dev against prod DB | Pass | 2026-11-02: promoter sees Sell tickets; non-promoter is redirected to the event page |
+| N3 | Claude | Web, Chrome | Pass | 2026-11-02: General admission GBP 15 cap 2 created; page shows Buyer pays GBP 15.95, You receive GBP 15.00, Eventbrite GBP 16.63; row in ticket_tiers |
+| N4 | Claude | Web, Chrome | Pass (to the Stripe wall) | 2026-11-02: buy box renders GBP 15.00 + GBP 0.95 fee, 2 left, Buy disabled with Payments are not switched on yet; Stripe keys still absent |
+| N12 | Claude | curl | Pass | 2026-11-02: unsigned POST to /api/stripe/webhook is 503 while unconfigured; signed/tampered cases covered by eval tests |

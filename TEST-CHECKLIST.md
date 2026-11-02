@@ -218,6 +218,8 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | N10 | Buyer: item page → Send this ticket to a friend | Friend gets a new QR; the sender's QR scans as CANCELLED |
 | N11 | Promoter sales page after a sale | Sold / Orders / You're owed update; Stripe dashboard shows the transfer of face value |
 | N12 | 🔒 POST junk to /api/stripe/webhook | 400 bad signature; nothing changes |
+| N13 | Abandon checkout, then run the nightly cron (or wait for 04:00) | Pending orders past their window flip to expired and stock returns, even if the Stripe webhook never fired |
+| N14 | (offline, already green) `pnpm test:logic` ticketing block | Fulfilment issues one signed ticket per admission, replay is a no-op, expiry releases stock once, signed webhook verifies and tampered/wrong-secret/unsigned are refused |
 
 ## Known-not-ready (don't file these as bugs)
 

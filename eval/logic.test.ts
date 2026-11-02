@@ -850,9 +850,170 @@ check(
 );
 check("dedupe: null zone falls back sanely", sameLocalDate("2026-11-20T10:00:00Z", "2026-11-20T22:00:00Z", null));
 
+/* ── ticketing: fulfilment, expiry, reaper, webhook (fake db, offline Stripe) ── */
+
+type Row = Record<string, unknown>;
+
+/** Just enough of the PostgREST builder for fulfil.ts: in-memory tables + an rpc log. */
+function fakeDb(seed: Record<string, Row[]>) {
+  const tables: Record<string, Row[]> = {};
+  for (const [k, v] of Object.entries(seed)) tables[k] = v.map((r) => ({ ...r }));
+  const rpcs: Array<{ fn: string; args: Record<string, unknown> }> = [];
+  let seq = 0;
+  function from(table: string) {
+    const rows = (tables[table] ??= []);
+    const st = { op: "select", vals: null as unknown, filters: [] as Array<(r: Row) => boolean>, one: false };
+    const b: Record<string, unknown> = {};
+    const chain = (fn: () => void) => {
+      fn();
+      return b;
+    };
+    function run() {
+      const match = (r: Row) => st.filters.every((f) => f(r));
+      let out: Row[];
+      if (st.op === "select") out = rows.filter(match);
+      else if (st.op === "update") {
+        out = rows.filter(match);
+        for (const r of out) Object.assign(r, st.vals as object);
+      } else {
+        const arr = (Array.isArray(st.vals) ? st.vals : [st.vals]) as Row[];
+        out = arr.map((v) => ({ id: `${table}-${++seq}`, ...v }));
+        rows.push(...out);
+      }
+      return { data: st.one ? (out[0] ?? null) : out, error: null };
+    }
+    Object.assign(b, {
+      select: () => b,
+      limit: () => b,
+      update: (v: unknown) => chain(() => void ((st.op = "update"), (st.vals = v))),
+      insert: (v: unknown) => chain(() => void ((st.op = "insert"), (st.vals = v))),
+      upsert: (v: unknown) => chain(() => void ((st.op = "insert"), (st.vals = v))),
+      eq: (k: string, v: unknown) => chain(() => void st.filters.push((r) => r[k] === v)),
+      lt: (k: string, v: string) => chain(() => void st.filters.push((r) => String(r[k]) < v)),
+      maybeSingle: () => chain(() => void (st.one = true)),
+      single: () => chain(() => void (st.one = true)),
+      then: (res: (x: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise.resolve().then(run).then(res, rej),
+    });
+    return b;
+  }
+  const rpc = async (fn: string, args: Record<string, unknown>) => {
+    rpcs.push({ fn, args });
+    return { data: null, error: null };
+  };
+  return { from, rpc, rpcs, tables };
+}
+
+async function testTicketing() {
+  const { fulfilOrder, expireOrder, expireStaleOrders } = await import("../src/lib/tickets/fulfil");
+  const { dispatchStripeEvent } = await import("../src/lib/stripe/events");
+  const { default: Stripe } = await import("stripe");
+  const secret = "test-master-key";
+  const starts = new Date(Date.now() + 7 * 86_400_000).toISOString();
+  const seed = () => ({
+    orders: [{ id: "o1", user_id: "u1", event_id: "e1", status: "pending", expires_at: new Date(Date.now() - 3_600_000).toISOString() }],
+    order_items: [
+      { order_id: "o1", tier_id: "t1", quantity: 2, unit_price_cents: 1500 },
+      { order_id: "o1", tier_id: "t2", quantity: 1, unit_price_cents: 2500 },
+    ],
+    ticket_tiers: [
+      { id: "t1", name: "Day" },
+      { id: "t2", name: "Weekend" },
+    ],
+    events: [{ id: "e1", title: "Belfast Blues", headliner: null, venue_id: null, venue_name: "Limelight", venue_city: "Belfast", starts_at: starts, ends_at: null }],
+  });
+  const paid = { sessionId: "cs_1", paymentIntentId: "pi_1", email: "fan@example.com" };
+
+  const db = fakeDb(seed());
+  const r1 = await fulfilOrder("o1", paid, { service: db as never, secret });
+  check("fulfil: one ticket per admission", r1.issued === 3 && r1.already === false, JSON.stringify(r1));
+  const o = db.tables.orders[0];
+  check("fulfil: order paid with intent + email", o.status === "paid" && o.stripe_payment_intent_id === "pi_1" && o.buyer_email === "fan@example.com");
+  const tickets = db.tables.tickets ?? [];
+  check("fulfil: 3 ticket rows, unique codes", tickets.length === 3 && new Set(tickets.map((t) => t.code)).size === 3);
+  check("fulfil: every code verifies against the key", tickets.every((t) => verifyTicketCode(String(t.code), secret)));
+  check("fulfil: codes fail against another key", !tickets.some((t) => verifyTicketCode(String(t.code), "other-key")));
+  const wallet = db.tables.wallet_items ?? [];
+  check(
+    "fulfil: wallet item per ticket, flagged + coded",
+    wallet.length === 3 &&
+      wallet.every((w) => w.purchased_via_platform === true && w.kind === "ticket" && !!(w.meta as { gigtrotter_ticket_code?: string }).gigtrotter_ticket_code),
+  );
+  check("fulfil: ticket links to its wallet item", tickets.every((t) => wallet.some((w) => w.id === t.wallet_item_id)));
+  check("fulfil: tier name leads the subtitle", wallet.filter((w) => String(w.subtitle).startsWith("Day")).length === 2);
+  check(
+    "fulfil: commit_tier per line with qty",
+    JSON.stringify(db.rpcs.filter((r) => r.fn === "commit_tier").map((r) => [r.args.target_tier, r.args.qty])) === JSON.stringify([["t1", 2], ["t2", 1]]),
+  );
+  check("fulfil: buyer marked going", (db.tables.event_interests ?? []).some((i) => i.user_id === "u1" && i.interest_type === "going"));
+  const r2 = await fulfilOrder("o1", paid, { service: db as never, secret });
+  check("fulfil: webhook replay is a no-op", r2.already === true && r2.issued === 0 && (db.tables.tickets ?? []).length === 3);
+
+  const db2 = fakeDb(seed());
+  await expireOrder("o1", { service: db2 as never });
+  const released = () => db2.rpcs.filter((r) => r.fn === "release_tier").length;
+  check("expire: pending -> expired, stock released per line", db2.tables.orders[0].status === "expired" && released() === 2);
+  await expireOrder("o1", { service: db2 as never });
+  check("expire: second call releases nothing more", released() === 2);
+  const db3 = fakeDb(seed());
+  db3.tables.orders[0].status = "paid";
+  await expireOrder("o1", { service: db3 as never });
+  check("expire: a paid order is never expired", db3.tables.orders[0].status === "paid" && db3.rpcs.length === 0);
+
+  const db4 = fakeDb(seed());
+  db4.tables.orders.push({ id: "o2", user_id: "u1", event_id: "e1", status: "pending", expires_at: new Date(Date.now() + 600_000).toISOString() });
+  const n = await expireStaleOrders({ service: db4 as never });
+  check("reaper: only orders past their window expire", n === 1 && db4.tables.orders[0].status === "expired" && db4.tables.orders[1].status === "pending");
+
+  const stripe = new Stripe("sk_test_offline_only", { typescript: true });
+  const whsec = "whsec_test_offline_only";
+  const payload = JSON.stringify({
+    id: "evt_1",
+    object: "event",
+    type: "checkout.session.completed",
+    data: { object: { id: "cs_1", object: "checkout.session", payment_status: "paid", payment_intent: "pi_1", metadata: { order_id: "o1" }, customer_details: { email: "fan@example.com" } } },
+  });
+  const header = stripe.webhooks.generateTestHeaderString({ payload, secret: whsec });
+  let verified: unknown = null;
+  try {
+    verified = stripe.webhooks.constructEvent(payload, header, whsec);
+  } catch {
+    verified = null;
+  }
+  check("webhook: signed payload verifies", !!verified);
+  const rejects = (body: string, sig: string, sec: string) => {
+    try {
+      stripe.webhooks.constructEvent(body, sig, sec);
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  check("webhook: tampered body rejected", rejects(payload.replace('"o1"', '"o9"'), header, whsec));
+  check("webhook: wrong secret rejected", rejects(payload, header, "whsec_other"));
+  check("webhook: missing signature rejected", rejects(payload, "", whsec));
+
+  const calls: string[] = [];
+  const handlers = {
+    fulfil: async (id: string, s: { paymentIntentId: string | null; email: string | null }) => {
+      calls.push(`fulfil:${id}:${s.paymentIntentId}:${s.email}`);
+    },
+    expire: async (id: string) => {
+      calls.push(`expire:${id}`);
+    },
+  };
+  const d1 = await dispatchStripeEvent(verified as never, handlers);
+  check("webhook: completed + paid fulfils the order", d1.action === "fulfilled" && calls[0] === "fulfil:o1:pi_1:fan@example.com");
+  const d2 = await dispatchStripeEvent({ type: "checkout.session.completed", data: { object: { id: "cs_2", payment_status: "unpaid", metadata: { order_id: "o2" } } } }, handlers);
+  check("webhook: completed but unpaid is ignored", d2.action === "ignored" && calls.length === 1);
+  const d3 = await dispatchStripeEvent({ type: "checkout.session.expired", data: { object: { id: "cs_3", metadata: { order_id: "o3" } } } }, handlers);
+  check("webhook: expired session releases the order", d3.action === "expired" && calls[1] === "expire:o3");
+  const d4 = await dispatchStripeEvent({ type: "payment_intent.succeeded", data: { object: { id: "pi_x" } } }, handlers);
+  check("webhook: unrelated event ignored", d4.action === "ignored" && calls.length === 2);
+}
+
 /* ── report ─────────────────────────────────────────────────────────────── */
 
-testPdfRejection().then(() => {
+Promise.all([testPdfRejection(), testTicketing()]).then(() => {
   const total = passed + failures.length;
   console.log(`\ncapture logic tests: ${passed}/${total} passed`);
   for (const f of failures) console.error(f);

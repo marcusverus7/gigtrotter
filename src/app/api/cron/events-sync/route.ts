@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { serverEnv } from "@/lib/env";
 import { syncBandsintown } from "@/lib/events/sync-bandsintown";
+import { syncSkiddle } from "@/lib/events/sync-skiddle";
 import { syncTicketmaster } from "@/lib/events/sync-ticketmaster";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -75,11 +76,12 @@ export async function GET(request: NextRequest) {
   // so the sweep has to land first. Each run writes its own feed_sync_runs row.
   const ticketmaster = await syncTicketmaster();
   const bandsintown = await syncBandsintown();
+  const skiddle = await syncSkiddle(); // no-op without SKIDDLE_API_KEY
   const ok =
     ticketmaster.upserted > 0 ||
-    (ticketmaster.errors === 0 && bandsintown.errors === 0);
+    (ticketmaster.errors === 0 && bandsintown.errors === 0 && skiddle.errors === 0);
 
-  const summary = { ok, ticketmaster, bandsintown, tookMs: Date.now() - now };
+  const summary = { ok, ticketmaster, bandsintown, skiddle, tookMs: Date.now() - now };
   if (ok) console.log("[events-sync] ok", JSON.stringify(summary));
   else console.error("[events-sync] run failed", JSON.stringify(summary));
 

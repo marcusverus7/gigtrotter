@@ -194,7 +194,7 @@ export async function syncBandsintown() {
  * and the name the follower typed, so a case difference between providers
  * still finds the candidate rows.
  */
-async function findTicketmasterTwins(
+export async function findTicketmasterTwins(
   service: Service,
   fresh: FeedEvent[],
 ): Promise<{ twins: Map<string, string>; lookups: number; capped: boolean }> {

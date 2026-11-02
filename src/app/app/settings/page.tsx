@@ -30,9 +30,9 @@ import { publicEnv, serverEnv } from "@/lib/env";
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ e?: string }>;
+  searchParams: Promise<{ e?: string; spotify?: string; artists?: string }>;
 }) {
-  const { e: actionError } = await searchParams;
+  const { e: actionError, spotify: spotifyStatus, artists: spotifyArtists } = await searchParams;
   const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -155,6 +155,20 @@ export default async function SettingsPage({
 
       <InboxSyncPanel forwardingAddress={forwardingAddress} />
 
+      {spotifyStatus ? (
+        <p
+          className={`rounded-md border px-3 py-2 text-sm ${spotifyStatus === "connected" ? "border-secondary/40 text-foreground" : "border-destructive/40 text-destructive"}`}
+          role="status"
+        >
+          {spotifyStatus === "connected"
+            ? `Spotify connected — now following ${spotifyArtists ?? "your"} artists.`
+            : spotifyStatus === "denied"
+              ? "Spotify connection was cancelled."
+              : spotifyStatus === "unconfigured"
+                ? "Spotify is not switched on yet."
+                : "Spotify connection failed — try again."}
+        </p>
+      ) : null}
       <SpotifyPanel />
 
       <Card>

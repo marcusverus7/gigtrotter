@@ -20,6 +20,7 @@ export function CaptureDropzone() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stageLabel, setStageLabel] = useState("Reading it…");
   const [pending, startTransition] = useTransition();
 
   function handleFiles(files: FileList | File[] | null) {
@@ -30,10 +31,19 @@ export function CaptureDropzone() {
       return;
     }
     setError(null);
+    setStageLabel("Preparing the image…");
     startTransition(async () => {
       // A full-size phone photo is 3–8MB; Vercel refuses the body above
       // 4.5MB before the route runs. Shrunk here first (see downscale.ts).
       const upload = await downscaleForUpload(file);
+      setStageLabel("Uploading…");
+      // The model call is the long part — say so, and roughly how long.
+      const t = setTimeout(() => setStageLabel("Reading the ticket — usually 5–15 seconds…"), 1500);
+      const t2 = setTimeout(() => setStageLabel("Still reading — busy tickets take a little longer…"), 15000);
+      const stop = () => {
+        clearTimeout(t);
+        clearTimeout(t2);
+      };
       const form = new FormData();
       form.append("file", upload);
       form.append("source", "screenshot");
@@ -44,9 +54,11 @@ export function CaptureDropzone() {
         // fetch itself rejecting means the request never arrived — on a phone
         // that is usually just signal. Without this catch the spinner ended
         // and the page said nothing.
+        stop();
         setError("Couldn't reach the server — check your connection and try again.");
         return;
       }
+      stop();
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setError(
@@ -119,7 +131,7 @@ export function CaptureDropzone() {
           )}
           <div>
             <p className="text-sm font-medium">
-              {pending ? "Reading it…" : "Drop a ticket, boarding pass, or booking"}
+              {pending ? stageLabel : "Drop a ticket, boarding pass, or booking"}
             </p>
             <p className="text-xs text-muted-foreground">
               Or click to pick, or paste from the clipboard.

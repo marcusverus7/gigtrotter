@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { serverEnv } from "@/lib/env";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 /**
@@ -25,6 +26,7 @@ export async function SpotifyPanel() {
   const user = await getSessionUser();
   if (!user) return null;
 
+  const configured = !!serverEnv.spotifyClientId && !!serverEnv.spotifyClientSecret;
   const { data: integ } = await supabase
     .from("integrations")
     .select("source, external_id, created_at")
@@ -53,13 +55,24 @@ export async function SpotifyPanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Coming with V1 — Spotify OAuth flow + the &quot;did you see these
-          live?&quot; swipe session that turns scrobble history into pins.
+          {configured
+            ? "Follows your top and followed artists here, so Events' \"For you\" and the tour and on-sale alerts know who you listen to. Reads nothing else."
+            : "Needs Spotify client credentials on the server — not switched on yet."}
         </p>
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex h-9 items-center rounded-md border border-border/60 px-3 text-sm text-muted-foreground opacity-60">
-            Connect Spotify — coming in V1
-          </span>
+          {configured ? (
+            <Button asChild size="sm">
+              {/* A plain anchor: Spotify refuses to sign in inside an embedded
+                  WebView, so from the shells this must open the system browser. */}
+              <a href="/api/integrations/spotify" target="_blank" rel="noopener">
+                {integ ? "Re-sync artists" : "Connect Spotify"}
+              </a>
+            </Button>
+          ) : (
+            <span className="inline-flex h-9 items-center rounded-md border border-border/60 px-3 text-sm text-muted-foreground opacity-60">
+              Connect Spotify — needs credentials
+            </span>
+          )}
           <Button asChild size="sm" variant="ghost">
             <Link href="/app/import">All imports</Link>
           </Button>

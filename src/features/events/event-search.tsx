@@ -24,11 +24,25 @@ export function EventSearch({
   const [city, setCity] = useState(initialCity);
   const [results, setResults] = useState<EventSummary[]>(initialEvents);
   const [searched, setSearched] = useState(false);
+  const [exhausted, setExhausted] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // "Browse" used to be the soonest thirty and nothing more; the badge said
+  // thousands. Load-more pages the same query the search uses.
+  function loadMore() {
+    startTransition(async () => {
+      const more = await searchEvents(searched ? query : "", (searched ? city : initialCity) || undefined, results.length);
+      const seen = new Set(results.map((r) => r.id));
+      const fresh = (more as EventSummary[]).filter((e) => !seen.has(e.id));
+      setResults((r) => [...r, ...fresh]);
+      if (fresh.length < 30) setExhausted(true);
+    });
+  }
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
     setSearched(true);
+    setExhausted(false);
     startTransition(async () => {
       const data = await searchEvents(query, city || undefined);
       setResults(data as EventSummary[]);
@@ -89,6 +103,13 @@ export function EventSearch({
           <EventCard key={event.id} event={event} />
         ))}
       </div>
+      {results.length >= 30 && !exhausted ? (
+        <div className="flex justify-center">
+          <Button type="button" variant="outline" onClick={loadMore} disabled={pending}>
+            {pending ? "Loading…" : "Load more"}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

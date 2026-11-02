@@ -157,8 +157,18 @@ export interface ExperienceRow {
   rating: number | null;
   review: string | null;
   photos: Json;
+  /** Migration 0028 — setlist.fm songs, id and credit URL. */
+  setlist: Json | null;
+  setlistfm_id: string | null;
+  setlist_checked_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface EventWaitlistRow {
+  user_id: string;
+  event_id: string;
+  created_at: string;
 }
 
 export type EventCategory =
@@ -399,6 +409,11 @@ export interface Database {
         Insert: Partial<FeedSyncRunRow> & { source: string };
         Update: Partial<FeedSyncRunRow>;
       };
+      event_waitlist: {
+        Row: EventWaitlistRow;
+        Insert: Partial<EventWaitlistRow> & { user_id: string; event_id: string };
+        Update: Partial<EventWaitlistRow>;
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -427,6 +442,7 @@ export interface Database {
         Args: { target_event: string };
         Returns: Array<{ interested: number; going: number }>;
       };
+      event_waitlist_count: { Args: { target_event: string }; Returns: number };
       event_interest_counts_for: {
         Args: { target_events: string[] };
         Returns: Array<{ event_id: string; interested: number; going: number }>;

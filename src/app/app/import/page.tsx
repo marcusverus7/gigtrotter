@@ -1,4 +1,3 @@
-import { SHOW_UNLAUNCHED } from "@/lib/flags";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Download } from "lucide-react";
@@ -16,6 +15,8 @@ import {
 } from "@/components/ui/card";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { IMPORT_SOURCES, type ImportSource } from "@/features/imports/sources";
+import { CsvImportForm, SetlistfmImportForm } from "@/features/imports/import-forms";
+import { setlistfmConfigured } from "@/lib/setlistfm/client";
 
 /**
  * /app/import — concert-archive + ticketing imports.
@@ -33,9 +34,6 @@ export default async function ImportHubPage() {
   const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  // Hidden behind the launch flag: the nav only stopped LINKING to this page,
-  // the URL still served it to any signed-in user.
-  if (!SHOW_UNLAUNCHED) redirect("/app");
 
   const [{ data: integrations }, { data: jobs }] = await Promise.all([
     supabase.from("integrations").select("source").eq("user_id", user.id),
@@ -66,8 +64,34 @@ export default async function ImportHubPage() {
         </p>
       </header>
 
+      {/* The two that work today. Everything below stays a signpost. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">setlist.fm — attended shows</CardTitle>
+            <CardDescription className="text-xs">
+              Your public &quot;attended&quot; list becomes pins, setlists included.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SetlistfmImportForm enabled={setlistfmConfigured()} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Paste a list</CardTitle>
+            <CardDescription className="text-xs">
+              From a spreadsheet, notes, anywhere. One gig per line: date, artist, venue, city.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CsvImportForm />
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-        {IMPORT_SOURCES.map((s) => (
+        {IMPORT_SOURCES.filter((s) => s.id !== "setlistfm").map((s) => (
           <SourceCard
             key={s.id}
             source={s}

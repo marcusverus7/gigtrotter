@@ -186,6 +186,22 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | L7 | 🔒 Send a friend request | The other account gets a "wants to be friends" alert; accepting sends one back |
 | L8 | A friend overlap on a PAST gig | Alert says "was there too", not "is going too" |
 
+## M — November build, wave two (added 2026-11-02)
+
+| # | Check | Expected |
+|---|---|---|
+| M1 | /app/import → "Paste a list", two gigs, Add | "Found 2, added 2"; both on the map as Attended; running it again adds 0 |
+| M2 | 🔒 With SETLISTFM_API_KEY set: Import → setlist.fm username | Attended shows become pins with setlists attached |
+| M3 | 🔒 With SETLISTFM_API_KEY set + 0028 applied: open a past gig's pin | A "Setlist" block appears after a moment, with a setlist.fm credit link and "Relive it" |
+| M4 | 🔒 0028 applied: a sold-out feed event | "Want one? Join the list" button; count updates; second account sees the count |
+| M5 | Upcoming ticket's item page | "Can't go?" panel routed by issuer (DICE → Return, Ticketmaster → Transfer) |
+| M6 | 🔒 With SPOTIFY_CLIENT_ID/SECRET set: Settings → Connect Spotify | Opens Spotify consent in the system browser, returns to Settings with "now following N artists"; those artists are in People → Following |
+| M7 | 🔒 With SKIDDLE_API_KEY set: wait for the nightly sync | feed_sync_runs gets a `skiddle` row; grassroots venues appear on Events with "Buy on Skiddle" |
+| M8 | Events → Browse, scroll to the bottom | "Load more" fetches the next 30; disappears when exhausted |
+| M9 | Capture a ticket on a slow connection | Status reads Preparing → Uploading → "Reading the ticket — usually 5–15 seconds" |
+| M10 | Backfill 3+ screenshots, then Capture | "Confirm the N confident ones" button confirms the ≥80% cards in one tap; the rest stay |
+| M11 | Public Board page | Share link (phone) and Copy link buttons |
+
 ## Known-not-ready (don't file these as bugs)
 
 - Push to lock screen — alerts appear on app open only; push needs a native build

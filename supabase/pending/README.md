@@ -1,5 +1,17 @@
 # Migration pack
 
+## Pending: 0028 (added 2026-11-02)
+
+`APPLY-ME-0028.sql` — setlist columns on `experiences` (songs from setlist.fm,
+fetched when a pin is first opened after the gig), the `event_waitlist`
+table + count RPC behind "Want one" on sold-out events, and `csv` as an
+import source. The app tolerates all three being absent: the pin page falls
+back to the narrower select, the waitlist button reports "not switched on",
+and a CSV import simply gets no job row.
+
+Verify: `select column_name from information_schema.columns where
+table_name='experiences' and column_name like 'setlist%';` returns three.
+
 ## Pending: 0027 (added 2026-11-02)
 
 `APPLY-ME-0027.sql` — two enum values: `anniversary` ("One year ago tonight",

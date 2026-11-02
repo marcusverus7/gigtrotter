@@ -89,4 +89,21 @@ export const serverEnv = {
   get cronSecret() {
     return required("CRON_SECRET", process.env.CRON_SECRET);
   },
+  // ── optional integrations: null when unset, features stay dormant ─────────
+  get setlistfmApiKey() {
+    const v = process.env.SETLISTFM_API_KEY;
+    return v ? clean(v) : null;
+  },
+  get skiddleApiKey() {
+    const v = process.env.SKIDDLE_API_KEY;
+    return v ? clean(v) : null;
+  },
+  get spotifyClientId() {
+    const v = process.env.SPOTIFY_CLIENT_ID;
+    return v ? clean(v) : null;
+  },
+  get spotifyClientSecret() {
+    const v = process.env.SPOTIFY_CLIENT_SECRET;
+    return v ? clean(v) : null;
+  },
 };

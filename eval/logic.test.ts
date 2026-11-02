@@ -32,6 +32,8 @@ import { deriveStatus, effectiveEnd, nextStatus } from "../src/lib/wallet/lifecy
 import { barcodeScansAtDoor, classifyIssuer } from "../src/lib/tickets/issuer";
 import { computeYearStats } from "../src/lib/review/year-stats";
 import { anniversaryTitle } from "../src/lib/alerts/phrasing";
+import { fromSetlistfmDate, headlinerOf, parseGigCsv, pickSetlist, toSetlistfmDate, toStoredSetlist } from "../src/lib/setlistfm/map";
+import { categoriseSkiddle, mapSkiddleEvent, parseSkiddlePrice } from "../src/lib/events/skiddle/map";
 import {
   bandsintownArtistPath,
   cityCentroid,
@@ -646,6 +648,41 @@ check("issuer: every known issuer has an open link", ["ticketmaster","axs","dice
 check("anniversary: one year", anniversaryTitle("2025-11-02T20:00:00Z", Date.parse("2026-11-02T20:00:00Z")) === "One year ago tonight");
 check("anniversary: three years", anniversaryTitle("2023-11-02T20:00:00Z", Date.parse("2026-11-02T20:00:00Z")) === "Three years ago tonight");
 check("friends: past tense", describeFriends(["Ana"], true) === "Ana was there too.");
+
+/* ── setlist.fm ─────────────────────────────────────────────────────────── */
+check("setlistfm: date out", toSetlistfmDate("2026-07-04T19:00:00.000Z") === "04-07-2026");
+check("setlistfm: date in", fromSetlistfmDate("04-07-2026") === "2026-07-04T19:00:00");
+check("setlistfm: headliner of a bill", headlinerOf("Saint Lurid + Northern Filament") === "Saint Lurid");
+{
+  const sl = { id: "x1", url: "https://www.setlist.fm/x1", eventDate: "04-07-2026", artist: { name: "Saint Lurid" },
+    venue: { name: "Tramshed", city: { name: "Cardiff", country: { code: "GB" } } },
+    sets: { set: [{ song: [{ name: "Opener" }, { name: "Tape", tape: true }] }, { encore: 1, song: [{ name: "Hit", cover: { name: "Someone" } }] }] } };
+  const stored = toStoredSetlist(sl)!;
+  check("setlistfm: songs kept, tape dropped", stored.songs.length === 2 && stored.songs[0].name === "Opener");
+  check("setlistfm: encore + cover flagged", stored.songs[1].encore && stored.songs[1].cover === "Someone");
+  const empty = { ...sl, id: "x0", sets: { set: [] } };
+  const other = { ...sl, id: "x2", artist: { name: "Somebody Else" } };
+  check("setlistfm: picks matching artist with songs", pickSetlist([empty, other, sl], { artist: "Saint Lurid", date: "04-07-2026", city: "Cardiff" })?.id === "x1");
+  check("setlistfm: wrong date is never picked", pickSetlist([sl], { artist: "Saint Lurid", date: "05-07-2026" }) === null);
+}
+{
+  const rows = parseGigCsv(["date, artist, venue, city", "2024-06-14, IDLES, Marble Factory, Bristol", '14/11/2023, "Fontaines, D.C.", 3Arena, Dublin', "not a date, Nope"].join(String.fromCharCode(10)));
+  check("csv: two valid rows", rows.length === 2);
+  check("csv: iso date", rows[0].starts_at === "2024-06-14T19:00:00" && rows[0].venue?.city === "Bristol");
+  check("csv: dd/mm/yyyy and quoted comma", rows[1].starts_at === "2023-11-14T19:00:00" && rows[1].title === "Fontaines, D.C.");
+  check("csv: positional without header", parseGigCsv("2022-01-02, Wet Leg, Thekla, Bristol")[0]?.title === "Wet Leg");
+}
+
+/* ── skiddle ────────────────────────────────────────────────────────────── */
+check("skiddle: price", parseSkiddlePrice("£12.50") === 1250 && parseSkiddlePrice("Free") === null);
+check("skiddle: category", categoriseSkiddle("FEST") === "festival" && categoriseSkiddle("LIVE") === "concert");
+{
+  const ev = mapSkiddleEvent({ id: 123, eventname: "Big Night", date: "2026-11-20", starttime: "19:30:00", link: "https://skiddle.com/e/123",
+    entryprice: "£8", tickets: true, EventCode: "LIVE", artists: [{ name: "Wet Leg" }], venue: { name: "Thekla", town: "Bristol", country: "GB", latitude: 51.44, longitude: -2.59 } } as never);
+  check("skiddle: maps to feed event in UTC", ev?.startsAt === "2026-11-20T19:30:00.000Z" && ev?.source === "skiddle");
+  check("skiddle: ticket link + price", ev?.ticketLinks[0]?.provider === "skiddle" && ev?.minPriceCents === 800);
+  check("skiddle: headliner from artists", ev?.headliner === "Wet Leg");
+}
 
 /* ── feed normalisers ───────────────────────────────────────────────────── */
 

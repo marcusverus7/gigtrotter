@@ -256,7 +256,7 @@ export async function addToWalletFromEvent(
   return { walletItemId: item.id };
 }
 
-export async function searchEvents(query: string, city?: string) {
+export async function searchEvents(query: string, city?: string, offset = 0) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -272,7 +272,7 @@ export async function searchEvents(query: string, city?: string) {
     )
     .gte("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: true })
-    .limit(30);
+    .range(Math.max(0, offset), Math.max(0, offset) + 29);
 
   if (query) {
     const safe = sanitize(query);

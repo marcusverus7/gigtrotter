@@ -1,3 +1,4 @@
+import { BoardShare } from "@/features/anon/board-share";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink, Eye, RefreshCw, ShieldOff } from "lucide-react";
@@ -72,6 +73,7 @@ export default async function AnonBoardSettingsPage() {
           <code className="block break-all rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">
             {url}
           </code>
+          <BoardShare url={url} title="My gig map on GigTrotter" />
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">
               <Link href={`/b/${profile.anon_handle}`} target="_blank">

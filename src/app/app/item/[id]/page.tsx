@@ -1,3 +1,6 @@
+import { CantGo } from "@/features/wallet/cant-go";
+import { SetlistPanel } from "@/features/wallet/setlist-panel";
+import type { StoredSetlist } from "@/lib/setlistfm/map";
 import { classifyIssuer, type IssuerInfo } from "@/lib/tickets/issuer";
 import { effectiveEnd } from "@/lib/wallet/lifecycle";
 import { notFound, redirect } from "next/navigation";
@@ -63,12 +66,24 @@ export default async function WalletItemDetail({
         .eq("id", id)
         .eq("user_id", user.id)
         .maybeSingle(),
+      // Setlist columns arrive with migration 0028; until it is applied the
+      // wider select would 400 and hide the whole editor, so fall back.
       supabase
         .from("experiences")
-        .select("id, audience, verified_by, rating, review, photos")
+        .select("id, audience, verified_by, rating, review, photos, setlist, setlist_checked_at")
         .eq("wallet_item_id", id)
         .eq("user_id", user.id)
-        .maybeSingle(),
+        .maybeSingle()
+        .then((r) =>
+          r.error
+            ? supabase
+                .from("experiences")
+                .select("id, audience, verified_by, rating, review, photos")
+                .eq("wallet_item_id", id)
+                .eq("user_id", user.id)
+                .maybeSingle()
+            : r,
+        ),
       supabase
         .from("merch_gig_links")
         .select("merch_item_id, merch_items(id, title, images, artist_name, price_cents, currency, fulfilment, merch_drops(title, status, total_stock, total_sold))")
@@ -276,6 +291,15 @@ export default async function WalletItemDetail({
             />
           ) : null}
 
+          {isFuture && item.kind === "ticket" ? (
+            <CantGo
+              issuer={classifyIssuer(
+                ((item.meta as { vendor?: string } | null)?.vendor) ?? null,
+                [item.title, ...((((item.meta as { details?: string[] } | null)?.details) ?? []))],
+              )}
+            />
+          ) : null}
+
           {isFuture && startsAt ? (
             <CountdownShare
               walletItemId={id}
@@ -297,6 +321,14 @@ export default async function WalletItemDetail({
                 experienceId={experience.id}
                 audience={experience.audience}
               />
+              {gigOver && item.kind === "ticket" ? (
+                <SetlistPanel
+                  experienceId={experience.id}
+                  initial={(experience as { setlist?: StoredSetlist | null }).setlist ?? null}
+                  checked={!!(experience as { setlist_checked_at?: string | null }).setlist_checked_at}
+                  artist={item.title.split(" + ")[0].trim()}
+                />
+              ) : null}
               {gigOver || experience.rating ? (
                 <ExperienceEditor
                   experienceId={experience.id}

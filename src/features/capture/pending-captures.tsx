@@ -3,6 +3,7 @@ import { Clock } from "lucide-react";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { ParsedCaptureSchema } from "@/lib/capture/schema";
 
+import { BulkConfirmButton } from "./bulk-confirm-button";
 import { ConfirmCard } from "./confirm-card";
 
 export async function PendingCaptures() {
@@ -31,12 +32,16 @@ export async function PendingCaptures() {
   });
 
   if (pending.length === 0) return null;
+  const confident = pending.filter((p) => p.parsed.confidence >= 0.8 && !!p.parsed.starts_at).length;
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Clock className="h-4 w-4" />
-        {pending.length} waiting to confirm
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+        <span className="flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          {pending.length} waiting to confirm
+        </span>
+        {pending.length > 1 ? <BulkConfirmButton count={confident} /> : null}
       </div>
       {pending.map((c) => (
         <ConfirmCard key={c.id} captureId={c.id} parsed={c.parsed} />

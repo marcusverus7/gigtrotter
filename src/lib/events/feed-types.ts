@@ -31,7 +31,7 @@ export type FeedVenue = {
 };
 
 export type FeedEvent = {
-  source: "ticketmaster" | "bandsintown";
+  source: "ticketmaster" | "bandsintown" | "skiddle";
   externalId: string;
   title: string;
   headliner: string | null;

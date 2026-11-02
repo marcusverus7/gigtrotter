@@ -1,3 +1,4 @@
+import { WantOneButton } from "@/features/events/want-one-button";
 import { LocalDateTime } from "@/components/local-datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -115,6 +116,18 @@ export default async function EventDetailPage({
   const goingCount =
     Number(agg?.going ?? NaN) ||
     (interests?.filter((i) => i.interest_type === "going").length ?? 0);
+
+  // Waitlist (sold-out events only) — tolerant of the table not existing yet.
+  let wanted = false;
+  let waitlistCount = 0;
+  if (event.is_sold_out) {
+    const [{ data: mine }, { data: cnt }] = await Promise.all([
+      supabase.from("event_waitlist").select("event_id").eq("event_id", id).eq("user_id", user.id).maybeSingle(),
+      supabase.rpc("event_waitlist_count", { target_event: id }),
+    ]);
+    wanted = !!mine;
+    waitlistCount = Number(cnt ?? 0) || 0;
+  }
 
   // Friends going
   const { data: friendRows } = await supabase
@@ -365,6 +378,11 @@ export default async function EventDetailPage({
 
           {/* Add to wallet */}
           {isFuture ? <AddToWalletButton eventId={id} /> : null}
+
+          {/* Sold out: join the want-a-ticket list (migration 0028) */}
+          {isFuture && event.is_sold_out ? (
+            <WantOneButton eventId={id} initialWanted={wanted} initialCount={waitlistCount} />
+          ) : null}
 
           <Separator />
 

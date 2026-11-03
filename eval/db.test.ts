@@ -35,6 +35,16 @@ for (const line of (() => {
   const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
 }
+
+// Accept either a full STAGING_DATABASE_URL or just STAGING_DB_PASSWORD plus the
+// template the dashboard shows (with [YOUR-PASSWORD] in it), so the owner
+// only ever pastes the password.
+if (!process.env.STAGING_DATABASE_URL && process.env.STAGING_DB_PASSWORD && process.env.STAGING_DATABASE_URL_TEMPLATE) {
+  process.env.STAGING_DATABASE_URL = process.env.STAGING_DATABASE_URL_TEMPLATE.replace(
+    "[YOUR-PASSWORD]",
+    encodeURIComponent(process.env.STAGING_DB_PASSWORD),
+  );
+}
 const url = process.env.STAGING_DATABASE_URL;
 const ref = process.env.STAGING_PROJECT_REF ?? "hhjjlyizrryjttxtjvcu";
 if (!url) {

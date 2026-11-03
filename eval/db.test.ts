@@ -95,6 +95,8 @@ async function mkUser(id: string, name: string) {
 
 async function main() {
   // ── fixtures ─────────────────────────────────────────────────────────────
+  // Leftovers from a crashed earlier run (fixtures are prefixed dbtest-).
+  await cleanup();
   for (const [k, id] of Object.entries(users)) await mkUser(id, k);
   const future = new Date(Date.now() + 7 * 86_400_000).toISOString();
   const past = new Date(Date.now() - 7 * 86_400_000).toISOString();
@@ -180,7 +182,8 @@ async function main() {
   // ── G3: transactional fulfilment ─────────────────────────────────────────
   const [{ id: order }] = await sql`insert into public.orders (user_id, event_id, status, face_cents, fee_cents, total_cents, expires_at) values (${users.stranger}, ${futureEvent}, 'pending', 4500, 285, 4785, now() + interval '30 minutes') returning id`;
   await sql`insert into public.order_items (order_id, tier_id, quantity, unit_price_cents) values (${order}, ${tier}, 3, 1500)`;
-  const units = (n: number) => JSON.stringify(Array.from({ length: n }, (_, i) => ({ tier_id: tier, unit_no: i + 1, code: `GT-${tag.slice(-5).toUpperCase()}-${order.slice(0, 5).toUpperCase()}-${String(i).padStart(6, "0")}` })));
+  const units = (n: number, suffix = "000000") =>
+    sql.json(Array.from({ length: n }, (_, i) => ({ tier_id: tier, unit_no: i + 1, code: `GT-${tag.slice(-5).toUpperCase()}-${order.slice(0, 5).toUpperCase()}-${suffix.slice(0, 5)}${i}` })));
   const notPaid = await sql`select public.fulfil_order_tx(${order}, ${units(3)}::jsonb, 'going') as r`;
   check("G3: a pending order is refused", (notPaid[0].r as { error?: string }).error === "not_paid");
   await sql`update public.orders set status = 'paid', paid_at = now(), stripe_payment_intent_id = 'pi_test' where id = ${order}`;
@@ -189,7 +192,7 @@ async function main() {
   check("G3: an incomplete unit list raises and rolls back everything", !!partial && afterPartial[0].n === 0, partial ?? "");
   const [a, b] = await Promise.all([
     sql`select public.fulfil_order_tx(${order}, ${units(3)}::jsonb, 'going') as r`,
-    sql`select public.fulfil_order_tx(${order}, ${units(3).replace(/000000/g, "999999")}::jsonb, 'going') as r`,
+    sql`select public.fulfil_order_tx(${order}, ${units(3, "999999")}::jsonb, 'going') as r`,
   ]);
   const rs = [a[0].r, b[0].r] as Array<{ issued?: number; already?: boolean }>;
   const tix = await sql`select count(*)::int as n from public.tickets where order_id = ${order}`;
@@ -260,8 +263,18 @@ async function main() {
   check("PAY-04: another promoter cannot edit this event", (await as(users.stranger, (tx) => tx`update public.events set title = 'x' where id = ${futureEvent} returning id`)).length === 0);
 
   // ── cleanup ──────────────────────────────────────────────────────────────
-  await sql`delete from public.events where title like ${tag + "%"}`;
-  for (const id of Object.values(users)) await sql`delete from auth.users where id = ${id}`;
+  await cleanup();
+}
+
+/** Remove every dbtest- fixture in dependency order (order_items restricts tier deletes). */
+async function cleanup() {
+  await sql`delete from public.refunds where order_id in (select id from public.orders where event_id in (select id from public.events where title like 'dbtest-%'))`;
+  await sql`delete from public.ticket_listings where event_id in (select id from public.events where title like 'dbtest-%')`;
+  await sql`delete from public.tickets where event_id in (select id from public.events where title like 'dbtest-%')`;
+  await sql`delete from public.order_items where order_id in (select id from public.orders where event_id in (select id from public.events where title like 'dbtest-%'))`;
+  await sql`delete from public.orders where event_id in (select id from public.events where title like 'dbtest-%')`;
+  await sql`delete from public.events where title like 'dbtest-%'`;
+  await sql`delete from auth.users where email like '%@dbtest-%.invalid'`;
 }
 
 main()

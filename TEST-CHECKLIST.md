@@ -253,6 +253,10 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 
 | Item | Tester | Platform | Pass/Fail | Notes |
 |---|---|---|---|---|
+| O4 | 2026-11-03 | Pass | Staging (hhjjlyizrryjttxtjvcu), all 33 migrations applied: `pnpm test:db` 74/74 (role isolation, NULL-caller guards, future-plans matrix, 100 buyers → 10 seats, concurrent fulfilment, resale tx, transfers, scanner race, door-staff rights). |
+| O1 | 2026-11-03 | Pass (staging) | Anonymous key on staging: achievements and admin views 401; production re-check after 0031 is applied. |
+| O2 | 2026-11-03 | Pass (staging) | Anonymous `trip_assemble` → 42501 permission denied on staging. |
+| O13 | 2026-11-03 | Pass (staging) | `profiles?select=username,anon_handle` 401; `select=username` 200; `bump_anon_view` 401; `are_friends` false for anon. |
 | N5 | 2026-11-02 | Pass (fallback) | Re-run after cd01d4e: guest list issues through the stepwise fallback while 0033 is absent; the transactional path needs 0033 applied. |
 | O4 | 2026-11-02 | Partial | Live races on the production DB, test tier only (`pnpm test:race-live`): 100 buyers for 2 seats → exactly 2; 10 scanners on one code → exactly 1. Full staging run (fulfilment, roles) still pending. |
 | N5 | 2026-11-02 | Pass | Guest list → ticket issued to @sweeptester; item page shows the real QR and code (local dev server, production data). |

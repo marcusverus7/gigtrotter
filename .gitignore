@@ -82,3 +82,6 @@ public/__sweep/
 
 # database snapshots (scripts/db-snapshot.mjs) — never commit
 backups/
+
+# demo fallback screenshots (local only)
+pitch-screenshots/

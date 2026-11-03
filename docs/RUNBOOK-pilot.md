@@ -11,7 +11,7 @@ Code on `main` auto-deploys. Both migrations are additive and the code
 tolerates their absence (fallbacks are listed below), so the order is:
 
 1. **Apply `supabase/pending/APPLY-ME-0031.sql`** in the production SQL
-   editor (owner action). Then `APPLY-ME-0032.sql`, `APPLY-ME-0033.sql`, `APPLY-ME-0034.sql`.
+   editor (owner action). Then `APPLY-ME-0032.sql`, `APPLY-ME-0033.sql`, `APPLY-ME-0034.sql`, `APPLY-ME-0035.sql`.
 2. Verify (SQL editor, as the project owner):
    ```sql
    select relname, reloptions from pg_class where relname = 'achievements';            -- {security_invoker=true}

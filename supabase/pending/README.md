@@ -3,7 +3,14 @@
 **APPLIED 2026-11-02: 0024 through 0030 are live in production** (run as one pack,
 `RUN-ME-0024-to-0030.sql`, verified via PostgREST: tables answer, RPCs respond, stock
 functions are denied to anon). The sections below are kept as the record of what each
-file did. **Pending now: 0031, 0032, 0033, then 0034.**
+file did. **Pending now: 0031, 0032, 0033, 0034, then 0035.**
+
+## Pending: 0035 (added 2026-11-03) -- public buckets not listable (apply AFTER 0034)
+
+`APPLY-ME-0035.sql` -- the avatars and discussion-photos SELECT policies were
+`bucket_id = ...` for everyone, which let the anon key enumerate every object
+path. Files are read via public URLs (no RLS involved) and the app never
+lists these buckets, so SELECT is now owner-folder only.
 
 ## Pending: 0034 (added 2026-11-03) -- Security Advisor triage (apply AFTER 0033)
 

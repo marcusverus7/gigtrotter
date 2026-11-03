@@ -61,6 +61,8 @@ try {
     );
   }
   await sql.unsafe("create table if not exists public.__staging_migrations (name text primary key, applied_at timestamptz not null default now())");
+  // Service-role only, like every other bookkeeping table; keeps the Security Advisor clean.
+  await sql.unsafe("alter table public.__staging_migrations enable row level security; revoke all on public.__staging_migrations from anon, authenticated;");
   const done = new Set((await sql`select name from public.__staging_migrations`).map((r) => r.name));
   const files = readdirSync(join(root, "supabase", "migrations"))
     .filter((f) => /^\d{4}_.*\.sql$/.test(f))

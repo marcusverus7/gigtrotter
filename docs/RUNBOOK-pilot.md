@@ -11,7 +11,7 @@ Code on `main` auto-deploys. Both migrations are additive and the code
 tolerates their absence (fallbacks are listed below), so the order is:
 
 1. **Apply `supabase/pending/APPLY-ME-0031.sql`** in the production SQL
-   editor (owner action). Then `APPLY-ME-0032.sql`, then `APPLY-ME-0033.sql`.
+   editor (owner action). Then `APPLY-ME-0032.sql`, `APPLY-ME-0033.sql`, `APPLY-ME-0034.sql`.
 2. Verify (SQL editor, as the project owner):
    ```sql
    select relname, reloptions from pg_class where relname = 'achievements';            -- {security_invoker=true}
@@ -73,7 +73,7 @@ Put the production connection string in `.env.local` as `PRODUCTION_DATABASE_URL
 node scripts/db-snapshot.mjs restore --env STAGING_DATABASE_URL --in backups/2026-11-02
 ```
 
-Restoring into production needs `--i-mean-production`. Auth users are not in `public`, so a full restore after a lost project also needs the users re-created (Supabase Auth export is a dashboard/API action). Rehearse the restore on staging before relying on it. Proper backups mean the Pro plan (daily backups + PITR add-on); that decision is in docs/OWNER_FACTS_NEEDED.md.
+Restoring into production needs `--i-mean-production`. Auth users are not in `public`, so a full restore after a lost project also needs the users re-created (Supabase Auth export is a dashboard/API action). Rehearsed on staging 2026-11-03: dump of 50 tables and a restore back in, exit 0 (the truncate-cascade NOTICE lines are expected). Proper backups mean the Pro plan (daily backups + PITR add-on); that decision is in docs/OWNER_FACTS_NEEDED.md.
 
 ## 4. Payment reconciliation: who acts and how
 

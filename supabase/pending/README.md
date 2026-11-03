@@ -3,7 +3,16 @@
 **APPLIED 2026-11-02: 0024 through 0030 are live in production** (run as one pack,
 `RUN-ME-0024-to-0030.sql`, verified via PostgREST: tables answer, RPCs respond, stock
 functions are denied to anon). The sections below are kept as the record of what each
-file did. **Pending now: 0031, then 0032, then 0033.**
+file did. **Pending now: 0031, 0032, 0033, then 0034.**
+
+## Pending: 0034 (added 2026-11-03) -- Security Advisor triage (apply AFTER 0033)
+
+`APPLY-ME-0034.sql` -- from the adviser run on staging: `touch_updated_at`
+gets a fixed search_path, the offers update policy loses its `WITH CHECK
+(true)`, and the four trigger functions are no longer executable through
+the API. Everything else the adviser lists is documented as deliberate in
+docs/BUILD_COMPLETION_STATUS.md (PostGIS objects, public count RPCs, the
+guarded friendship helpers, public buckets).
 
 ## Pending: 0033 (added 2026-11-02) -- anonymous board de-anonymisation (apply AFTER 0032)
 

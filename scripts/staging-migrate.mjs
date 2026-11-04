@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 /**
- * Apply every supabase/migrations/*.sql to the STAGING database, in order,
- * recording what ran in public.__staging_migrations so re-runs only apply
- * new files. Staging only: refuses a connection string that does not point
- * at STAGING_PROJECT_REF, so it can never be aimed at production by mistake.
+ * Apply every supabase/migrations/*.sql in order, recording what ran so
+ * re-runs only apply new files.
  *
- *   pnpm staging:migrate            # apply pending
- *   pnpm staging:migrate --reset    # drop public schema first (staging only)
+ *   pnpm staging:migrate                         # staging (.env.staging), ledger __staging_migrations
+ *   pnpm staging:migrate --reset                 # staging only: drop public schema first
+ *   node scripts/staging-migrate.mjs --target production
+ *        # production: reads .env.local (PRODUCTION_DB_PASSWORD + PRODUCTION_DATABASE_URL_TEMPLATE,
+ *        #  or a full PRODUCTION_DATABASE_URL); ledger __migrations; 0001-0030 are seeded as
+ *        #  already applied (they were pasted by hand); a data snapshot is written to backups/
+ *        #  before anything runs; --reset is refused.
  *
- * Reads .env.staging (gitignored): STAGING_DATABASE_URL, STAGING_PROJECT_REF.
+ * Each target refuses a connection string that does not contain its own
+ * project ref, so the two can never be swapped by mistake.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -38,19 +42,41 @@ if (!process.env.STAGING_DATABASE_URL && process.env.STAGING_DB_PASSWORD && proc
   );
 }
 
-const url = process.env.STAGING_DATABASE_URL;
-const ref = process.env.STAGING_PROJECT_REF ?? "hhjjlyizrryjttxtjvcu";
+const targetIdx = process.argv.indexOf("--target");
+const target = targetIdx >= 0 ? process.argv[targetIdx + 1] : "staging";
+const isProd = target === "production";
+if (isProd) {
+  let local = [];
+  try { local = readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/); } catch { /* none */ }
+  for (const line of local) {
+    const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+  }
+  if (!process.env.PRODUCTION_DATABASE_URL && process.env.PRODUCTION_DB_PASSWORD && process.env.PRODUCTION_DATABASE_URL_TEMPLATE) {
+    process.env.PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL_TEMPLATE.replace(
+      "[YOUR-PASSWORD]",
+      encodeURIComponent(process.env.PRODUCTION_DB_PASSWORD),
+    );
+  }
+}
+const url = isProd ? process.env.PRODUCTION_DATABASE_URL : process.env.STAGING_DATABASE_URL;
+const ref = isProd ? "zekwvsbxksgtofnpapmh" : (process.env.STAGING_PROJECT_REF ?? "hhjjlyizrryjttxtjvcu");
+const ledger = isProd ? "public.__migrations" : "public.__staging_migrations";
 if (!url) {
-  console.error("STAGING_DATABASE_URL is not set (see .env.staging).");
+  console.error(`${isProd ? "PRODUCTION" : "STAGING"}_DATABASE_URL is not set (or password + template missing).`);
   process.exit(2);
 }
 if (!url.includes(ref)) {
-  console.error(`Refusing: STAGING_DATABASE_URL does not reference the staging project ${ref}.`);
+  console.error(`Refusing: the ${target} connection string does not reference project ${ref}.`);
   process.exit(2);
 }
 
 const sql = postgres(url, { ssl: "require", max: 1, prepare: false });
 const reset = process.argv.includes("--reset");
+if (reset && isProd) {
+  console.error("Refusing: --reset is staging-only.");
+  process.exit(2);
+}
 
 try {
   if (reset) {
@@ -60,10 +86,21 @@ try {
       "alter default privileges in schema public grant all on tables to anon, authenticated, service_role; alter default privileges in schema public grant all on functions to anon, authenticated, service_role; alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;",
     );
   }
-  await sql.unsafe("create table if not exists public.__staging_migrations (name text primary key, applied_at timestamptz not null default now())");
+  await sql.unsafe(`create table if not exists ${ledger} (name text primary key, applied_at timestamptz not null default now())`);
   // Service-role only, like every other bookkeeping table; keeps the Security Advisor clean.
-  await sql.unsafe("alter table public.__staging_migrations enable row level security; revoke all on public.__staging_migrations from anon, authenticated;");
-  const done = new Set((await sql`select name from public.__staging_migrations`).map((r) => r.name));
+  await sql.unsafe(`alter table ${ledger} enable row level security; revoke all on ${ledger} from anon, authenticated;`);
+  if (isProd) {
+    // 0001-0030 were applied by hand (pasted into the SQL editor, 2026-11-02 and before).
+    const handApplied = readdirSync(join(root, "supabase", "migrations"))
+      .filter((f) => /^\d{4}_.*\.sql$/.test(f) && Number(f.slice(0, 4)) <= 30)
+      .sort();
+    for (const f of handApplied) await sql.unsafe(`insert into ${ledger} (name, applied_at) values ('${f}', '2026-11-02') on conflict (name) do nothing`);
+    console.log("production: taking a data snapshot first (scripts/db-snapshot.mjs)");
+    const { execFileSync } = await import("node:child_process");
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    execFileSync(process.execPath, [join(root, "scripts", "db-snapshot.mjs"), "dump", "--env", "PRODUCTION_DATABASE_URL", "--out", `backups/prod-${stamp}`], { stdio: "inherit", env: process.env });
+  }
+  const done = new Set((await sql.unsafe(`select name from ${ledger}`)).map((r) => r.name));
   const files = readdirSync(join(root, "supabase", "migrations"))
     .filter((f) => /^\d{4}_.*\.sql$/.test(f))
     .sort();
@@ -75,7 +112,7 @@ try {
     try {
       await sql.begin(async (tx) => {
         await tx.unsafe(body);
-        await tx`insert into public.__staging_migrations (name) values (${f})`;
+        await tx.unsafe(`insert into ${ledger} (name) values ('${f}')`);
       });
       console.log("ok");
       applied += 1;

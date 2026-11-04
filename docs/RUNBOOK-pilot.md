@@ -28,7 +28,7 @@ tolerates their absence (fallbacks are listed below), so the order is:
 3. Push / merge the code (already on `main` with this change set).
 4. Set the new environment variables in Vercel (Production + Preview, Sensitive):
    - `TICKET_SIGNING_KEY` — **done 2026-11-03** (set on Production + Preview as Sensitive via the Vercel CLI, generated locally, never displayed; production redeployed as `gigtrotter-f6tkkam50`). New ticket codes sign with it; old codes keep verifying through `CAPTURE_MASTER_KEY`.
-   - `SUPPORT_EMAIL` — once a real mailbox exists; the public pages show a placeholder until then.
+   - `SUPPORT_EMAIL` — **done 2026-11-04** (owner's Gmail on Production + Preview; redeployed as `gigtrotter-6aukwejy5`, verified on the four public pages).
    - `CAPTURE_PLATFORM_DAILY_LIMIT` — optional, default 2000.
    - (Stripe, when the account exists) `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
    Saving does nothing until a redeploy.

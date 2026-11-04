@@ -52,6 +52,6 @@ Status words used below: *implemented* (code exists), *tested locally* (offline 
 ## Readiness verdict (2026-11-02)
 
 - **Non-paid web beta:** 0031-0035 applied to production 2026-11-04; the public-safe browsing, honest ticket routes and privacy fixes stand on their own.
-- **Supported paid pilot:** **not ready**. Blocked on: Stripe account + keys, the staging run of `pnpm test:db`, a test-mode purchase/refund/abandon cycle (checklist N2, N5–N11, N13, O1–O8), door-device test and the support mailbox (fee-on-cancellation decided 2026-11-04: fee kept, 0036).
+- **Supported paid pilot:** **not ready**. Blocked on: Stripe account + keys, the staging run of `pnpm test:db`, a test-mode purchase/refund/abandon cycle (checklist N2, N5–N11, N13, O1–O8), door-device test (support mailbox set and fee-on-cancellation decided 2026-11-04: fee kept, 0036).
 - **Broad public ticketing:** not ready; needs the pilot's evidence first.
 - **Native distribution:** not ready; separate gate (ADR-0001).

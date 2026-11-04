@@ -9,7 +9,7 @@ invented; the pages are written so they stay truthful while a line is blank.
 | --- | --- | --- | --- |
 | 1 | ~~Legal entity~~ **Settled 2026-11-04:** sole trader, "Mark Loughran, trading as GigTrotter" | /terms, /privacy | `LEGAL_ENTITY` in `src/lib/support.ts`; swap for the company name + number when one is formed |
 | 2 | Registered or trading address | not shown | omitted |
-| 3 | Support mailbox that someone actually reads | /support, /privacy, /terms, /sell | "[support contact to be confirmed by the owner]" until `SUPPORT_EMAIL` is set in Vercel |
+| 3 | ~~Support mailbox~~ **Settled 2026-11-04:** `SUPPORT_EMAIL` = the owner's own Gmail (Production + Preview, redeployed; live on /support, /privacy, /terms, /sell). A domain mailbox (gigtrotter.com was $12.03/yr) was declined for now. | /support, /privacy, /terms, /sell | shows the address |
 | 4 | ~~Governing law~~ **Settled 2026-11-04:** Northern Ireland | /terms section 16 | courts of Northern Ireland |
 | 5 | ~~Fee on cancellation~~ **Settled 2026-11-04:** the booking fee is KEPT; only the face value is refunded | /terms section 9; migration 0036; `processRefunds` | terms say the fee is not refunded on cancellation; `request_order_refund_tx` refunds `face_cents`; the processor reverses the promoter's transfer for exactly that amount |
 | 6 | Promoter refund terms for reasons other than cancellation (change of line-up, postponement) | /terms section 9 | "at the promoter's discretion" |
@@ -21,4 +21,4 @@ invented; the pages are written so they stay truthful while a line is blank.
 | 12 | Whether GigTrotter should be described as a UK or EU service for consumer-law purposes | /terms | not stated |
 
 Nothing in this list blocks local development or the test-mode pilot gates.
-Items 1, 4 and 5 are settled (2026-11-04); item 3 (support mailbox) is the last one needed before the first real ticket is sold.
+Items 1, 3, 4 and 5 are settled (2026-11-04). Nothing here blocks the first real ticket; the rest is polish.

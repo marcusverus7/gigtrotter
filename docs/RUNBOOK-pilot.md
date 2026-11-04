@@ -1,6 +1,6 @@
 # Pilot runbook: release, rollback, recovery
 
-Covers the 2026-11-02 pilot-hardening change set (migrations 0031 + 0032).
+Covers the 2026-11-02 pilot-hardening change set (migrations 0031 to 0035, all applied to production 2026-11-04).
 Everything here is written against the environment as it is today: Vercel
 Hobby, Supabase project `zekwvsbxksgtofnpapmh` (production), Stripe not yet
 configured, GitHub Actions for best-effort schedules.
@@ -10,8 +10,11 @@ configured, GitHub Actions for best-effort schedules.
 Code on `main` auto-deploys. Both migrations are additive and the code
 tolerates their absence (fallbacks are listed below), so the order is:
 
-1. **Apply `supabase/pending/APPLY-ME-0031.sql`** in the production SQL
-   editor (owner action). Then `APPLY-ME-0032.sql`, `APPLY-ME-0033.sql`, `APPLY-ME-0034.sql`, `APPLY-ME-0035.sql`.
+1. **Apply the migrations** — done 2026-11-04 with `node scripts/staging-migrate.mjs --target production`
+   (reads `PRODUCTION_DATABASE_URL_TEMPLATE` + `PRODUCTION_DB_PASSWORD` from `.env.local`, takes a
+   `backups/prod-<stamp>` snapshot first, records each file in `public.__migrations`). Future migrations
+   go the same way: `pnpm staging:migrate` + `pnpm test:db` first, then `--target production`.
+   The `APPLY-ME-*.sql` files remain only as the paste-into-SQL-editor fallback.
 2. Verify (SQL editor, as the project owner):
    ```sql
    select relname, reloptions from pg_class where relname = 'achievements';            -- {security_invoker=true}
@@ -31,7 +34,7 @@ tolerates their absence (fallbacks are listed below), so the order is:
    Saving does nothing until a redeploy.
 5. Add the `CRON_SECRET` repo secret in GitHub if it is not already there (same value as Vercel's), so the `orders-reconcile` workflow can call the endpoint every 15 minutes.
 
-### What runs before the migrations are applied
+### What runs before the migrations are applied (historical: all five are applied)
 
 | Surface | Without 0031 | Without 0032 |
 |---|---|---|

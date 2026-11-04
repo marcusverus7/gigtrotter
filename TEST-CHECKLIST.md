@@ -253,6 +253,9 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 
 | Item | Tester | Platform | Pass/Fail | Notes |
 |---|---|---|---|---|
+| O1 | 2026-11-04 | Pass (production) | After 0031-0035 applied with `staging-migrate.mjs --target production` (snapshot `backups/prod-2026-11-04-19-16-29`, 745 venues / 13 wallet items / 5 tickets / 4 profiles dumped first): anon `achievements` 401, `admin_provider_clicks` 401. |
+| O2 | 2026-11-04 | Pass (production) | Anon `rpc/trip_assemble` 401 (was 204 before 0031). |
+| O13 | 2026-11-04 | Pass (production) | Anon `profiles?select=username,anon_handle` 401; `select=username` 200; `bump_anon_view` 401; `information_schema.column_privileges` shows anon SELECT only on the six public columns. |
 | O4 | 2026-11-03 | Pass | Staging (hhjjlyizrryjttxtjvcu), all 33 migrations applied: `pnpm test:db` 74/74 (role isolation, NULL-caller guards, future-plans matrix, 100 buyers → 10 seats, concurrent fulfilment, resale tx, transfers, scanner race, door-staff rights). |
 | O1 | 2026-11-03 | Pass (staging) | Anonymous key on staging: achievements and admin views 401; production re-check after 0031 is applied. |
 | O2 | 2026-11-03 | Pass (staging) | Anonymous `trip_assemble` → 42501 permission denied on staging. |

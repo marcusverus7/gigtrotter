@@ -3,7 +3,7 @@
 **APPLIED 2026-11-02: 0024 through 0030 are live in production** (run as one pack,
 `RUN-ME-0024-to-0030.sql`, verified via PostgREST: tables answer, RPCs respond, stock
 functions are denied to anon). The sections below are kept as the record of what each
-file did. **Pending now: 0031, 0032, 0033, 0034, then 0035.**
+file did. **APPLIED 2026-11-04: 0031 through 0035 are live in production** (run from the owner's machine with `node scripts/staging-migrate.mjs --target production`: ledger `public.__migrations` seeded with 0001-0030, data snapshot `backups/prod-2026-11-04-19-16-29`, five files applied in order, each in its own transaction; verified in-database and by anonymous PostgREST probe). **Nothing is pending.** The sections below are the record of what each file did.
 
 ## Pending: 0035 (added 2026-11-03) -- public buckets not listable (apply AFTER 0034)
 

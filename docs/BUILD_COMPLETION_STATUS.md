@@ -38,7 +38,7 @@ Status words used below: *implemented* (code exists), *tested locally* (offline 
 | Gate | Result | Evidence |
 |---|---|---|
 | G0 baseline | **passed** | this file, top |
-| G1 data isolation | **verified in staging** (2026-11-03) | `pnpm test:db` 74/74: anon/other-user denied on views, NULL-caller RPC rejection, future-plans matrix incl. revoked circle/friendship, profiles private columns, helper functions answer only participants, staff/promoter rights; anon API probes on staging: views 401, `profiles?select=anon_handle` 401, `trip_assemble` 42501, `bump_anon_view` 401. Production re-probe pending the owner applying 0031–0033 |
+| G1 data isolation | **verified in staging** (2026-11-03) and **in production** (2026-11-04: 0031-0035 applied; anon probe: `achievements`/`admin_provider_clicks` 401, `profiles?select=username,anon_handle` 401 while `select=username` 200, `trip_assemble` and `bump_anon_view` 401; in-database: `achievements` has `security_invoker=true`, all eight new functions present, anon SELECT on `profiles` limited to avatar_url/created_at/display_name/id/updated_at/username, bucket policies are owner-scoped) | `pnpm test:db` 74/74: anon/other-user denied on views, NULL-caller RPC rejection, future-plans matrix incl. revoked circle/friendship, profiles private columns, helper functions answer only participants, staff/promoter rights; anon API probes on staging: views 401, `profiles?select=anon_handle` 401, `trip_assemble` 42501, `bump_anon_view` 401. Production re-probe pending the owner applying 0031–0033 |
 | G2 primary sale (test mode) | **blocked** | no Stripe account/keys |
 | G3 recovery | **tested locally** (orchestration) and **verified in staging** at database level | `eval/ticketing.test.ts` 60/60; `eval/db.test.ts`: pending order refused, incomplete unit list rolls back, two concurrent fulfilments → exactly 3 tickets and one stock commit, replay no-op, service-only. Real-provider replay (webhook) still needs Stripe |
 | G4 capacity/expiry | **verified in staging** (isolated environment): 100 concurrent buyers for 10 seats → exactly 10 reservations, stock never over capacity, stock RPCs refused to anon and users; expiry cases tested locally; the same race also passed on the production test tier (`pnpm test:race-live`, 2 seats) | `eval/db.test.ts` G4 section 2026-11-03; `eval/race-live.ts` 2026-11-02 |
@@ -51,7 +51,7 @@ Status words used below: *implemented* (code exists), *tested locally* (offline 
 
 ## Readiness verdict (2026-11-02)
 
-- **Non-paid web beta:** ready to deploy once 0031/0032 are applied; the public-safe browsing, honest ticket routes and privacy fixes stand on their own.
+- **Non-paid web beta:** 0031-0035 applied to production 2026-11-04; the public-safe browsing, honest ticket routes and privacy fixes stand on their own.
 - **Supported paid pilot:** **not ready**. Blocked on: Stripe account + keys, the staging run of `pnpm test:db`, a test-mode purchase/refund/abandon cycle (checklist N2, N5–N11, N13, O1–O8), door-device test, support mailbox and the fee-on-cancellation decision.
 - **Broad public ticketing:** not ready; needs the pilot's evidence first.
 - **Native distribution:** not ready; separate gate (ADR-0001).

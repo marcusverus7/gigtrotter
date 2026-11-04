@@ -148,20 +148,38 @@ function fakeDb(seed: Record<string, Row[]>, opts: { failTx?: () => boolean } = 
 
 /* ── fake Stripe ─────────────────────────────────────────────────────────── */
 
-type FakeRefund = { id: string; status: string; metadata: Record<string, string>; payment_intent: string };
+type FakeRefund = { id: string; status: string; metadata: Record<string, string>; payment_intent: string; reverse_transfer?: boolean };
 function fakeStripe(behaviour: {
   sessions?: Record<string, { status: string; payment_status: string; payment_intent?: string; email?: string }>;
   refundError?: (attempt: number) => unknown;
   refundStatus?: string;
+  /** Transfer (face value moved to the promoter) per payment intent; absent = no transfer on the charge. */
+  transfers?: Record<string, number>;
 } = {}) {
   const refunds: FakeRefund[] = [];
   const keys: string[] = [];
   const expired: string[] = [];
-  let attempt = 0;
+  const reversals: Array<{ transfer: string; amount: number; key: string }> = [];
+  const transfers = behaviour.transfers;
   return {
     refunds,
     keys,
     expired,
+    reversals,
+    paymentIntents: {
+      retrieve: async (id: string) => {
+        const amount = transfers ? transfers[id] : 1_000_000;
+        return { latest_charge: amount === undefined ? { transfer: null } : { transfer: { id: `tr_${id}`, amount } } };
+      },
+    },
+    transfers: {
+      createReversal: async (transferId: string, p: { amount: number }, opts: { idempotencyKey: string }) => {
+        const seen = reversals.find((r) => r.key === opts.idempotencyKey);
+        if (seen) return { id: `trr_${reversals.indexOf(seen) + 1}` };
+        reversals.push({ transfer: transferId, amount: p.amount, key: opts.idempotencyKey });
+        return { id: `trr_${reversals.length}` };
+      },
+    },
     checkout: {
       sessions: {
         retrieve: async (id: string) => {
@@ -185,6 +203,8 @@ function stripeLike(f: ReturnType<typeof fakeStripe>, behaviour: { refundError?:
   let attempt = 0;
   return {
     checkout: f.checkout,
+    paymentIntents: f.paymentIntents,
+    transfers: f.transfers,
     refunds: {
       create: async (
         params: { payment_intent: string; amount: number; reverse_transfer: boolean; refund_application_fee: boolean; metadata: Record<string, string> },
@@ -197,7 +217,7 @@ function stripeLike(f: ReturnType<typeof fakeStripe>, behaviour: { refundError?:
         const seen = f.keys.indexOf(opts.idempotencyKey);
         if (seen >= 0) return f.refunds[seen];
         f.keys.push(opts.idempotencyKey);
-        const r = { id: `re_${f.refunds.length + 1}`, status: behaviour.refundStatus ?? "succeeded", metadata: params.metadata, payment_intent: params.payment_intent };
+        const r = { id: `re_${f.refunds.length + 1}`, status: behaviour.refundStatus ?? "succeeded", metadata: params.metadata, payment_intent: params.payment_intent, reverse_transfer: params.reverse_transfer };
         f.refunds.push(r);
         return r;
       },
@@ -371,6 +391,7 @@ async function testResale() {
   const f = fakeStripe();
   const s1 = await processRefunds(stripeLike(f), { service: db as never });
   check("refund: performed once with idempotency key", s1.succeeded === 1 && f.refunds.length === 1 && f.keys[0] === `refund:${ledger[0].idempotency_key}`);
+  check("refund: promoter transfer reversed for exactly the face, refund itself does not reverse", f.reversals.length === 1 && f.reversals[0].amount === 1500 && f.reversals[0].key === `reversal:${ledger[0].idempotency_key}` && f.refunds[0].reverse_transfer === false && ledger[0].stripe_reversal_id === "trr_1");
   check("refund: ledger row succeeded with Stripe id; seller order NOT marked refunded (partial)", ledger[0].status === "succeeded" && ledger[0].stripe_refund_id === "re_1" && db.tables.orders[0].status === "paid");
   const s2 = await processRefunds(stripeLike(f), { service: db as never });
   check("refund: nothing left to do on the next pass", s2.processed === 0 && f.refunds.length === 1);
@@ -462,6 +483,52 @@ async function testRefundProcessor() {
   db6.tables.refunds[0].payment_intent_id = null;
   const s7 = await processRefunds(stripeLike(fakeStripe()), { service: db6 as never });
   check("refund: no payment intent → failed with reason", s7.failed === 1 && String(db6.tables.refunds[0].last_error).includes("no payment intent"));
+
+  // Keep-the-fee (0036): the operator refund row carries the FACE (1500 of a
+  // 1595 order); the promoter's 1500 transfer is reversed exactly, the refund
+  // itself never asks Stripe to reverse proportionally.
+  const faceSeed = () => ({
+    orders: [{ id: "o1", user_id: "u1", event_id: "e1", status: "paid", face_cents: 1500, fee_cents: 95, total_cents: 1595, currency: "GBP", stripe_payment_intent_id: "pi_1" }],
+    refunds: [{ id: "r1", order_id: "o1", reason: "operator", payment_intent_id: "pi_1", amount_cents: 1500, reverse_transfer: true, status: "requested", idempotency_key: "key-1", attempts: 0 }],
+  });
+  const f7 = fakeStripe({ transfers: { pi_1: 1500 } });
+  const db7 = fakeDb(faceSeed());
+  const s8 = await processRefunds(stripeLike(f7), { service: db7 as never });
+  check("keep-fee: face refunded, transfer reversed for exactly the face", s8.succeeded === 1 && f7.refunds.length === 1 && f7.reversals.length === 1 && f7.reversals[0].amount === 1500 && f7.reversals[0].transfer === "tr_pi_1" && f7.refunds[0].reverse_transfer === false);
+  check("keep-fee: ledger records the reversal id and the order is refunded", db7.tables.refunds[0].stripe_reversal_id === "trr_1" && db7.tables.refunds[0].status === "succeeded" && db7.tables.orders[0].status === "refunded");
+
+  // A full-total refund (stale resale listing: buyer gets 1595 back) reverses
+  // no more than was transferred (1500).
+  const f8 = fakeStripe({ transfers: { pi_1: 1500 } });
+  const db8 = fakeDb(seed());
+  await processRefunds(stripeLike(f8), { service: db8 as never });
+  check("reversal: capped at the transferred amount when refunding the total", f8.reversals.length === 1 && f8.reversals[0].amount === 1500 && f8.refunds[0].status === "succeeded");
+
+  // Lost response after the reversal: the retry replays the reversal key and
+  // Stripe hands back the original, so one reversal and one refund in total.
+  const f9 = fakeStripe({ transfers: { pi_1: 1500 } });
+  let firstTry = true;
+  const flaky2 = stripeLike(f9, {
+    refundError: () => {
+      if (firstTry) {
+        firstTry = false;
+        return Object.assign(new Error("ETIMEDOUT"), { type: "StripeConnectionError" });
+      }
+      return null;
+    },
+  });
+  const db9 = fakeDb(faceSeed());
+  await processRefunds(flaky2, { service: db9 as never });
+  check("reversal: done before the refund; refund timeout leaves the row pending with the reversal id", db9.tables.refunds[0].status === "pending" && db9.tables.refunds[0].stripe_reversal_id === "trr_1" && f9.reversals.length === 1 && f9.refunds.length === 0);
+  db9.tables.refunds[0].updated_at = new Date(Date.now() - 20 * 60_000).toISOString();
+  await processRefunds(flaky2, { service: db9 as never });
+  check("reversal: retry does not reverse twice", f9.reversals.length === 1 && f9.refunds.length === 1 && db9.tables.refunds[0].status === "succeeded");
+
+  // No transfer on the charge: a human must look before any money moves.
+  const f10 = fakeStripe({ transfers: {} });
+  const db10 = fakeDb(faceSeed());
+  const s9 = await processRefunds(stripeLike(f10), { service: db10 as never });
+  check("reversal: charge without a transfer → failed, nothing refunded", s9.failed === 1 && f10.refunds.length === 0 && String(db10.tables.refunds[0].last_error).includes("no transfer"));
 }
 
 async function testWebhookDispatch() {

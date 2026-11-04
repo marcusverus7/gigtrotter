@@ -268,6 +268,7 @@ export interface RefundRow {
   status: RefundStatus;
   idempotency_key: string;
   stripe_refund_id: string | null;
+  stripe_reversal_id: string | null;
   attempts: number;
   last_error: string | null;
   requested_by: string | null;

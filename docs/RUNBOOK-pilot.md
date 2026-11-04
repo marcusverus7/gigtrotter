@@ -1,6 +1,6 @@
 # Pilot runbook: release, rollback, recovery
 
-Covers the 2026-11-02 pilot-hardening change set (migrations 0031 to 0035, all applied to production 2026-11-04).
+Covers the 2026-11-02 pilot-hardening change set (migrations 0031 to 0036, all applied to production 2026-11-04).
 Everything here is written against the environment as it is today: Vercel
 Hobby, Supabase project `zekwvsbxksgtofnpapmh` (production), Stripe not yet
 configured, GitHub Actions for best-effort schedules.
@@ -94,7 +94,7 @@ Signals, in order of noise:
 | Webhook events not finished | Handler threw repeatedly | After the fix, **Reconcile now** replays them. |
 | Ticket count mismatch | Should not happen | Retry fulfilment (adds only missing units), then report it. |
 
-Whole-order refund (event cancelled): admin page → Refund whole order with a reason. Voids every valid ticket, requests the refund; the order says `refunded` only when Stripe confirms. Fees: the buyer fee is refunded with the face in the current implementation (`refund_application_fee: false` means Stripe keeps the application fee on the platform; the amount refunded is the full order total so the platform bears the fee). **Business decision pending**: whether the fee is kept on promoter-initiated cancellations. See docs/OWNER_FACTS_NEEDED.md.
+Whole-order refund (event cancelled): admin page → Refund whole order with a reason. Voids every valid ticket, requests the refund; the order says `refunded` only when Stripe confirms. **Fees (owner decision 2026-11-04, migration 0036): the booking fee is kept.** The ledger row carries the order's face value only; `processRefunds` first reverses the promoter's transfer for exactly that amount (`transfers.createReversal`, idempotent, recorded in `refunds.stripe_reversal_id`), then refunds the buyer with `reverse_transfer: false`. Never use Stripe's `reverse_transfer: true` on a partial refund: it reverses proportionally and leaves the promoter holding part of the face. A charge with no transfer fails the row for an operator instead of refunding from the platform balance.
 
 ## 5. Door night
 

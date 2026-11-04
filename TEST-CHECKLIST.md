@@ -248,11 +248,15 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | O11 | After Stripe keys: admin → Refund whole order | Tickets scan CANCELLED immediately; order shows refunded only once Stripe accepts; one refund in Stripe |
 | O12 | Signed out: open `/events`, an event page, click Sign in to buy, sign in | Lands back on that event in the app |
 | O13 | 🔒 After 0033: anonymous `GET /rest/v1/profiles?select=username,anon_handle&limit=1` | 42501 permission denied; `select=username` still 200; signed-in Settings page still shows your own board handle and plan |
+| O14 | After Stripe keys (0036 applied): buy 1 ticket at £15 face (£15.95 total), admin → Refund whole order | Buyer's card is refunded £15.00 only; Stripe shows one refund of £15.00 with `reverse_transfer` false and one transfer reversal of £15.00 on the promoter's transfer; the platform keeps £0.95; order shows refunded; ticket scans CANCELLED |
+| O15 | /terms and /privacy | Section 1 names "Mark Loughran, trading as GigTrotter"; section 9 says the booking fee is not refunded on cancellation; section 16 says Northern Ireland; privacy section 4 states the legal basis and transfer mechanism per provider; no "[owner to confirm]" anywhere |
 
 ## Results
 
 | Item | Tester | Platform | Pass/Fail | Notes |
 |---|---|---|---|---|
+| O14 | 2026-11-04 | Pass (offline) | `pnpm test:ticketing` 67/67: face-only operator refund reverses exactly the face on the promoter's transfer (`transfers.createReversal`, capped at the transferred amount), refund created with `reverse_transfer: false`, reversal before refund, lost-response retry replays the same reversal key (one reversal, one refund), charge without a transfer → failed for an operator. 0036 applied to staging (`test:db` 74/74) and production (snapshot `backups/prod-2026-11-04-19-28-08`). Real Stripe test-mode run still pending keys. |
+| O15 | 2026-11-04 | Pass (code) | `grep "owner to confirm" src` → none; LEGAL_ENTITY, section 9, section 16 and privacy section 4 updated per owner answers 2026-11-04. |
 | O1 | 2026-11-04 | Pass (production) | After 0031-0035 applied with `staging-migrate.mjs --target production` (snapshot `backups/prod-2026-11-04-19-16-29`, 745 venues / 13 wallet items / 5 tickets / 4 profiles dumped first): anon `achievements` 401, `admin_provider_clicks` 401. |
 | O2 | 2026-11-04 | Pass (production) | Anon `rpc/trip_assemble` 401 (was 204 before 0031). |
 | O13 | 2026-11-04 | Pass (production) | Anon `profiles?select=username,anon_handle` 401; `select=username` 200; `bump_anon_view` 401; `information_schema.column_privileges` shows anon SELECT only on the six public columns. |

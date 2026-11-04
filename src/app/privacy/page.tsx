@@ -262,7 +262,7 @@ export default function PrivacyPage() {
               {analytics ? <li>Product analytics: PostHog, to see which features are used.</li> : null}
               {errors ? <li>Error reporting: Sentry, to be told when something breaks.</li> : null}
               <li>With the promoter of an event you buy a ticket for: your name, the ticket type and the ticket code, so they can admit you at the door.</li>
-              <li>Each provider processes data under its own terms. Where the data goes and the legal basis for each transfer: [owner to confirm].</li>
+              <li>Legal basis: Supabase, Vercel and Stripe process your data because it is necessary to provide the service you asked for (performance of a contract). Anthropic (ticket reading), Mapbox (maps) and any analytics or error reporting run under our legitimate interest in operating and improving the service; ticket reading only happens when you add an image. Our database is hosted by Supabase in the EU (Ireland). Vercel, Anthropic, Stripe and Mapbox may process data in the United States; where they do, the transfer is covered by the UK International Data Transfer Agreement or the UK Addendum to the EU Standard Contractual Clauses in each provider&apos;s data processing terms, or by the UK-US Data Bridge where the provider is certified.</li>
               <li>With law enforcement: only when required by law.</li>
             </ul>
           </DetailSection>

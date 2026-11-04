@@ -10,5 +10,5 @@ export function supportEmail(): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : null;
 }
 
-/** Legal entity that operates the service. Owner has not confirmed it yet. */
-export const LEGAL_ENTITY = "GigTrotter (legal entity to be confirmed by the owner)";
+/** Legal entity that operates the service (owner confirmed 2026-11-04: sole trader). */
+export const LEGAL_ENTITY = "Mark Loughran, trading as GigTrotter";

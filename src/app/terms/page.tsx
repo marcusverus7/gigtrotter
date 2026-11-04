@@ -54,7 +54,7 @@ export default function TermsPage() {
           plain English — we want you to actually read them.
         </p>
         <p className="mt-4 text-xs text-muted-foreground">
-          Effective date: 23 June 2026 &middot; Last updated: 2 November 2026 (draft changes for ticket sales; owner to confirm)
+          Effective date: 23 June 2026 &middot; Last updated: 4 November 2026
         </p>
       </section>
 
@@ -230,7 +230,7 @@ export default function TermsPage() {
               <li>Each ticket is a signed code shown in your wallet. One admission per code; the first scan at the door uses it.</li>
               <li>You may send a ticket to another GigTrotter user before the event starts; your code is cancelled and a new one issued to them.</li>
               <li>You may list a ticket you bought here for resale at exactly its face value, never above. If it sells, your face value is refunded to the card you paid with.</li>
-              <li>If the promoter cancels the event, the promoter refunds the face value through GigTrotter to the card you paid with. Whether the booking fee is refunded on cancellation: [owner to confirm]. Refunds for any other reason are at the promoter&apos;s discretion and under the promoter&apos;s own terms.</li>
+              <li>If the promoter cancels the event, the face value is refunded through GigTrotter to the card you paid with. The booking fee pays for the platform service already provided and is not refunded on cancellation. Refunds for any other reason (postponement, line-up change) are at the promoter&apos;s discretion and under the promoter&apos;s own terms.</li>
               <li>Entry to the event, the event itself and any changes to it are the promoter&apos;s responsibility. GigTrotter provides the ticketing platform and door scanner.</li>
             </ul>
             <p className="mt-3 text-sm leading-relaxed">
@@ -335,10 +335,9 @@ export default function TermsPage() {
           <DetailSection title="16. Governing law">
             <p className="text-sm leading-relaxed">
               These terms are governed by and construed in accordance with the
-              laws of England and Wales [owner to confirm: the operator is in
-              Northern Ireland]. Any disputes arising out of or in connection
+              laws of Northern Ireland. Any disputes arising out of or in connection
               with these terms shall be subject to the exclusive jurisdiction of
-              the courts of England and Wales, without prejudice
+              the courts of Northern Ireland, without prejudice
               to any mandatory consumer protection rights you may have under the
               law of your country of residence.
             </p>

@@ -74,6 +74,21 @@ export type StripeLike = {
       data: Array<{ id: string; status?: string | null; metadata?: Record<string, string> | null }>;
     }>;
   };
+  paymentIntents: {
+    retrieve: (
+      id: string,
+      params: { expand: string[] },
+    ) => Promise<{
+      latest_charge?: string | { transfer?: string | { id: string; amount: number } | null } | null;
+    }>;
+  };
+  transfers: {
+    createReversal: (
+      transferId: string,
+      params: { amount: number; metadata: Record<string, string> },
+      opts: { idempotencyKey: string },
+    ) => Promise<{ id: string }>;
+  };
 };
 
 const nowOf = (d: FulfilDeps) => (d.now ? d.now() : new Date());
@@ -357,6 +372,7 @@ type RefundRow = {
   status: "requested" | "pending" | "succeeded" | "failed";
   idempotency_key: string;
   attempts: number;
+  stripe_reversal_id?: string | null;
 };
 
 /** A pending row untouched this long is re-examined (list first, then retry with the same key). */
@@ -451,11 +467,35 @@ export async function processRefunds(
           continue;
         }
       }
+      // Take the money back from the promoter first, for EXACTLY the refunded
+      // amount (capped at what was transferred). Stripe's reverse_transfer flag
+      // reverses proportionally on a partial refund, which on a face-only
+      // refund would leave the promoter holding part of the face value and
+      // the platform paying it. Idempotent: a retry replays the same key.
+      if (row.reverse_transfer && !row.stripe_reversal_id) {
+        const pi = await stripe.paymentIntents.retrieve(row.payment_intent_id, { expand: ["latest_charge.transfer"] });
+        const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+        const transfer = charge?.transfer && typeof charge.transfer === "object" ? charge.transfer : null;
+        if (!transfer) {
+          await set({ status: "failed", last_error: "no transfer on the charge to reverse; needs an operator" });
+          sum.failed += 1;
+          continue;
+        }
+        const amount = Math.min(row.amount_cents, transfer.amount);
+        if (amount > 0) {
+          const rev = await stripe.transfers.createReversal(
+            transfer.id,
+            { amount, metadata: { refund_id: row.id, order_id: row.order_id, reason: row.reason } },
+            { idempotencyKey: `reversal:${row.idempotency_key}` },
+          );
+          await set({ stripe_reversal_id: rev.id });
+        }
+      }
       const r = await stripe.refunds.create(
         {
           payment_intent: row.payment_intent_id,
           amount: row.amount_cents,
-          reverse_transfer: row.reverse_transfer,
+          reverse_transfer: false,
           refund_application_fee: false,
           metadata: { refund_id: row.id, order_id: row.order_id, reason: row.reason },
         },

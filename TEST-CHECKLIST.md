@@ -271,6 +271,7 @@ Summer-time items are the ones that show it; in winter UTC = UK time.
 
 | Item | Tester | Platform | Pass/Fail | Notes |
 |---|---|---|---|---|
+| P1 | 2026-11-09 | Pass | Headless Chrome, Europe/London + en-GB, production after 088ac28. Event 16:00Z: was "Friday, September 4, 2026 / 04:00 PM", now "Friday, 4 September 2026 / 17:00". Item 18:00Z: was "Saturday, July 4, 2026 at 06:00 PM", now "Saturday, 4 July 2026 at 19:00". No page errors. P2-P3 not run on a device. |
 | O14 | 2026-11-04 | Pass (offline) | `pnpm test:ticketing` 67/67: face-only operator refund reverses exactly the face on the promoter's transfer (`transfers.createReversal`, capped at the transferred amount), refund created with `reverse_transfer: false`, reversal before refund, lost-response retry replays the same reversal key (one reversal, one refund), charge without a transfer → failed for an operator. 0036 applied to staging (`test:db` 74/74) and production (snapshot `backups/prod-2026-11-04-19-28-08`). Real Stripe test-mode run still pending keys. |
 | O15 | 2026-11-04 | Pass (code) | `grep "owner to confirm" src` → none; LEGAL_ENTITY, section 9, section 16 and privacy section 4 updated per owner answers 2026-11-04. |
 | O1 | 2026-11-04 | Pass (production) | After 0031-0035 applied with `staging-migrate.mjs --target production` (snapshot `backups/prod-2026-11-04-19-16-29`, 745 venues / 13 wallet items / 5 tickets / 4 profiles dumped first): anon `achievements` 401, `admin_provider_clicks` 401. |

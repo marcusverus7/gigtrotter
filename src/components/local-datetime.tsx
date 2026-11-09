@@ -1,16 +1,23 @@
 "use client";
 
+import { formatLocal } from "@/lib/format-local";
+import { useHydrated } from "@/lib/use-hydrated";
+
 /**
  * Renders an instant in the VIEWER's timezone and locale.
  *
  * Any server component that formats a time with Intl is formatting it in the
  * server's zone — UTC on Vercel — and since server output never re-renders,
- * that is not a hydration flash, it is permanently wrong: a 19:30 BST gig
- * printed as "06:30 PM" on the page a tester lands on from every wallet card.
+ * that is permanently wrong: a 19:30 BST gig printed as "06:30 PM".
  *
- * Client components are the one place `undefined` locale/zone means "the
- * person looking at the screen". suppressHydrationWarning covers the one-off
- * SSR/client mismatch, same as the wallet's DateLine.
+ * This used to format with `undefined` locale during render and lean on
+ * suppressHydrationWarning. That only hides the warning: React does not patch
+ * mismatched text during hydration, so the server's UTC/en-US text stayed on
+ * screen (verified in production 2026-11-09: a 17:00 BST gig showed
+ * "Friday, September 4, 2026 · 04:00 PM" to a London en-GB viewer).
+ *
+ * Now: a fixed en-GB/UTC string for the server and hydration passes, then
+ * the viewer's local one.
  */
 export function LocalDateTime({
   iso,
@@ -21,11 +28,12 @@ export function LocalDateTime({
   options?: Intl.DateTimeFormatOptions;
   className?: string;
 }) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
+  const hydrated = useHydrated();
+  const text = formatLocal(iso, options, hydrated);
+  if (!text) return null;
   return (
-    <span className={className} suppressHydrationWarning>
-      {new Intl.DateTimeFormat(undefined, options).format(date)}
-    </span>
+    <time dateTime={iso} className={className}>
+      {text}
+    </time>
   );
 }

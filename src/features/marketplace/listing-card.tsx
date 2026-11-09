@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { Calendar, MapPin, ShieldCheck, UserPen } from "lucide-react";
 
+import { LocalDateTime } from "@/components/local-datetime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,14 +109,17 @@ export function ListingCard({
       </CardHeader>
       <CardContent className="space-y-3 pt-4">
         {w.starts_at ? (
-          <p className="flex items-center gap-1 text-xs text-muted-foreground" suppressHydrationWarning>
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
-            {new Intl.DateTimeFormat(undefined, {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            }).format(new Date(w.starts_at))}
+            <LocalDateTime
+              iso={w.starts_at}
+              options={{
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              }}
+            />
           </p>
         ) : null}
 

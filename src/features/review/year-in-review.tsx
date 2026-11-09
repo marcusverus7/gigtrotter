@@ -6,6 +6,7 @@ import mapboxgl from "mapbox-gl";
 import type { Map as MapboxMap, Marker } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
+import { LocalDateTime } from "@/components/local-datetime";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -98,7 +99,7 @@ export function YearInReview({
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
           <StatTile
-            value={stats.km.toLocaleString()}
+            value={stats.km.toLocaleString("en-GB")}
             label="Kilometres travelled"
             big
           />
@@ -308,10 +309,6 @@ function StatTile({
 }
 
 function Tile({ row, index }: { row: Row; index: number }) {
-  const monthLabel = new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-  }).format(new Date(row.starts_at));
   // A pin can outlive its wallet item (ON DELETE SET NULL). Render the tile
   // either way; only make it a link when there is somewhere for it to go.
   const inner = (
@@ -327,9 +324,11 @@ function Tile({ row, index }: { row: Row; index: number }) {
             </p>
           ) : null}
         </div>
-        <span className="font-mono text-xs tnum text-muted-foreground shrink-0" suppressHydrationWarning>
-          {monthLabel}
-        </span>
+        <LocalDateTime
+          className="font-mono text-xs tnum text-muted-foreground shrink-0"
+          iso={row.starts_at}
+          options={{ month: "short", day: "numeric" }}
+        />
     </>
   );
 

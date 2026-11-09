@@ -24,6 +24,8 @@ import type {
   WalletStatus,
 } from "@/lib/supabase/types";
 import { endDisplay } from "@/lib/dates";
+import { formatLocal } from "@/lib/format-local";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 
 // Exactly the columns the wallet renders — the home query selects these and
@@ -203,21 +205,8 @@ function DateLine({
   endsAt: string | null;
   hero?: boolean;
 }) {
+  const hydrated = useHydrated();
   if (!startsAt) return <span className="text-xs text-muted-foreground">No date</span>;
-  const start = new Date(startsAt);
-  const fmt = new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const timeOnly = new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
   const end = endDisplay(startsAt, endsAt);
 
   return (
@@ -226,17 +215,30 @@ function DateLine({
         "text-sm",
         hero ? "font-medium" : "text-muted-foreground",
       )}
-      suppressHydrationWarning
     >
-      {fmt.format(start)}
+      {formatLocal(startsAt, FULL_DATE_TIME, hydrated)}
       {end.show
-        ? ` – ${end.sameDay ? timeOnly.format(end.end) : fmt.format(end.end)}`
+        ? ` – ${formatLocal(end.end, end.sameDay ? TIME_ONLY : FULL_DATE_TIME, hydrated)}`
         : null}
     </span>
   );
 }
 
+const FULL_DATE_TIME: Intl.DateTimeFormatOptions = {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+};
+const TIME_ONLY: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
+
 function Countdown({ isoTime }: { isoTime: string }) {
+  // Clock-dependent: the server's minute and the browser's differ, so the
+  // countdown appears only once hydrated.
+  const hydrated = useHydrated();
+  if (!hydrated) return null;
   const target = new Date(isoTime).getTime();
   const diff = target - Date.now();
   if (diff <= 0) {
@@ -245,7 +247,7 @@ function Countdown({ isoTime }: { isoTime: string }) {
   const hours = Math.floor(diff / 3600_000);
   const mins = Math.floor((diff % 3600_000) / 60_000);
   return (
-    <span className="font-mono text-sm tnum text-primary" suppressHydrationWarning>
+    <span className="font-mono text-sm tnum text-primary">
       {hours}h {mins}m
     </span>
   );

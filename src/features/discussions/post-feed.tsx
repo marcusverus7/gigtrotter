@@ -14,6 +14,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { formatLocal } from "@/lib/format-local";
+import { useHydrated } from "@/lib/use-hydrated";
 
 import { toggleReaction, deleteDiscussionPost } from "./actions";
 
@@ -45,19 +47,30 @@ export type DiscussionPost = {
   }[];
 };
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d`;
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-  }).format(new Date(dateStr));
+const SHORT_DATE: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+
+/**
+ * "5m" / "3h" / "2d", or a short date past a week. Relative text depends on
+ * the clock and the date on the zone, so the server and hydration passes get
+ * the fixed en-GB/UTC date and the relative label arrives after hydration.
+ */
+function TimeAgo({ iso, className }: { iso: string; className?: string }) {
+  const hydrated = useHydrated();
+  let text = formatLocal(iso, SHORT_DATE, hydrated);
+  if (hydrated) {
+    const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+    const hrs = Math.floor(mins / 60);
+    const days = Math.floor(hrs / 24);
+    if (mins < 1) text = "just now";
+    else if (mins < 60) text = `${mins}m`;
+    else if (hrs < 24) text = `${hrs}h`;
+    else if (days < 7) text = `${days}d`;
+  }
+  return (
+    <time dateTime={iso} className={className}>
+      {text}
+    </time>
+  );
 }
 
 function PostItem({
@@ -116,9 +129,7 @@ function PostItem({
                 Verified
               </Badge>
             ) : null}
-            <span className="text-[10px] text-muted-foreground" suppressHydrationWarning>
-              {timeAgo(post.created_at)}
-            </span>
+            <TimeAgo className="text-[10px] text-muted-foreground" iso={post.created_at} />
             {isOwn ? (
               <Button
                 variant="ghost"
@@ -215,9 +226,7 @@ function PostItem({
                     {reply.author.purchased_via_platform ? (
                       <Shield className="h-2.5 w-2.5 fill-primary text-primary" />
                     ) : null}
-                    <span className="text-[9px] text-muted-foreground" suppressHydrationWarning>
-                      {timeAgo(reply.created_at)}
-                    </span>
+                    <TimeAgo className="text-[9px] text-muted-foreground" iso={reply.created_at} />
                   </div>
                   <p className="text-xs text-muted-foreground">{reply.body}</p>
                 </div>

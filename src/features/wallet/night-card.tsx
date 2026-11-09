@@ -22,6 +22,9 @@ import {
 import { TicketQr } from "@/features/ticketing/ticket-qr";
 import { classifyIssuer, entryInstructions } from "@/lib/tickets/issuer";
 
+import { formatLocal } from "@/lib/format-local";
+import { useHydrated } from "@/lib/use-hydrated";
+
 import { GeofenceCheckInButton } from "./geofence-button";
 
 type NightItem = {
@@ -64,6 +67,7 @@ export function NightCard({ item }: { item: NightItem }) {
 
   const startMs = item.starts_at ? new Date(item.starts_at).getTime() : null;
   const endMs = item.ends_at ? new Date(item.ends_at).getTime() : null;
+  const hydrated = useHydrated();
   const [now, setNow] = useState<number>(() => Date.now());
 
   useEffect(() => {
@@ -108,7 +112,8 @@ export function NightCard({ item }: { item: NightItem }) {
               <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                 {isLive ? "ends in" : isPast ? "ended" : "starts in"}
               </div>
-              <Countdown ms={remaining ?? 0} isLive={isLive} />
+              {/* Seconds differ between server and browser: tick only once hydrated. */}
+              {hydrated ? <Countdown ms={remaining ?? 0} isLive={isLive} /> : null}
             </div>
           ) : null}
         </div>
@@ -133,16 +138,16 @@ export function NightCard({ item }: { item: NightItem }) {
               <ScheduleRow
                 icon={Clock}
                 label="Starts"
-                value={fmtTime(startMs)}
+                value={fmtTime(startMs, hydrated)}
               />
               {doorsAt ? (
                 <ScheduleRow
                   icon={Clock}
                   label="Doors"
-                  value={fmtTime(new Date(doorsAt).getTime())}
+                  value={fmtTime(new Date(doorsAt).getTime(), hydrated)}
                 />
               ) : endMs ? (
-                <ScheduleRow icon={Clock} label="Ends" value={fmtTime(endMs)} />
+                <ScheduleRow icon={Clock} label="Ends" value={fmtTime(endMs, hydrated)} />
               ) : null}
               {meetSpot ? (
                 <ScheduleRow
@@ -259,17 +264,13 @@ function ScheduleRow({
         <Icon className="h-3 w-3" />
         {label}
       </div>
-      <div className="mt-0.5 text-base font-medium" suppressHydrationWarning>{value}</div>
+      <div className="mt-0.5 text-base font-medium">{value}</div>
     </div>
   );
 }
 
-function fmtTime(ms: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(ms));
+function fmtTime(ms: number, hydrated: boolean): string {
+  return formatLocal(ms, { weekday: "short", hour: "2-digit", minute: "2-digit" }, hydrated);
 }
 
 function EntryPanel({ vendor, hints }: { vendor: string | null; hints: string[] }) {

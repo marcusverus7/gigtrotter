@@ -251,6 +251,22 @@ Found by a fresh code review and a real phone-sized walk with a test account.
 | O14 | After Stripe keys (0036 applied): buy 1 ticket at £15 face (£15.95 total), admin → Refund whole order | Buyer's card is refunded £15.00 only; Stripe shows one refund of £15.00 with `reverse_transfer` false and one transfer reversal of £15.00 on the promoter's transfer; the platform keeps £0.95; order shows refunded; ticket scans CANCELLED |
 | O15 | /terms and /privacy | Section 1 names "Mark Loughran, trading as GigTrotter"; section 9 says the booking fee is not refunded on cancellation; section 16 says Northern Ireland; privacy section 4 states the legal basis and transfer mechanism per provider; no "[owner to confirm]" anywhere |
 
+## P — Times in the viewer's zone (added 2026-11-09)
+
+Web deploy only. `LocalDateTime` leaned on `suppressHydrationWarning`, which
+hides the mismatch warning but does not replace the server's text, so pages
+showed Vercel's UTC/en-US time (a 17:00 BST gig read "04:00 PM"). Now every
+render-time time/date in a client component goes through `formatLocal` +
+`useHydrated` (fixed en-GB/UTC first, the viewer's own after hydration).
+Summer-time items are the ones that show it; in winter UTC = UK time.
+
+| # | Check | Expected |
+|---|---|---|
+| P1 | Event or item page for a summer gig (e.g. a September date), UK phone | Start time is UK local (17:00 for a 16:00Z gig), date reads day-month |
+| P2 | Wallet card and Night Mode card for a summer item | Same UK local time as the item page; countdown appears and ticks |
+| P3 | Event discussion post older than a week | Short date; newer posts read 5m / 3h / 2d |
+| P4 | Browser console on those pages | No React #418 |
+
 ## Results
 
 | Item | Tester | Platform | Pass/Fail | Notes |

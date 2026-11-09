@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { LocalDateTime } from "@/components/local-datetime";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -142,14 +143,17 @@ export function EventCard({ event, href }: { event: EventSummary; href?: string 
             </p>
           ) : null}
           {event.starts_at ? (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground" suppressHydrationWarning>
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <Calendar className="h-3 w-3" />
-              {new Intl.DateTimeFormat(undefined, {
-                weekday: "short",
-                day: "numeric",
-                month: "short",
-                ...(timeTba ? {} : { hour: "2-digit", minute: "2-digit" }),
-              }).format(new Date(event.starts_at))}
+              <LocalDateTime
+                iso={event.starts_at}
+                options={{
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  ...(timeTba ? {} : { hour: "2-digit", minute: "2-digit" }),
+                }}
+              />
               {timeTba ? " · time TBA" : ""}
             </p>
           ) : null}

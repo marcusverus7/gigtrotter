@@ -48,6 +48,7 @@ import {
 } from "../src/lib/events/normalize";
 import { anchorToLocalZone, endDisplay, fromLocalDT } from "../src/lib/dates";
 import { mapBitEvent, sameLocalDate, type BitEvent } from "../src/lib/events/bandsintown/map";
+import { formatLocal } from "../src/lib/format-local";
 import {
   mapTmEvent,
   mapTmPage,
@@ -849,6 +850,26 @@ check(
   !sameLocalDate("2026-07-10T22:00:00Z", "2026-07-10T23:30:00Z", "Europe/London"),
 );
 check("dedupe: null zone falls back sanely", sameLocalDate("2026-11-20T10:00:00Z", "2026-11-20T22:00:00Z", null));
+
+/* ── formatLocal: server + hydration text must not depend on the machine ── */
+
+{
+  // 17:00 BST gig. Before hydration the text is fixed en-GB/UTC wherever it
+  // runs (Vercel is en-US/UTC; a tester's laptop is en-GB/Europe-London), so
+  // the server HTML and the browser's first render are identical.
+  const gig = "2026-09-04T16:00:00Z";
+  const t = { hour: "2-digit", minute: "2-digit" } as const;
+  check("formatLocal pre-hydration: fixed en-GB/UTC time", formatLocal(gig, t, false) === "16:00", formatLocal(gig, t, false));
+  check(
+    "formatLocal pre-hydration: fixed en-GB date order",
+    /^Friday,? 4 September 2026$/.test(formatLocal(gig, { weekday: "long", day: "numeric", month: "long", year: "numeric" }, false)),
+    formatLocal(gig, { weekday: "long", day: "numeric", month: "long", year: "numeric" }, false),
+  );
+  check("formatLocal pre-hydration: caller-pinned zone wins over UTC", formatLocal(gig, { ...t, timeZone: "Europe/London" }, false) === "17:00");
+  check("formatLocal post-hydration: viewer's own Intl defaults", formatLocal(gig, t, true) === new Intl.DateTimeFormat(undefined, t).format(new Date(gig)));
+  check("formatLocal: invalid input renders nothing", formatLocal("not a date", t, false) === "" && formatLocal("not a date", t, true) === "");
+  check("formatLocal: accepts epoch ms", formatLocal(Date.parse(gig), t, false) === "16:00");
+}
 
 /* ── ticketing: fulfilment, expiry, reaper, webhook (fake db, offline Stripe) ── */
 
